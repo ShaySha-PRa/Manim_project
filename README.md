@@ -4,13 +4,15 @@
 
 ## 当前状态
 
-项目已完成 Phase 0：旧实现已归档，主分支从干净基线重新开始。尚未进入应用开发。
+项目已完成 Phase 0，并通过 Phase 1 代理用户内部开发门禁：3 个 Luna 面板提供 6 个 Persona，形成并复核了 30 条黄金 Prompt。外部真实用户市场验证尚未完成。
 
 ## 文档
 
 - 深度研究：[`deep-research-report.md`](deep-research-report.md)
 - 实施计划：[`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md)
 - Phase 0 验收：[`docs/PHASE0_STATUS.md`](docs/PHASE0_STATUS.md)
+- Phase 1 验收：[`docs/PHASE1_STATUS.md`](docs/PHASE1_STATUS.md)
+- Phase 1 黄金集：[`eval/gold_prompts.jsonl`](eval/gold_prompts.jsonl)
 - 执行清单：[`tasks/todo.md`](tasks/todo.md)
 
 ## 开发边界
