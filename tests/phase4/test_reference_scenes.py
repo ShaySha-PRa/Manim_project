@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 import runpy
-
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CATEGORIES = {
@@ -49,4 +48,9 @@ def test_each_manifest_entry_identifies_one_scene_class_in_one_source_file() -> 
             ]
             assert [scene.name for scene in scene_classes] == [entry["scene_class"]]
             assert "manimlib" not in content
-            assert not any(isinstance(node, ast.ImportFrom) and node.names[0].name == "*" for node in tree.body)
+            wildcard_imports = [
+                node
+                for node in tree.body
+                if isinstance(node, ast.ImportFrom) and node.names[0].name == "*"
+            ]
+            assert not wildcard_imports

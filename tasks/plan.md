@@ -1,83 +1,93 @@
-# Implementation Plan: Phase 4 可信渲染内核
+# Implementation Plan: Phase 5 隔离沙箱与异步任务
 
 ## Overview
 
-以 Phase 2 固定的 ManimCE 0.20.1 镜像和 Phase 3 领域边界为基础，先建立父级渲染契约和失败门禁，再并行生产两类可信 Scene 与独立黑盒验收，最后由父 agent 合并、审查并完成 48 次真实渲染。
+以 Phase 4 的可信同步渲染内核为基准，增加 SQLite 权威状态、Redis UUID 唤醒信号、Host Runner 租约协调和一次性无网络 Docker 沙箱。父 agent 先冻结所有共享边界，再由四个 Terra agent 在互斥目录并行实现，最后由父 agent 串行集成和运行真实攻击门禁。
 
 ## Architecture Decisions
 
-- 同步渲染内核只属于 Host Runner；API、Redis 和数据库编排留到 Phase 5。
-- 产品缓存键独立于 Manim partial cache；真实 48 次验收禁用后者，避免缓存掩盖稳定性。
-- preview 固定 `-ql`，final 固定 `-qh`；所有参数、镜像和 seed 进入缓存契约。
-- MP4、缩略图、日志和元数据原子发布；固定镜像内使用 PyAV/FFmpeg 库做探测和抽帧，失败临时目录不得成为缓存命中。
-- 失败使用封闭枚举，未知异常向上抛出以暴露未建模错误。
+- SQLite 是唯一状态真相源；Redis 信号可丢失、可重复、可重建。
+- 沿用 `claimed` 表示有效租约，lease token 防止旧 Runner 写回。
+- API 通过依赖注入隔离数据库、signal publisher 和内部认证，便于真实/测试实现替换。
+- Sandbox command builder 与 Docker executor 分离；所有安全参数先做纯函数测试。
+- 真实 Docker 攻击测试只由 Agent D/父 agent 串行执行。
+- 父 agent 独占共享契约、迁移、依赖和入口文件。
 
 ## Dependency Graph
 
 ```text
-规格与接口 + 父级红灯测试
-    ├── 父 agent：渲染内核
-    ├── Agent A：6 公式 Scene
-    ├── Agent B：6 函数 Scene
-    └── Agent C：黑盒/失败/重复性/性能工具
-             ↓
-        父 agent 审查与整合
-             ↓
-        48 次真渲染验收
-             ↓
-        状态报告与 Phase 4 门禁
+父规格/威胁模型/状态机/迁移/红灯测试
+       ├── A API Job lifecycle
+       ├── B Redis + Runner lease/recovery
+       ├── C Docker sandbox policy/executor
+       └── D black-box security/failure tests
+                    ↓
+              父级接口集成
+                    ↓
+       fake-boundary tests → real Redis → real Docker
+                    ↓
+             restart/idempotency/security gates
 ```
 
 ## Task List
 
-### Slice 1：父级规格、接口与红灯测试
+### Slice 0：父级冻结
 
-- [x] 固化 `docs/PHASE4_SPEC.md`、48 次矩阵和互斥目录所有权。
-- [x] 写入 RenderRequest/Result、档位、缓存、元数据和失败分类的失败测试。
-- [x] 运行聚焦测试并确认因 Phase 4 模块尚不存在而失败。
+- [x] 核对 Phase 4 工作区并保护未提交修改。
+- [x] 核对 Docker、Redis、FastAPI 官方模式。
+- [x] 固化 `docs/PHASE5_SPEC.md` 和 STRIDE 威胁模型。
+- [x] 固化 schema 1.1、状态机、lease 和失败枚举。
+- [x] 创建 Alembic `0002_phase5` 迁移。
+- [x] 编写父级接口与安全红灯测试。
+- [ ] 生成契约并确认父级基础测试通过、实现边界测试红灯。
 
-### Slice 2：并行生产
+### Slice 1：四 agent 并行
 
-- [ ] 父 agent 实现渲染接口、命令执行、视频探测、缩略图、原子产物和缓存。
-- [ ] Terra Agent A 只实现 `reference_scenes/formula/` 的 6 个 Scene。
-- [ ] Terra Agent B 只实现 `reference_scenes/functions/` 的 6 个 Scene。
-- [ ] Terra Agent C 只实现 `tests/phase4/blackbox/` 与 `benchmarks/phase4/`。
+- [ ] Terra A：API Job 生命周期与 API 测试。
+- [ ] Terra B：Redis signal、Runner 租约/恢复与测试。
+- [ ] Terra C：Sandbox policy/executor 与单元测试。
+- [ ] Terra D：黑盒安全、失败注入、恢复与 benchmark。
 
-### Slice 3：整合与修复
+### Slice 2：父级集成
 
-- [ ] 父 agent 按正确性、可读性、架构、安全和性能五轴审查三个 agent 的产物。
-- [ ] 运行 Phase 4 聚焦测试和 Ruff，修复 Required/Critical 问题。
-- [ ] 运行全量 Python 测试与既有契约同步测试，确认 Phase 0–3 无回归。
+- [ ] 五轴审查四个 agent，拒绝越界修改。
+- [ ] 集成 API router、依赖注入和内部令牌。
+- [ ] 集成 Runner queue、API client、sandbox 和 Phase 4 renderer。
+- [ ] 更新 Compose，只让 Host Runner 接触 Docker。
+- [ ] 修复 Required/Critical findings。
 
-### Slice 4：真实渲染门禁
+### Slice 3：门禁
 
-- [ ] 环境探测固定镜像、Docker、Manim、FFmpeg、LaTeX 和字体。
-- [ ] 完成 12 Scene × 3 preview，无缓存，共 36 次。
-- [ ] 完成 12 Scene × 1 final，无缓存，共 12 次。
-- [ ] 汇总成功率、重复性和 preview 中位耗时，抽样全部 12 张缩略图。
-- [ ] 更新 `docs/PHASE4_STATUS.md`、`docs/PROJECT_PLAN.md` 和 `tasks/todo.md`。
+- [ ] 运行 Phase 5 与全仓测试、Ruff、契约和迁移检查。
+- [ ] 运行真实 Redis 提交/重复/恢复/重启测试。
+- [ ] 运行真实 Docker loop/fork/OOM/disk/network/path/symlink 测试。
+- [ ] 验证 timeout/cancel 无残留容器。
+- [ ] 验证 Phase 4 可信渲染无回归。
+- [ ] 保存 `docs/PHASE5_STATUS.md` 并更新总计划/todo。
 
 ## Checkpoints
 
-- Slice 1：测试确实红灯且失败原因是缺少 Phase 4 实现。
-- Slice 2：三个子 agent 文件集合完全互斥，父级公共契约未被改写。
-- Slice 3：全部自动测试与静态检查通过。
-- Slice 4：48/48 成功且 preview 中位数 ≤ 60 秒，才可声明 Phase 4 完成。
+- Slice 0：共享基础绿灯；A/B/C 模块缺失导致边界测试精确红灯。
+- Slice 1：agent 文件范围完全互斥，自己的测试通过。
+- Slice 2：fake DB/Redis/Docker 端到端状态机通过。
+- Slice 3：真实安全和恢复门禁通过后才能声明完成。
 
 ## Risks and Mitigations
 
-| 风险 | 影响 | 缓解措施 |
+| 风险 | 影响 | 缓解 |
 |---|---|---|
-| 48 次高清渲染耗时较长 | 门禁耗时 | 先完成全部 preview，再执行一次 final；逐次追加结果以便中断恢复 |
-| Docker 组在非登录 shell 不生效 | 无法调用 daemon | 复用已验证的 `sg docker -c` 入口，并在正式渲染前探测 |
-| Scene 过长拖垮性能门禁 | preview 超 60 秒 | Scene 动画时长控制在教学可读的 4–12 秒，避免无意义等待 |
-| 视频字节哈希因编码元数据变化 | 重复性误报 | 强制比对可观察流属性，同时单独报告文件哈希差异 |
-| 子 agent 修改共享契约 | 并行冲突 | 提示中明确只写目录，父 agent 用 `git diff --name-only` 审核越界 |
+| Redis 与 SQLite 双写 | 丢失/重复任务 | DB 先提交；Redis 仅 signal；恢复扫描 |
+| 取消与完成竞争 | 错误成功状态 | lease token + conditional state update |
+| Docker 参数被输入污染 | 宿主提权 | 固定 argv、固定镜像、派生名称、无附加参数 |
+| 攻击测试损害宿主 | 资源耗尽 | 先静态/假执行测试，再串行小限制实测 |
+| 四 agent 改共享文件 | 合并冲突 | 硬性文件所有权，越界只报告 |
+| Phase 4 未提交改动混入 | 难审查 | 保留并按路径审查，不重写、不清理 |
 
 ## Official Sources
 
-- https://docs.manim.community/en/v0.20.1/guides/configuration.html
-- https://docs.manim.community/en/v0.20.1/reference/manim._config.utils.ManimConfig.html
-- https://docs.manim.community/en/v0.20.1/installation/docker.html
-- https://pyav.org/docs/stable/api/stream.html
-- https://pyav.org/docs/stable/api/video.html
+- https://docs.docker.com/reference/cli/docker/container/run/
+- https://docs.docker.com/engine/security/seccomp/
+- https://redis.io/docs/latest/develop/use-cases/job-queue/redis-py/
+- https://redis.io/docs/latest/develop/clients/redis-py/produsage/
+- https://fastapi.tiangolo.com/tutorial/dependencies/
+- https://fastapi.tiangolo.com/advanced/testing-dependencies/

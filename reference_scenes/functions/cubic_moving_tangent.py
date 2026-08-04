@@ -56,8 +56,7 @@ class CubicMovingTangentScene(Scene):
             )
             .arrange(buff=0.06)
             .scale(0.72)
-            .to_edge(UP)
-            .shift(0.6 * DOWN)
+            .to_edge(DOWN)
         )
 
         self.play(Write(title), run_time=0.6)

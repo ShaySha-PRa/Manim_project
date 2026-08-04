@@ -29,6 +29,13 @@ def test_generated_schema_forbids_unconstrained_escape_hatches() -> None:
         "Project",
         "PromptVersion",
         "RenderJob",
+        "RenderJobSubmission",
+        "RenderJobLeaseRequest",
+        "RenderJobLease",
+        "RenderJobHeartbeat",
+        "RenderArtifactPayload",
+        "RenderJobCompletion",
+        "RenderJobFailureReport",
         "User",
     }
 

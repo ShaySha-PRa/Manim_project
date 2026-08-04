@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-CONTRACT_SCHEMA_VERSION = "1.0"
+CONTRACT_SCHEMA_VERSION = "1.1"
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
@@ -43,6 +43,18 @@ class RenderJobStatus(str, Enum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class RenderJobFailureCode(str, Enum):
+    RENDER_FAILED = "render_failed"
+    SANDBOX_TIMEOUT = "sandbox_timeout"
+    SANDBOX_OOM = "sandbox_oom"
+    SANDBOX_PID_LIMIT = "sandbox_pid_limit"
+    SANDBOX_OUTPUT_LIMIT = "sandbox_output_limit"
+    SANDBOX_SECURITY_VIOLATION = "sandbox_security_violation"
+    ARTIFACT_PUBLISH_FAILED = "artifact_publish_failed"
+    LEASE_EXPIRED = "lease_expired"
+    RUNNER_LOST = "runner_lost"
 
 
 class ArtifactKind(str, Enum):
@@ -143,6 +155,65 @@ class RenderJob(ContractModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     failure_code: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    attempt_count: Annotated[int, Field(ge=0)] = 0
+    lease_owner: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    lease_token: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    lease_expires_at: datetime | None = None
+    heartbeat_at: datetime | None = None
+    cancellation_requested_at: datetime | None = None
+    state_version: Annotated[int, Field(ge=0)] = 0
+
+
+class RenderJobSubmission(ContractModel):
+    project_id: UUID
+    owner_id: UUID
+    code_version_id: UUID
+    profile: RenderProfile
+    idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]
+
+
+class RenderJobLeaseRequest(ContractModel):
+    runner_id: Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{2,99}$")]
+    lease_seconds: Annotated[int, Field(ge=5, le=300)] = 30
+
+
+class RenderJobLease(ContractModel):
+    job_id: UUID
+    code_version_id: UUID
+    profile: RenderProfile
+    lease_token: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    lease_expires_at: datetime
+    attempt_number: Annotated[int, Field(ge=1, le=3)]
+
+
+class RenderJobHeartbeat(ContractModel):
+    lease_token: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    extend_seconds: Annotated[int, Field(ge=5, le=300)] = 30
+
+
+class RenderArtifactPayload(ContractModel):
+    kind: ArtifactKind
+    relative_path: RelativePath
+    sha256: Sha256
+    byte_size: Annotated[int, Field(ge=1)]
+
+    @field_validator("relative_path")
+    @classmethod
+    def validate_relative_artifact_path(cls, value: str) -> str:
+        normalized = value.replace("\\", "/")
+        if normalized.startswith("/") or ".." in normalized.split("/"):
+            raise ValueError("relative_path must stay inside the artifact directory")
+        return value
+
+
+class RenderJobCompletion(ContractModel):
+    lease_token: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    artifacts: Annotated[tuple[RenderArtifactPayload, ...], Field(min_length=4, max_length=4)]
+
+
+class RenderJobFailureReport(ContractModel):
+    lease_token: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    failure_code: RenderJobFailureCode
 
 
 class Artifact(ContractModel):
@@ -185,18 +256,56 @@ CONTRACT_MODELS = (
     ContentPlanVersion,
     CodeVersion,
     RenderJob,
+    RenderJobSubmission,
+    RenderJobLeaseRequest,
+    RenderJobLease,
+    RenderJobHeartbeat,
+    RenderArtifactPayload,
+    RenderJobCompletion,
+    RenderJobFailureReport,
     Artifact,
     GenerationAttempt,
 )
 
-PROJECT_RECORD_MODELS = CONTRACT_MODELS[1:]
+PROJECT_RECORD_MODELS = (
+    Project,
+    PromptVersion,
+    ContentPlanVersion,
+    CodeVersion,
+    RenderJob,
+    Artifact,
+    GenerationAttempt,
+)
 
 CONTRACT_ENUMS = (
     Audience,
     Language,
     RenderProfile,
     RenderJobStatus,
+    RenderJobFailureCode,
     ArtifactKind,
     GenerationStage,
     GenerationStatus,
 )
+
+RENDER_JOB_TRANSITIONS: dict[RenderJobStatus, frozenset[RenderJobStatus]] = {
+    RenderJobStatus.QUEUED: frozenset({RenderJobStatus.CLAIMED, RenderJobStatus.CANCELLED}),
+    RenderJobStatus.CLAIMED: frozenset(
+        {RenderJobStatus.RUNNING, RenderJobStatus.QUEUED, RenderJobStatus.CANCELLED}
+    ),
+    RenderJobStatus.RUNNING: frozenset(
+        {
+            RenderJobStatus.SUCCEEDED,
+            RenderJobStatus.FAILED,
+            RenderJobStatus.QUEUED,
+            RenderJobStatus.CANCELLED,
+        }
+    ),
+    RenderJobStatus.SUCCEEDED: frozenset(),
+    RenderJobStatus.FAILED: frozenset(),
+    RenderJobStatus.CANCELLED: frozenset(),
+}
+
+
+def can_transition_render_job(current: RenderJobStatus, target: RenderJobStatus) -> bool:
+    return target in RENDER_JOB_TRANSITIONS[current]

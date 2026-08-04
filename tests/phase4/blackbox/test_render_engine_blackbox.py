@@ -7,12 +7,11 @@ stable public result fields.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
-
 from manim_workbench_runner.rendering import (
     CommandResult,
     CommandTimedOut,
@@ -36,16 +35,19 @@ class FakeExecutor:
         del timeout_seconds
         values = [str(item) for item in command]
         self.calls.append(values)
-        joined = " ".join(values)
+        entrypoint = self._option(values, "--entrypoint")
+        python_script = self._option(values, "-c")
         if self.mode == "docker_unavailable":
             raise FileNotFoundError("docker is unavailable")
-        if self.mode == "timeout" and "manim" in joined:
+        if self.mode == "timeout" and entrypoint == "manim":
             raise CommandTimedOut(values, "renderer timed out")
-        if "ffprobe" in joined:
-            return self._ffprobe(values)
-        if "ffmpeg" in joined:
-            return self._ffmpeg(values)
-        if "manim" in joined:
+        if entrypoint == "python" and python_script is not None:
+            if "thumbnail.jpg" in python_script:
+                return self._thumbnail_python(values)
+            if '"streams"' in python_script and "json.dumps" in python_script:
+                return self._probe_python(values)
+            raise AssertionError("unrecognised PyAV command intent")
+        if entrypoint == "manim":
             return self._manim(values)
         return self._result(values, 0, "docker probe ok")
 
@@ -68,7 +70,7 @@ class FakeExecutor:
             video.write_bytes(b"not-a-real-mp4-but-non-empty")
         return self._result(command, 0, "manim completed")
 
-    def _ffprobe(self, command: list[str]) -> CommandResult:
+    def _probe_python(self, command: list[str]) -> CommandResult:
         if self.mode == "ffprobe_failed":
             return self._result(command, 1, "ffprobe failed")
         frame_count = 0 if self.mode == "zero_frames" else 60
@@ -87,11 +89,11 @@ class FakeExecutor:
         }
         return self._result(command, 0, json.dumps(payload))
 
-    def _ffmpeg(self, command: list[str]) -> CommandResult:
+    def _thumbnail_python(self, command: list[str]) -> CommandResult:
         if self.mode == "ffmpeg_failed":
             return self._result(command, 1, "ffmpeg failed")
         if self.mode != "missing_thumbnail":
-            thumbnail = self._host_path(command[-1], command)
+            thumbnail = self._host_path("/output/thumbnail.jpg", command)
             assert thumbnail is not None
             thumbnail.parent.mkdir(parents=True, exist_ok=True)
             thumbnail.write_bytes(b"jpeg")
@@ -155,7 +157,8 @@ def assert_success_is_published(
 
 def test_success_is_published_as_one_complete_cache_entry(render_request: RenderRequest) -> None:
     project_root = Path.cwd()
-    result = RenderEngine(project_root=project_root, command_runner=FakeExecutor()).render(render_request)
+    engine = RenderEngine(project_root=project_root, command_runner=FakeExecutor())
+    result = engine.render(render_request)
 
     cache_dir = assert_success_is_published(result, render_request, project_root)
     artifact_root = project_root / render_request.artifact_root
@@ -173,7 +176,8 @@ def test_second_identical_request_is_a_cache_hit_without_reinvoking_manim(
     assert_success_is_published(first, render_request, project_root)
 
     second_executor = FakeExecutor(mode="manim_render_failed")
-    cached = RenderEngine(project_root=project_root, command_runner=second_executor).render(render_request)
+    engine = RenderEngine(project_root=project_root, command_runner=second_executor)
+    cached = engine.render(render_request)
 
     assert_success_is_published(cached, render_request, project_root)
     assert cached.cache_hit is True
@@ -200,7 +204,8 @@ def test_injected_external_failure_is_classified_and_never_published(
     render_request: RenderRequest, mode: str, code: RenderFailureCode
 ) -> None:
     project_root = Path.cwd()
-    result = RenderEngine(project_root=project_root, command_runner=FakeExecutor(mode)).render(render_request)
+    engine = RenderEngine(project_root=project_root, command_runner=FakeExecutor(mode))
+    result = engine.render(render_request)
 
     assert isinstance(result, RenderFailureResult)
     assert result.code is code

@@ -7,6 +7,7 @@ from manim import (
     DOWN,
     GREEN,
     RED,
+    RIGHT,
     UP,
     YELLOW,
     Axes,
@@ -38,7 +39,7 @@ class ExponentialLinearComparisonScene(Scene):
         exponential = axes.plot(lambda x: math.exp(x), x_range=[-2.2, 1.8], color=BLUE)
         linear = axes.plot(lambda x: 1 + x, x_range=[-2.4, 2.4], color=GREEN)
         exponential_label = MathTex(r"y=e^x", color=BLUE).scale(0.72).move_to(axes.c2p(1.25, 4.2))
-        linear_label = MathTex(r"y=1+x", color=GREEN).scale(0.72).move_to(axes.c2p(-1.65, -0.5))
+        linear_label = MathTex(r"y=1+x", color=GREEN).scale(0.68).move_to(axes.c2p(1.55, 2.15))
         tracker = ValueTracker(-1.4)
         point = always_redraw(
             lambda: Dot(axes.c2p(tracker.get_value(), math.exp(tracker.get_value())), color=RED)
@@ -54,15 +55,15 @@ class ExponentialLinearComparisonScene(Scene):
             lambda: VGroup(
                 MathTex("x="),
                 DecimalNumber(tracker.get_value(), num_decimal_places=1, color=RED),
-                MathTex(r"\qquad e^x-(1+x)="),
+                MathTex(r",\qquad e^x-(1+x)="),
                 DecimalNumber(
                     math.exp(tracker.get_value()) - 1 - tracker.get_value(),
                     num_decimal_places=2,
                     color=YELLOW,
                 ),
             )
-            .arrange(buff=0.06)
-            .scale(0.68)
+            .arrange(RIGHT, buff=0.10)
+            .scale(0.62)
             .to_edge(DOWN)
         )
         tangent_point = Dot(axes.c2p(0, 1), color=YELLOW)

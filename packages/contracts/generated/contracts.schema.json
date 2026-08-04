@@ -555,9 +555,60 @@
       "title": "PromptVersion",
       "type": "object"
     },
+    "RenderArtifactPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_size": {
+          "minimum": 1,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/ArtifactKind"
+        },
+        "relative_path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "relative_path",
+        "sha256",
+        "byte_size"
+      ],
+      "title": "RenderArtifactPayload",
+      "type": "object"
+    },
     "RenderJob": {
       "additionalProperties": false,
       "properties": {
+        "attempt_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Attempt Count",
+          "type": "integer"
+        },
+        "cancellation_requested_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cancellation Requested At"
+        },
         "code_version_id": {
           "format": "uuid",
           "title": "Code Version Id",
@@ -595,6 +646,19 @@
           "default": null,
           "title": "Finished At"
         },
+        "heartbeat_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Heartbeat At"
+        },
         "id": {
           "format": "uuid",
           "title": "Id",
@@ -605,6 +669,46 @@
           "minLength": 16,
           "title": "Idempotency Key",
           "type": "string"
+        },
+        "lease_expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lease Expires At"
+        },
+        "lease_owner": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lease Owner"
+        },
+        "lease_token": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lease Token"
         },
         "owner_id": {
           "format": "uuid",
@@ -632,6 +736,12 @@
           "default": null,
           "title": "Started At"
         },
+        "state_version": {
+          "default": 0,
+          "minimum": 0,
+          "title": "State Version",
+          "type": "integer"
+        },
         "status": {
           "$ref": "#/$defs/RenderJobStatus"
         }
@@ -649,6 +759,153 @@
       "title": "RenderJob",
       "type": "object"
     },
+    "RenderJobCompletion": {
+      "additionalProperties": false,
+      "properties": {
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/RenderArtifactPayload"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "lease_token": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Lease Token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lease_token",
+        "artifacts"
+      ],
+      "title": "RenderJobCompletion",
+      "type": "object"
+    },
+    "RenderJobFailureCode": {
+      "enum": [
+        "render_failed",
+        "sandbox_timeout",
+        "sandbox_oom",
+        "sandbox_pid_limit",
+        "sandbox_output_limit",
+        "sandbox_security_violation",
+        "artifact_publish_failed",
+        "lease_expired",
+        "runner_lost"
+      ],
+      "title": "RenderJobFailureCode",
+      "type": "string"
+    },
+    "RenderJobFailureReport": {
+      "additionalProperties": false,
+      "properties": {
+        "failure_code": {
+          "$ref": "#/$defs/RenderJobFailureCode"
+        },
+        "lease_token": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Lease Token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lease_token",
+        "failure_code"
+      ],
+      "title": "RenderJobFailureReport",
+      "type": "object"
+    },
+    "RenderJobHeartbeat": {
+      "additionalProperties": false,
+      "properties": {
+        "extend_seconds": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 5,
+          "title": "Extend Seconds",
+          "type": "integer"
+        },
+        "lease_token": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Lease Token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lease_token"
+      ],
+      "title": "RenderJobHeartbeat",
+      "type": "object"
+    },
+    "RenderJobLease": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_number": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Attempt Number",
+          "type": "integer"
+        },
+        "code_version_id": {
+          "format": "uuid",
+          "title": "Code Version Id",
+          "type": "string"
+        },
+        "job_id": {
+          "format": "uuid",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "lease_expires_at": {
+          "format": "date-time",
+          "title": "Lease Expires At",
+          "type": "string"
+        },
+        "lease_token": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Lease Token",
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/RenderProfile"
+        }
+      },
+      "required": [
+        "job_id",
+        "code_version_id",
+        "profile",
+        "lease_token",
+        "lease_expires_at",
+        "attempt_number"
+      ],
+      "title": "RenderJobLease",
+      "type": "object"
+    },
+    "RenderJobLeaseRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "lease_seconds": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 5,
+          "title": "Lease Seconds",
+          "type": "integer"
+        },
+        "runner_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{2,99}$",
+          "title": "Runner Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "runner_id"
+      ],
+      "title": "RenderJobLeaseRequest",
+      "type": "object"
+    },
     "RenderJobStatus": {
       "enum": [
         "queued",
@@ -660,6 +917,44 @@
       ],
       "title": "RenderJobStatus",
       "type": "string"
+    },
+    "RenderJobSubmission": {
+      "additionalProperties": false,
+      "properties": {
+        "code_version_id": {
+          "format": "uuid",
+          "title": "Code Version Id",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "maxLength": 128,
+          "minLength": 16,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/RenderProfile"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_id",
+        "owner_id",
+        "code_version_id",
+        "profile",
+        "idempotency_key"
+      ],
+      "title": "RenderJobSubmission",
+      "type": "object"
     },
     "RenderProfile": {
       "enum": [
@@ -699,7 +994,7 @@
       "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.0",
+  "$id": "https://manim-workbench.local/contracts/1.1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
@@ -709,8 +1004,15 @@
     "GenerationAttempt",
     "Project",
     "PromptVersion",
+    "RenderArtifactPayload",
     "RenderJob",
+    "RenderJobCompletion",
+    "RenderJobFailureReport",
+    "RenderJobHeartbeat",
+    "RenderJobLease",
+    "RenderJobLeaseRequest",
+    "RenderJobSubmission",
     "User"
   ],
-  "x-contract-schema-version": "1.0"
+  "x-contract-schema-version": "1.1"
 }

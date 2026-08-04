@@ -1,5 +1,5 @@
 // Generated from Pydantic contracts. Do not edit.
-export const CONTRACT_SCHEMA_VERSION = "1.0" as const;
+export const CONTRACT_SCHEMA_VERSION = "1.1" as const;
 
 export interface Artifact {
   readonly id: string;
@@ -98,6 +98,13 @@ export interface PromptVersion {
   readonly prompt: string;
 }
 
+export interface RenderArtifactPayload {
+  readonly kind: ArtifactKind;
+  readonly relative_path: string;
+  readonly sha256: string;
+  readonly byte_size: number;
+}
+
 export interface RenderJob {
   readonly id: string;
   readonly project_id: string;
@@ -110,9 +117,55 @@ export interface RenderJob {
   readonly started_at?: string | null;
   readonly finished_at?: string | null;
   readonly failure_code?: string | null;
+  readonly attempt_count?: number;
+  readonly lease_owner?: string | null;
+  readonly lease_token?: string | null;
+  readonly lease_expires_at?: string | null;
+  readonly heartbeat_at?: string | null;
+  readonly cancellation_requested_at?: string | null;
+  readonly state_version?: number;
+}
+
+export interface RenderJobCompletion {
+  readonly lease_token: string;
+  readonly artifacts: ReadonlyArray<RenderArtifactPayload>;
+}
+
+export type RenderJobFailureCode = "render_failed" | "sandbox_timeout" | "sandbox_oom" | "sandbox_pid_limit" | "sandbox_output_limit" | "sandbox_security_violation" | "artifact_publish_failed" | "lease_expired" | "runner_lost";
+
+export interface RenderJobFailureReport {
+  readonly lease_token: string;
+  readonly failure_code: RenderJobFailureCode;
+}
+
+export interface RenderJobHeartbeat {
+  readonly lease_token: string;
+  readonly extend_seconds?: number;
+}
+
+export interface RenderJobLease {
+  readonly job_id: string;
+  readonly code_version_id: string;
+  readonly profile: RenderProfile;
+  readonly lease_token: string;
+  readonly lease_expires_at: string;
+  readonly attempt_number: number;
+}
+
+export interface RenderJobLeaseRequest {
+  readonly runner_id: string;
+  readonly lease_seconds?: number;
 }
 
 export type RenderJobStatus = "queued" | "claimed" | "running" | "succeeded" | "failed" | "cancelled";
+
+export interface RenderJobSubmission {
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly code_version_id: string;
+  readonly profile: RenderProfile;
+  readonly idempotency_key: string;
+}
 
 export type RenderProfile = "preview" | "final";
 

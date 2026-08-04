@@ -62,10 +62,11 @@ class SineParameterTransformationsScene(Scene):
             )
             .arrange(buff=0.05)
             .scale(0.62)
-            .to_edge(UP)
-            .shift(0.58 * DOWN)
+            .to_edge(DOWN)
         )
-        baseline_label = MathTex(r"y=\sin x", color=GRAY_B).scale(0.65).to_edge(DOWN)
+        baseline_label = (
+            MathTex(r"y=\sin x", color=GRAY_B).scale(0.65).move_to(axes.c2p(-4.8, -2.7))
+        )
 
         self.play(Write(title), run_time=0.5)
         self.play(Create(axes), Write(axis_labels), run_time=0.8)
