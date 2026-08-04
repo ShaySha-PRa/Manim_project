@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0–2。Phase 1 形成并复核了 30 条代理用户黄金 Prompt；Phase 2 通过真实无头渲染选择 Manim Community `0.20.1`，ManimGL 已淘汰。外部真实用户市场验证尚未完成。
+项目已完成 Phase 0–3。Phase 1 形成并复核了 30 条代理用户黄金 Prompt；Phase 2 通过真实无头渲染选择 Manim Community `0.20.1`，ManimGL 已淘汰；Phase 3 建立了契约优先的 Web、API、Runner、SQLite 与 CI 骨架。外部真实用户市场验证尚未完成。
 
 ## 文档
 
@@ -14,6 +14,8 @@
 - Phase 1 验收：[`docs/PHASE1_STATUS.md`](docs/PHASE1_STATUS.md)
 - Phase 1 黄金集：[`eval/gold_prompts.jsonl`](eval/gold_prompts.jsonl)
 - Phase 2 验收：[`docs/PHASE2_STATUS.md`](docs/PHASE2_STATUS.md)
+- Phase 3 规格：[`docs/PHASE3_SPEC.md`](docs/PHASE3_SPEC.md)
+- Phase 3 验收：[`docs/PHASE3_STATUS.md`](docs/PHASE3_STATUS.md)
 - 渲染引擎 ADR：[`docs/decisions/0001-select-manim-community.md`](docs/decisions/0001-select-manim-community.md)
 - 执行清单：[`tasks/todo.md`](tasks/todo.md)
 
@@ -27,4 +29,32 @@
 
 ## 环境
 
-目标开发环境为 Windows + WSL2 + Docker Desktop。复制 `.env.example` 为本地 `.env` 后填写密钥；任何真实密钥都不得提交到 Git。
+目标开发环境为 Windows + WSL2 + Docker Desktop。仓库应放在 WSL 原生文件系统，例如 `/home/developer/projects/Manim_project`；不要从 `/mnt/c` 或 `/mnt/i` 运行 Node 安装与构建。复制 `.env.example` 为本地 `.env` 后填写密钥；任何真实密钥都不得提交到 Git。
+
+## Phase 3 开发命令
+
+```bash
+uv sync --frozen
+npm ci --ignore-scripts
+uv run python scripts/generate_contracts.py
+uv run alembic upgrade head
+docker compose -f infra/compose.yaml up -d redis
+```
+
+启动边界进程：
+
+```bash
+uv run uvicorn manim_workbench_api.main:app --reload
+uv run python -m manim_workbench_runner
+npm run dev:web
+```
+
+运行门禁：
+
+```bash
+uv run ruff check apps packages scripts/generate_contracts.py tests/phase3 migrations
+uv run pytest -q
+npm run lint
+npm run typecheck
+npm run build
+```

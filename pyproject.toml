@@ -1,0 +1,47 @@
+[project]
+name = "manim-workbench"
+version = "0.1.0"
+description = "Contract-first skeleton for the Manim mathematics animation workbench"
+requires-python = ">=3.10"
+dependencies = [
+  "alembic==1.18.5",
+  "fastapi==0.139.2",
+  "pydantic==2.13.4",
+  "sqlalchemy==2.0.51",
+  "uvicorn==0.35.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx==0.28.1",
+  "pytest==8.4.2",
+  "ruff==0.12.12",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "apps/api/src/manim_workbench_api",
+  "apps/runner/src/manim_workbench_runner",
+  "packages/contracts/src/manim_workbench_contracts",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "benchmarks/phase2"]
+addopts = ["--import-mode=importlib"]
+pythonpath = [
+  ".",
+  "apps/api/src",
+  "apps/runner/src",
+  "packages/contracts/src",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

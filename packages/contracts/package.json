@@ -1,0 +1,11 @@
+{
+  "name": "@manim-workbench/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./generated/contracts.ts",
+    "./schema": "./generated/contracts.schema.json"
+  }
+}
+

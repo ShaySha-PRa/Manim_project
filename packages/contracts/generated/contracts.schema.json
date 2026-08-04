@@ -1,0 +1,716 @@
+{
+  "$defs": {
+    "Artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_size": {
+          "minimum": 0,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ArtifactKind"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "relative_path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "render_job_id": {
+          "format": "uuid",
+          "title": "Render Job Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "render_job_id",
+        "kind",
+        "relative_path",
+        "sha256",
+        "byte_size",
+        "created_at"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "ArtifactKind": {
+      "enum": [
+        "video",
+        "thumbnail",
+        "render_log",
+        "metadata"
+      ],
+      "title": "ArtifactKind",
+      "type": "string"
+    },
+    "Audience": {
+      "enum": [
+        "primary_school",
+        "middle_school",
+        "high_school",
+        "undergraduate"
+      ],
+      "title": "Audience",
+      "type": "string"
+    },
+    "CodeVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "content_plan_version_id": {
+          "format": "uuid",
+          "title": "Content Plan Version Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "engine": {
+          "const": "manimce",
+          "title": "Engine",
+          "type": "string"
+        },
+        "engine_version": {
+          "const": "0.20.1",
+          "title": "Engine Version",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "parent_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Version Id"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "prompt_version_id": {
+          "format": "uuid",
+          "title": "Prompt Version Id",
+          "type": "string"
+        },
+        "source_code": {
+          "maxLength": 200000,
+          "minLength": 1,
+          "title": "Source Code",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "version",
+        "parent_version_id",
+        "created_at",
+        "prompt_version_id",
+        "content_plan_version_id",
+        "source_code",
+        "source_sha256",
+        "engine",
+        "engine_version"
+      ],
+      "title": "CodeVersion",
+      "type": "object"
+    },
+    "ContentPlanScene": {
+      "additionalProperties": false,
+      "properties": {
+        "formula_steps": {
+          "items": {
+            "$ref": "#/$defs/FormulaStep"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Formula Steps",
+          "type": "array"
+        },
+        "narration_placeholder": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Narration Placeholder",
+          "type": "string"
+        },
+        "scene_number": {
+          "maximum": 24,
+          "minimum": 1,
+          "title": "Scene Number",
+          "type": "integer"
+        },
+        "teaching_goal": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Teaching Goal",
+          "type": "string"
+        },
+        "visual_intent": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Visual Intent",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_number",
+        "teaching_goal",
+        "formula_steps",
+        "visual_intent",
+        "narration_placeholder"
+      ],
+      "title": "ContentPlanScene",
+      "type": "object"
+    },
+    "ContentPlanVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "audience": {
+          "$ref": "#/$defs/Audience"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "explicit_assumptions": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Explicit Assumptions",
+          "type": "array"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "language": {
+          "$ref": "#/$defs/Language"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "parent_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Version Id"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "scenes": {
+          "items": {
+            "$ref": "#/$defs/ContentPlanScene"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Scenes",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_duration_seconds": {
+          "maximum": 600,
+          "minimum": 15,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "version",
+        "parent_version_id",
+        "created_at",
+        "schema_version",
+        "title",
+        "audience",
+        "language",
+        "target_duration_seconds",
+        "explicit_assumptions",
+        "scenes"
+      ],
+      "title": "ContentPlanVersion",
+      "type": "object"
+    },
+    "FormulaStep": {
+      "additionalProperties": false,
+      "properties": {
+        "explanation": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "expression": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Expression",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expression",
+        "explanation"
+      ],
+      "title": "FormulaStep",
+      "type": "object"
+    },
+    "GenerationAttempt": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_number": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Attempt Number",
+          "type": "integer"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "input_version_id": {
+          "format": "uuid",
+          "title": "Input Version Id",
+          "type": "string"
+        },
+        "output_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Version Id"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/GenerationStage"
+        },
+        "status": {
+          "$ref": "#/$defs/GenerationStatus"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "stage",
+        "attempt_number",
+        "status",
+        "input_version_id",
+        "created_at"
+      ],
+      "title": "GenerationAttempt",
+      "type": "object"
+    },
+    "GenerationStage": {
+      "enum": [
+        "content_plan",
+        "code",
+        "repair"
+      ],
+      "title": "GenerationStage",
+      "type": "string"
+    },
+    "GenerationStatus": {
+      "enum": [
+        "started",
+        "succeeded",
+        "failed"
+      ],
+      "title": "GenerationStatus",
+      "type": "string"
+    },
+    "Language": {
+      "enum": [
+        "zh-CN",
+        "en-US"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
+    "Project": {
+      "additionalProperties": false,
+      "properties": {
+        "archived_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archived At"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "owner_id",
+        "title",
+        "created_at"
+      ],
+      "title": "Project",
+      "type": "object"
+    },
+    "PromptVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "parent_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Version Id"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "version",
+        "parent_version_id",
+        "created_at",
+        "prompt"
+      ],
+      "title": "PromptVersion",
+      "type": "object"
+    },
+    "RenderJob": {
+      "additionalProperties": false,
+      "properties": {
+        "code_version_id": {
+          "format": "uuid",
+          "title": "Code Version Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "failure_code": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Code"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "maxLength": 128,
+          "minLength": 16,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/RenderProfile"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "status": {
+          "$ref": "#/$defs/RenderJobStatus"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "code_version_id",
+        "profile",
+        "status",
+        "idempotency_key",
+        "created_at"
+      ],
+      "title": "RenderJob",
+      "type": "object"
+    },
+    "RenderJobStatus": {
+      "enum": [
+        "queued",
+        "claimed",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "RenderJobStatus",
+      "type": "string"
+    },
+    "RenderProfile": {
+      "enum": [
+        "preview",
+        "final"
+      ],
+      "title": "RenderProfile",
+      "type": "string"
+    },
+    "User": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "email": {
+          "maxLength": 320,
+          "minLength": 3,
+          "pattern": "^[^@\\s]+@[^@\\s]+$",
+          "title": "Email",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "created_at"
+      ],
+      "title": "User",
+      "type": "object"
+    }
+  },
+  "$id": "https://manim-workbench.local/contracts/1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Manim Workbench Contracts",
+  "x-contract-models": [
+    "Artifact",
+    "CodeVersion",
+    "ContentPlanVersion",
+    "GenerationAttempt",
+    "Project",
+    "PromptVersion",
+    "RenderJob",
+    "User"
+  ],
+  "x-contract-schema-version": "1.0"
+}

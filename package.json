@@ -1,0 +1,18 @@
+{
+  "name": "manim-workbench",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/contracts"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @manim-workbench/web",
+    "dev:web": "npm run dev --workspace @manim-workbench/web",
+    "lint": "npm run lint --workspace @manim-workbench/web",
+    "typecheck": "npm run typecheck --workspace @manim-workbench/web"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
+

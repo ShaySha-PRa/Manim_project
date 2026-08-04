@@ -154,6 +154,14 @@
 - 数据库迁移、契约测试和基础 CI 通过。
 - 不存在 `other` 类型或任意无约束参数逃生字段。
 
+### 实施结果（2026-08-04）
+
+- 建立 Next.js `16.3.0`、FastAPI `0.139.2` 和 Host Runner 单仓库骨架。
+- 以 Pydantic `2.13.4` 为单一契约源生成 JSON Schema 与 TypeScript。
+- 建立 SQLite WAL、Alembic 首个迁移和数据库级版本不可变触发器。
+- 建立 Redis 开发服务声明与 Python/Web 基线 CI；没有提前实现队列或渲染。
+- 仓库迁移到 `/home/developer/projects/Manim_project`，避免 WSL 挂载盘文件语义问题。
+
 ## Phase 4：可信渲染内核
 
 ### 目标
