@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -21,8 +22,8 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 ARTIFACTS = ROOT / "artifacts"
-IMAGE = os.environ.get("MANIMCE_IMAGE", "manimcommunity/manim:v0.20.1")
-DOCKER = shlex.split(os.environ.get("MANIMCE_DOCKER", "sudo -n docker"))
+IMAGE = "manimcommunity/manim@sha256:f18f53f2e4eaf2ea41713437d34363fb3f5cc6008b03fd798676ac0359396c3b"
+DOCKER = shlex.split(os.environ.get("MANIMCE_DOCKER", "docker"))
 SCENES = {
     "formula_transform": "FormulaTransform",
     "derivative": "Derivative",
@@ -64,9 +65,13 @@ def blocked(message: str, command: list[str], output: str) -> int:
 
 def probe_environment() -> dict[str, Any] | None:
     probe = DOCKER + [
-        "run", "--rm", "--entrypoint", "/bin/bash", IMAGE, "-lc",
-        "python --version; manim --version; ffmpeg -version | head -n 1; "
-        "latex --version | head -n 1; fc-list : family style | sort -u",
+        "run", "--rm", "--entrypoint", "/bin/sh", IMAGE, "-c",
+        "python --version; manim --version; "
+        "python -c \"import av; print('PyAV ' + av.__version__ + ' / ' + repr(av.library_versions))\"; "
+        "latex --version | head -n 1 | sed 's/^/LATEX: /'; "
+        "fc-match -f 'FONT: %{family} %{style}\\n' sans-serif; "
+        "fc-match -f 'FONT: %{family} %{style}\\n' serif; "
+        "fc-match -f 'FONT: %{family} %{style}\\n' monospace",
     ]
     completed = subprocess.run(probe, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if completed.returncode:
@@ -104,14 +109,15 @@ def environment_fields(probe: dict[str, Any]) -> dict[str, Any]:
     return {
         "engine_version": "0.20.1",
         "python_version": next((line for line in lines if line.startswith("Python ")), "unknown"),
-        "ffmpeg_version": next((line for line in lines if line.lower().startswith("ffmpeg version")), "unknown"),
-        "latex_version": next((line for line in lines if "TeX" in line), "unknown"),
-        "font_versions": [line for line in lines if "|" in line] or ["fc-list returned no fonts"],
+        "ffmpeg_version": next((line for line in lines if line.startswith("PyAV ")), "unknown"),
+        "latex_version": next((line.removeprefix("LATEX: ") for line in lines if line.startswith("LATEX: ")), "unknown"),
+        "font_versions": [line.removeprefix("FONT: ") for line in lines if line.startswith("FONT: ")] or ["fc-match returned no fonts"],
         "container_or_environment": probe["image_digest"],
     }
 
 
 def main() -> int:
+    shutil.rmtree(ARTIFACTS, ignore_errors=True)
     probe = probe_environment()
     if probe is None:
         return 2
@@ -146,9 +152,9 @@ def main() -> int:
         "first_attempt_success": first_attempt_success,
         "runs": runs,
         "capabilities": {
-            "visual_score": {"score": 90, "evidence": "Axes, plotted functions, dynamic tangents, MathTex and Riemann rectangles are implemented in scenes.py."},
-            "sections_cache_score": {"score": 75, "evidence": "The benchmark explicitly disables caching for fair fresh-run timing; ManimCE supports section/caching workflows outside this timing command."},
-            "deployment_score": {"score": 90, "evidence": "Official manimcommunity/manim:v0.20.1 image is fixed and its exact pulled digest is captured."},
+            "visual_score": {"score": 82, "evidence": "Parent review sampled final frames from all six scenes: mathematical objects were clear, with minor label overlap in parameter and area scenes."},
+            "sections_cache_score": {"score": 80, "evidence": "Fresh-run timing disables caching; the fixed CE release exposes native caching and section configuration documented by Manim Community."},
+            "deployment_score": {"score": 95, "evidence": "All 12 runs used the official v0.20.1 image at a captured immutable digest without a custom build."},
         },
         "notes": [
             "Each of the 12 entries is a fresh Docker process at low quality with caching disabled.",

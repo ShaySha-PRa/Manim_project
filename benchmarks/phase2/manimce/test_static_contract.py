@@ -26,13 +26,16 @@ class ManimCEStaticContractTests(unittest.TestCase):
         self.assertIn("FROM manimcommunity/manim:v0.20.1", dockerfile)
         self.assertNotIn(":latest", dockerfile)
         self.assertNotIn(":stable", dockerfile)
+        runner = (ROOT / "run_benchmark.py").read_text(encoding="utf-8")
+        self.assertIn("manimcommunity/manim@sha256:f18f53f2", runner)
 
     def test_runner_uses_headless_low_quality_independent_runs(self):
         runner = (ROOT / "run_benchmark.py").read_text(encoding="utf-8")
         self.assertIn('"-ql"', runner)
         self.assertIn('"--disable_caching"', runner)
         self.assertIn("range(1, 3)", runner)
-        self.assertIn("sudo -n docker", runner)
+        self.assertIn('MANIMCE_DOCKER", "docker"', runner)
+        self.assertIn("shutil.rmtree(ARTIFACTS", runner)
 
 
 if __name__ == "__main__":

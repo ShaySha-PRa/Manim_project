@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+if [[ "${ALLOW_ELIMINATED_MANIMGL_REPRO:-}" != "1" ]]; then
+    echo "ManimGL was eliminated by ADR-001; set ALLOW_ELIMINATED_MANIMGL_REPRO=1 only to reproduce the recorded failure." >&2
+    exit 2
+fi
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACTS="${ROOT}/artifacts"
 IMAGE="${MANIMGL_IMAGE:-manim-project/manimgl-benchmark:v1.7.2}"
 SCENE_CLASSES=(FormulaTransform Derivative FunctionPlot ParameterSweep Tangent Area)
 SCENE_IDS=(formula_transform derivative function_plot parameter_sweep tangent area)
 
+rm -rf "${ARTIFACTS}"
 mkdir -p "${ARTIFACTS}/logs" "${ARTIFACTS}/videos"
 : > "${ARTIFACTS}/runs.jsonl"
 rm -f "${ROOT}/result.json"
 
-BUILD_COMMAND="sudo -n docker build --build-arg MANIM_TAG=v1.7.2 -t ${IMAGE} -f ${ROOT}/Dockerfile ${ROOT}"
-if ! sudo -n docker build --build-arg MANIM_TAG=v1.7.2 \
+BUILD_COMMAND="docker build --build-arg MANIM_TAG=v1.7.2 -t ${IMAGE} -f ${ROOT}/Dockerfile ${ROOT}"
+if ! docker build --build-arg MANIM_TAG=v1.7.2 \
     -t "${IMAGE}" -f "${ROOT}/Dockerfile" "${ROOT}" \
     >"${ARTIFACTS}/logs/build.log" 2>&1; then
     printf 'Docker build failed.\nCommand: %s\nRaw log: %s\n' \
@@ -22,15 +28,15 @@ if ! sudo -n docker build --build-arg MANIM_TAG=v1.7.2 \
 fi
 
 docker_value() {
-    sudo -n docker run --rm "${IMAGE}" sh -lc "$1"
+    docker run --rm "${IMAGE}" sh -lc "$1"
 }
 
-IMAGE_ID="$(sudo -n docker image inspect --format '{{.Id}}' "${IMAGE}")"
+IMAGE_ID="$(docker image inspect --format '{{.Id}}' "${IMAGE}")"
 ENGINE_VERSION="$(docker_value "git -C /opt/manim describe --tags --exact-match HEAD")"
 PYTHON_VERSION="$(docker_value "python3 -VV 2>&1")"
 FFMPEG_VERSION="$(docker_value "ffmpeg -version 2>&1 | head -n 1")"
 LATEX_VERSION="$(docker_value "latex --version 2>&1 | head -n 1")"
-FONT_VERSIONS="$(docker_value "dpkg-query -W -f='fonts-dejavu-core=${Version}; fonts-liberation2=${Version}' fonts-dejavu-core fonts-liberation2")"
+FONT_VERSIONS="$(docker_value "dpkg-query -W -f='fonts-dejavu-core=\${Version}; fonts-liberation2=\${Version}' fonts-dejavu-core fonts-liberation2")"
 
 python3 - "${ARTIFACTS}/environment.json" \
     "${ENGINE_VERSION}" "${PYTHON_VERSION}" "${FFMPEG_VERSION}" \
@@ -45,7 +51,7 @@ with open(path, "w", encoding="utf-8") as handle:
         "python_version": python,
         "ffmpeg_version": ffmpeg,
         "latex_version": latex,
-        "font_versions": fonts,
+        "font_versions": [item.strip() for item in fonts.split(";") if item.strip()],
         "container_or_environment": image_id,
     }, handle, indent=2)
     handle.write("\n")
@@ -86,10 +92,10 @@ for index in "${!SCENE_CLASSES[@]}"; do
         mkdir -p "${run_dir}"
         find "${run_dir}" -type f -delete
 
-        command="sudo -n docker run --rm -e LIBGL_ALWAYS_SOFTWARE=1 -e MESA_LOADER_DRIVER_OVERRIDE=llvmpipe -v ${ROOT}:/benchmark -w /benchmark ${IMAGE} xvfb-run -a -s '-screen 0 1280x720x24 +extension GLX +render -noreset' manimgl scenes.py ${scene_class} -l -w --video_dir /benchmark/artifacts/videos/${scene_id}/run_${iteration}"
+        command="docker run --rm -e LIBGL_ALWAYS_SOFTWARE=1 -e MESA_LOADER_DRIVER_OVERRIDE=llvmpipe -v ${ROOT}:/benchmark -w /benchmark ${IMAGE} xvfb-run -a -s '-screen 0 1280x720x24 +extension GLX +render -noreset' manimgl scenes.py ${scene_class} -l -w --video_dir /benchmark/artifacts/videos/${scene_id}/run_${iteration}"
         start_ns="$(date +%s%N)"
         set +e
-        sudo -n docker run --rm \
+        docker run --rm \
             -e LIBGL_ALWAYS_SOFTWARE=1 \
             -e MESA_LOADER_DRIVER_OVERRIDE=llvmpipe \
             -v "${ROOT}:/benchmark" -w /benchmark "${IMAGE}" \
@@ -117,5 +123,5 @@ for index in "${!SCENE_CLASSES[@]}"; do
     done
 done
 
-# result.json is emitted only after all 12 render attempts succeed.
+# result.json is emitted after all 12 measured attempts, including failures.
 python3 "${ROOT}/scripts/write_result.py" "${ROOT}"

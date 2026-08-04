@@ -1,0 +1,35 @@
+{
+  "status": "qualified",
+  "engine": "manimce",
+  "engine_version": "0.20.1",
+  "image": "manimcommunity/manim:v0.20.1",
+  "image_digest": "manimcommunity/manim@sha256:f18f53f2e4eaf2ea41713437d34363fb3f5cc6008b03fd798676ac0359396c3b",
+  "python_version": "3.14.3",
+  "ffmpeg_runtime": "PyAV 16.1.0; libavcodec 62.11.100; libavformat 62.3.100",
+  "latex_version": "pdfTeX 3.141592653-2.6-1.40.28 (TeX Live 2025)",
+  "fonts": ["Noto Sans Regular", "Noto Serif Regular", "Noto Mono Regular"],
+  "successful_runs": 12,
+  "required_runs": 12,
+  "first_attempt_scenes": 6,
+  "mean_duration_seconds": 7.543369,
+  "min_duration_seconds": 5.083213,
+  "max_duration_seconds": 10.291781,
+  "scores": {
+    "stability": 100,
+    "speed": 100,
+    "first_attempt": 100,
+    "visual": 82,
+    "sections_cache": 80,
+    "deployment": 95,
+    "weighted_total": 95.95
+  },
+  "scene_evidence": {
+    "formula_transform": {"durations": [6.790723, 6.336539], "sha256": "7072e592b0843878036b4e21fd68c9bb3062d159ef6e8bf2b1511db2a2eaaf51"},
+    "derivative": {"durations": [5.083213, 5.514914], "sha256": "344707af43f4fe5e64cd5f707798f749528c5e4490dc22f400b0510623c116bc"},
+    "function_plot": {"durations": [8.318386, 6.940390], "sha256": "7226e7160f43ebf79a0d31365d72e1c12e00e33abcd4e25ae9004476adb41a6b"},
+    "parameter_sweep": {"durations": [10.291781, 10.038984], "sha256": "a7f83f01aab4c46c876b54fea3fa6962ebdfc901b132cbb2d340fc2437c08b5d"},
+    "tangent": {"durations": [8.914393, 8.891627], "sha256": "edcbd096be5c4ab5cb077be695cdf43ae6b206232552065510c2b5c1d2c09e08"},
+    "area": {"durations": [6.287441, 7.112032], "sha256": "54c3808874d0289a08461b83808208d86a0fcabf4aee5eb3a6ce0c7fac4b7d59"}
+  },
+  "visual_review": "All six final frames were inspected. Mathematical content and motion targets were readable; minor label overlap prevents a perfect score."
+}

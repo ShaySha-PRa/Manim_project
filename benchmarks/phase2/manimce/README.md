@@ -8,16 +8,18 @@ contract. It is isolated from the shared contract and scorer.
 From this directory, run:
 
 ```sh
-./run_benchmark.sh
+sg docker -c "./run_benchmark.sh"
 ```
 
-The harness invokes `sudo -n docker` for each render, runs the official pinned
-`manimcommunity/manim:v0.20.1` image in headless low quality (`-ql`), disables
+The harness invokes `docker` for each render (the outer `sg docker` supplies the
+current session's group membership), runs the official `v0.20.1` image pinned
+to the accepted immutable digest in headless low quality (`-ql`), disables
 caching, and runs each scene twice in independent containers. It records every
 command, duration, exit code, log path, output path and SHA-256 in `result.json`
 only after a real environment probe and all 12 invocations.
 
-`artifacts/` is deliberately untracked. If the initial environment probe fails,
+`artifacts/` is deliberately untracked. The accepted Phase 2 evidence summary is
+versioned in `../results/manimce-summary.json`. If the initial environment probe fails,
 the harness writes `BLOCKED.md` with the raw failing command/output and does not
 write `result.json`.
 

@@ -31,7 +31,8 @@ class ManimGLBenchmarkContractTests(unittest.TestCase):
         runner = RUNNER.read_text(encoding="utf-8")
         self.assertIn("v1.7.2", runner)
         self.assertIn("result.json", runner)
-        self.assertIn("all 12 render attempts succeed", runner)
+        self.assertIn("all 12 measured attempts, including failures", runner)
+        self.assertIn("ALLOW_ELIMINATED_MANIMGL_REPRO", runner)
 
 
 if __name__ == "__main__":

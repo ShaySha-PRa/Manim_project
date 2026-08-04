@@ -110,6 +110,12 @@
 - 在 Windows + WSL2 + Docker Desktop 上可重复。
 - 选定引擎版本正式写入技术契约。
 
+### 实施结果（2026-08-04）
+
+- 选择 Manim Community `0.20.1`，官方镜像 12/12 次无头渲染成功。
+- ManimGL `v1.7.2` 在首个场景两次无头启动失败后由项目发起人决定淘汰。
+- 精确镜像 digest、Python、PyAV/FFmpeg 库、LaTeX 和字体版本见 `docs/PHASE2_STATUS.md` 与 ADR-001。
+
 ## Phase 3：工程骨架与领域契约
 
 ### 目标

@@ -1,0 +1,21 @@
+{
+  "status": "disqualified",
+  "engine": "manimgl",
+  "git_tag": "v1.7.2",
+  "package_metadata_version": "1.7.1",
+  "image_id": "sha256:cddaaeb3110d8f0bc2be17f97f9d5325da18bb7325b2812d415339f20b6f9048",
+  "python_version": "3.10.12",
+  "ffmpeg_version": "4.4.2-0ubuntu0.22.04.1",
+  "latex_version": "pdfTeX 3.141592653-2.6-1.40.22 (TeX Live 2022/Debian)",
+  "attempted_runs": 2,
+  "successful_runs": 0,
+  "required_runs": 12,
+  "failure": {
+    "scene_id": "formula_transform",
+    "durations_seconds": [397.275898, 56.773024],
+    "exit_codes": [130, 130],
+    "videos_created": 0,
+    "diagnosis": "xvfb-run waited with Xvfb alive but no manimgl child process; no render output was produced"
+  },
+  "decision": "Project owner explicitly eliminated ManimGL after the repeated runtime failure. No further retry is authorized."
+}

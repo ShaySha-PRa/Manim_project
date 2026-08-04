@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create result.json only from twelve successful, measured render records."""
+"""Create result.json only from twelve measured render records."""
 
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ def write_result(root: Path) -> None:
     ]
     expected = {(scene, iteration) for scene in SCENES for iteration in (1, 2)}
     actual = {(run["scene_id"], run["iteration"]) for run in runs}
-    if len(runs) != 12 or actual != expected or not all(run["success"] for run in runs):
-        raise SystemExit("result.json refused: all 12 measured render attempts must succeed")
+    if len(runs) != 12 or actual != expected:
+        raise SystemExit("result.json refused: exactly 12 measured scene iterations are required")
 
     environment = json.loads((artifacts / "environment.json").read_text(encoding="utf-8"))
     first_attempt = {

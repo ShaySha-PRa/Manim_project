@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目已完成 Phase 0，并通过 Phase 1 代理用户内部开发门禁：3 个 Luna 面板提供 6 个 Persona，形成并复核了 30 条黄金 Prompt。外部真实用户市场验证尚未完成。
+项目已完成 Phase 0–2。Phase 1 形成并复核了 30 条代理用户黄金 Prompt；Phase 2 通过真实无头渲染选择 Manim Community `0.20.1`，ManimGL 已淘汰。外部真实用户市场验证尚未完成。
 
 ## 文档
 
@@ -13,6 +13,8 @@
 - Phase 0 验收：[`docs/PHASE0_STATUS.md`](docs/PHASE0_STATUS.md)
 - Phase 1 验收：[`docs/PHASE1_STATUS.md`](docs/PHASE1_STATUS.md)
 - Phase 1 黄金集：[`eval/gold_prompts.jsonl`](eval/gold_prompts.jsonl)
+- Phase 2 验收：[`docs/PHASE2_STATUS.md`](docs/PHASE2_STATUS.md)
+- 渲染引擎 ADR：[`docs/decisions/0001-select-manim-community.md`](docs/decisions/0001-select-manim-community.md)
 - 执行清单：[`tasks/todo.md`](tasks/todo.md)
 
 ## 开发边界

@@ -1,26 +1,20 @@
-# Runtime benchmark not executed
+# ManimGL eliminated after runtime failure
 
-Status: implemented, not benchmarked.
+Status: eliminated by project owner on 2026-08-04; do not retry in Phase 2.
 
-The only Docker inspection attempt made during this implementation was sent as:
+The fixed `v1.7.2` image built successfully, but both attempted
+`formula_transform` runs stalled inside `xvfb-run` before ManimGL started.
+The parent stopped the runs after 397.276 and 56.773 seconds; both records have
+exit code 130, no video and no hash. The process tree contained `xvfb-run` and
+Xvfb but no `manimgl` process. The project owner then explicitly eliminated GL.
 
-```bash
-sudo -n docker info --format '{{.ServerVersion}}'
-sudo -n docker version --format '{{json .}}'
-```
-
-The containing tool operation was interrupted by the user after 519.7 seconds.
-The tool returned the literal state `aborted by user after 519.7s` and exposed
-no Docker stdout, stderr or exit code. This is not evidence that Docker passed
-or failed, so no stronger claim is made.
-
-Per the parent-agent handoff, Docker building and all 12 render invocations are
-deferred. Reproduce with:
+The failed command shape was:
 
 ```bash
-cd benchmarks/phase2/manimgl
-./scripts/run_benchmark.sh
+docker run --rm ... manim-project/manimgl-benchmark:v1.7.2 \
+  xvfb-run -a ... manimgl scenes.py FormulaTransform -l -w
 ```
 
-Do not create `result.json` unless `scripts/write_result.py` accepts 12 genuine
-successful run records with real output files and hashes.
+The versioned failure summary is `../results/manimgl-failure.json`. Local logs
+remain under ignored `artifacts/`; the runner implementation is retained only
+as decision evidence and is not part of the selected production path.

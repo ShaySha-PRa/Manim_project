@@ -10,6 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    dvisvgm \
     ffmpeg \
     fonts-dejavu-core \
     fonts-liberation2 \
@@ -33,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-latex-extra \
     texlive-science \
     xvfb \
+    xauth \
     && rm -rf /var/lib/apt/lists/*
 
 # Install the fixed upstream release rather than a moving master checkout.
