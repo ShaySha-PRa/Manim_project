@@ -389,7 +389,7 @@ def test_signature_is_recomputed_and_sensitive_diagnostics_are_not_persisted(
     host_path_item, host_path_diagnostics = report(
         quality,
         diagnostics=(
-            diagnostic().model_copy(update={"evidence_ref": "C:/Users/developer/secret.png"}),
+                diagnostic().model_copy(update={"evidence_ref": "C:/Users/developer/secret.png"}),
         ),
     )
     with pytest.raises(QualityReportError) as path_error:

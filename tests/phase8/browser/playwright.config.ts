@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const root = "/home/developer/projects/Manim_project";
+const root = process.cwd();
 
 export default defineConfig({
   testDir: ".",

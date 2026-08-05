@@ -90,7 +90,7 @@
 
     mkdir -p ~/projects
     cd ~/projects
-    git clone git@github.com:<owner>/Manim_project.git
+    git clone https://github.com/<owner>/Manim_project.git
     cd Manim_project
 
 如果新电脑尚未配置 GitHub SSH，也可以先用 HTTPS 克隆，再配置 SSH。后续推送使用仓库的 origin 远端。
@@ -127,13 +127,14 @@ Runner 到 API 的内部调用必须保持本机地址；Runner 会拒绝外部�
     WSL_IP="$(hostname -I | awk '{print $1}')"
     echo "$WSL_IP"
 
-例如当前 IP 为 <WSL_IP>，浏览器访问地址应为：
+将下面的 <WSL_IP> 替换为上一步输出的实际 IP，浏览器访问地址为：
 
     http://<WSL_IP>:3000/login
 
 把这个 IP 加入 .env 的 CORS 来源：
 
     MANIM_WORKBENCH_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://<WSL_IP>:3000
+    NEXT_ALLOWED_DEV_ORIGINS=localhost,127.0.0.1,<WSL_IP>
 
 每次 WSL 重启后 IP 可能变化；IP 变化时更新来源，并在启动 Web 时使用新 IP。API 仍监听 0.0.0.0:8000，Runner 的内部 API 地址仍使用 127.0.0.1:8000。
 
@@ -173,7 +174,7 @@ Runner 到 API 的内部调用必须保持本机地址；Runner 会拒绝外部�
 如果浏览器通过 WSL IP 访问，把 <WSL_IP> 替换为实际值：
 
     cd /home/<user>/projects/Manim_project/apps/web
-    NEXT_PUBLIC_API_URL=http://<WSL_IP>:8000 ../../node_modules/.bin/next dev --hostname 0.0.0.0
+    NEXT_PUBLIC_API_URL=http://<WSL_IP>:8000 NEXT_ALLOWED_DEV_ORIGINS=<WSL_IP> ../../node_modules/.bin/next dev --hostname 0.0.0.0
 
 如果 Windows 到 WSL 的 localhost 转发正常：
 
@@ -186,7 +187,7 @@ Runner 到 API 的内部调用必须保持本机地址；Runner 会拒绝外部�
 
     tmux new-session -d -s manim-api 'cd /home/<user>/projects/Manim_project && uv run --env-file .env uvicorn manim_workbench_api.main:app --host 0.0.0.0 --port 8000'
     tmux new-session -d -s manim-runner 'cd /home/<user>/projects/Manim_project && uv run --env-file .env python -m manim_workbench_runner run'
-    tmux new-session -d -s manim-web 'cd /home/<user>/projects/Manim_project/apps/web && NEXT_PUBLIC_API_URL=http://<WSL_IP>:8000 ../../node_modules/.bin/next dev --hostname 0.0.0.0'
+    tmux new-session -d -s manim-web 'cd /home/<user>/projects/Manim_project/apps/web && NEXT_PUBLIC_API_URL=http://<WSL_IP>:8000 NEXT_ALLOWED_DEV_ORIGINS=<WSL_IP> ../../node_modules/.bin/next dev --hostname 0.0.0.0'
 
 查看和停止会话：
 
@@ -248,7 +249,7 @@ API 根路径 / 没有业务页面，返回 {"detail":"Not Found"} 是正常的�
 
     http://<WSL_IP>:3000/workbench
 
-开发服务器必须包含对应 IP 的 allowedDevOrigins 配置；如果 IP 发生变化，需要同步更新 apps/web/next.config.ts 并重启 Web。
+开发服务器通过 NEXT_ALLOWED_DEV_ORIGINS 接收对应 IP；如果 IP 发生变化，更新启动命令或本地 .env 并重启 Web。
 
 ### API 返回 Not Found
 

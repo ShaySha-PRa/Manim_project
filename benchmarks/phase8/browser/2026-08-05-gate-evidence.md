@@ -5,7 +5,7 @@ Date: 2026-08-05 (Asia/Shanghai)
 ## Final browser run
 
 ```text
-$ PLAYWRIGHT_BROWSERS_PATH=/home/developer/projects/Manim_project/runtime/playwright-browsers \
+$ PLAYWRIGHT_BROWSERS_PATH=$PROJECT_ROOT/runtime/playwright-browsers \
     ./node_modules/.bin/playwright test -c tests/phase8/browser/playwright.config.ts
 
 Running 1 test using 1 worker

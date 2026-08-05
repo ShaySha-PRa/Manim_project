@@ -9,7 +9,7 @@ Phase 3 门禁通过。项目已建立可运行的 Next.js Web、FastAPI API、H
 仓库已从 Windows 挂载盘迁到 WSL 原生目录：
 
 ```text
-/home/developer/projects/Manim_project
+/home/user/projects/Manim_project
 ```
 
 原生文件系统消除了 DrvFS 上复现的 npm 目录清理和 Next.js 类型检查子进程输出问题。

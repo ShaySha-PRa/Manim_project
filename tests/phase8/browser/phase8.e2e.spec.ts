@@ -94,7 +94,7 @@ async function restartApi(page: Page): Promise<void> {
     "uv",
     ["run", "uvicorn", "tests.phase8.browser.e2e_app:app", "--host", "127.0.0.1", "--port", "18000"],
     {
-      cwd: "/home/developer/projects/Manim_project",
+      cwd: process.cwd(),
       env: { ...process.env, PHASE8_BROWSER_RESET: "0" },
       stdio: "ignore",
     },
@@ -123,7 +123,7 @@ async function assertSecondUserCannotSeeFirstProject(context: BrowserContext, fi
   await page.screenshot({
     animations: "disabled",
     fullPage: true,
-    path: "/home/developer/projects/Manim_project/benchmarks/phase8/browser/mobile-workbench.png",
+    path: `${process.cwd()}/benchmarks/phase8/browser/mobile-workbench.png`,
   });
   await page.getByRole("button", { name: "退出登录" }).click();
   await expect(page).toHaveURL(/\/login$/);
@@ -164,7 +164,7 @@ test("two users complete the offline browser workflow with recovery and isolatio
   await firstPage.screenshot({
     animations: "disabled",
     fullPage: true,
-    path: "/home/developer/projects/Manim_project/benchmarks/phase8/browser/desktop-workbench.png",
+    path: `${process.cwd()}/benchmarks/phase8/browser/desktop-workbench.png`,
   });
   for (const width of [768, 1024]) {
     await firstPage.setViewportSize({ width, height: 900 });

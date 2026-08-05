@@ -4,7 +4,7 @@
 
 ## Scope and safety
 
-The gate ran only in `/home/developer/projects/Manim_project`. It used an isolated Web server,
+The gate ran only in the repository workspace. It used an isolated Web server,
 SQLite database, artifact root, two temporary users, and offline deterministic ContentPlan and
 Code providers. It made no DeepSeek request and did not mutate the live demo database. No commit,
 push, or pull request was created.
@@ -34,7 +34,7 @@ recovery after an API process replacement.
 ## Reproduction
 
 ```text
-PLAYWRIGHT_BROWSERS_PATH=/home/developer/projects/Manim_project/runtime/playwright-browsers \
+PLAYWRIGHT_BROWSERS_PATH=$PROJECT_ROOT/runtime/playwright-browsers \
   ./node_modules/.bin/playwright test -c tests/phase8/browser/playwright.config.ts
 ```
 

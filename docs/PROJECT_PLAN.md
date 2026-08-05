@@ -160,7 +160,7 @@
 - 以 Pydantic `2.13.4` 为单一契约源生成 JSON Schema 与 TypeScript。
 - 建立 SQLite WAL、Alembic 首个迁移和数据库级版本不可变触发器。
 - 建立 Redis 开发服务声明与 Python/Web 基线 CI；没有提前实现队列或渲染。
-- 仓库迁移到 `/home/developer/projects/Manim_project`，避免 WSL 挂载盘文件语义问题。
+- 仓库迁移到 WSL 原生文件系统，避免 WSL 挂载盘文件语义问题。
 
 ## Phase 4：可信渲染内核
 
