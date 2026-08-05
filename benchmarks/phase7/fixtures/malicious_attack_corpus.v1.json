@@ -1,0 +1,13 @@
+{
+  "version": "phase7-malicious-corpus-v1",
+  "attacks": [
+    {"id": "dynamic-import", "vector": "dynamic_import", "source": "__import__('os').system('id')"},
+    {"id": "process-spawn", "vector": "process", "source": "import subprocess\nsubprocess.run(['id'])"},
+    {"id": "file-read", "vector": "file_io", "source": "open('.env').read()"},
+    {"id": "dynamic-eval", "vector": "dynamic_execution", "source": "eval('2 + 2')"},
+    {"id": "network-egress", "vector": "network", "source": "import socket\nsocket.create_connection(('example.test', 80))"},
+    {"id": "dunder-reflection", "vector": "dunder", "source": "Scene.__subclasses__()"},
+    {"id": "pathlib-read", "vector": "filesystem", "source": "from pathlib import Path\nPath('.env').read_text()"},
+    {"id": "encoded-builtin", "vector": "encoded_builtin", "source": "getattr(__builtins__, 'open')('.env')"}
+  ]
+}

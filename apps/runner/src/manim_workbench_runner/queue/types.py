@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
-from manim_workbench_contracts import RenderJobFailureCode, RenderJobLease
+from manim_workbench_contracts import (
+    RenderArtifactPayload,
+    RenderJobFailureCode,
+    RenderJobLease,
+)
 
 
 @dataclass(frozen=True)
@@ -22,6 +26,34 @@ class JobControl:
 
     active: bool
     cancellation_requested: bool
+
+
+@dataclass(frozen=True)
+class SandboxWorkItem:
+    """One immutable lease plus the source/work payload embedded in that lease."""
+
+    lease: RenderJobLease
+
+
+@dataclass(frozen=True)
+class SandboxExecutionResult:
+    """The only successful sandbox result accepted by the coordinator."""
+
+    artifacts: tuple[RenderArtifactPayload, ...]
+
+    def __post_init__(self) -> None:
+        if type(self.artifacts) is not tuple:
+            raise TypeError("sandbox artifacts must be a tuple")
+        required_kinds = {"video", "thumbnail", "render_log", "metadata"}
+        actual_kinds = {artifact.kind.value for artifact in self.artifacts}
+        if len(self.artifacts) != 4 or actual_kinds != required_kinds:
+            raise ValueError("sandbox success requires exactly the four standard artifacts")
+
+
+class SandboxControlProbe(Protocol):
+    """Called repeatedly by a running sandbox adapter to renew and inspect its lease."""
+
+    def __call__(self) -> JobControl: ...
 
 
 class SignalQueue(Protocol):
@@ -47,7 +79,11 @@ class JobLifecyclePort(Protocol):
 
     def confirm_cancelled(self, lease: RenderJobLease) -> None: ...
 
-    def complete(self, lease: RenderJobLease, result: object) -> JobControl: ...
+    def complete(
+        self,
+        lease: RenderJobLease,
+        artifacts: tuple[RenderArtifactPayload, ...],
+    ) -> JobControl: ...
 
     def fail(self, lease: RenderJobLease, failure_code: RenderJobFailureCode) -> None: ...
 
@@ -57,13 +93,26 @@ class JobLifecyclePort(Protocol):
 class SandboxExecutor(Protocol):
     """Port for Agent C's sandbox implementation; this module never builds Docker commands."""
 
-    def execute(self, lease: RenderJobLease) -> object: ...
+    def execute(
+        self,
+        work: SandboxWorkItem,
+        *,
+        control_probe: SandboxControlProbe,
+    ) -> SandboxExecutionResult: ...
 
-    def cancel(self, lease: RenderJobLease) -> None: ...
+    def cancel(self, work: SandboxWorkItem) -> None: ...
 
 
 class LeaseNotActiveError(RuntimeError):
     """The API rejected an operation because a lease expired or was superseded."""
+
+
+class LifecycleUnavailable(RuntimeError):
+    """The Runner could not reach its private lifecycle API temporarily."""
+
+
+class SandboxCancellationRequested(RuntimeError):
+    """A control probe stopped sandbox execution after observing cancellation."""
 
 
 class SandboxExecutionError(RuntimeError):

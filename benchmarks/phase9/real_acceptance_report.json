@@ -1,0 +1,9 @@
+{
+  "elapsed_seconds": 71.799,
+  "failures": [],
+  "golden_cases": 30,
+  "preview_final_pairs": 30,
+  "schema_version": "1.0",
+  "status": "passed",
+  "terminal_renders": 60
+}

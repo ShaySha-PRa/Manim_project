@@ -33,3 +33,8 @@ class LeaseActionRequest(BaseModel):
 
     lease_token: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
+
+class RecoverableJobsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    jobs: tuple[JobResponse, ...]

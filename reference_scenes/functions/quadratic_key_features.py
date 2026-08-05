@@ -27,7 +27,11 @@ class QuadraticKeyFeaturesScene(Scene):
             tips=False,
         ).add_coordinates()
         axis_labels = axes.get_axis_labels(MathTex("x"), MathTex("y"))
-        graph = axes.plot(lambda x: x**2, x_range=[-2.35, 2.35], color=BLUE)
+
+        def quadratic(x):
+            return x**2
+
+        graph = axes.plot(quadratic, x_range=[-2.35, 2.35], color=BLUE)
         graph_label = MathTex(r"y=x^2", color=BLUE).scale(0.8).move_to(axes.c2p(1.7, 3.7))
         symmetry_axis = DashedLine(axes.c2p(0, -0.7), axes.c2p(0, 5.7), color=YELLOW)
         vertex = Dot(axes.c2p(0, 0), color=YELLOW)

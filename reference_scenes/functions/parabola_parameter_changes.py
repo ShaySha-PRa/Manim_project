@@ -36,34 +36,46 @@ class ParabolaParameterChangesScene(Scene):
         a = ValueTracker(1.0)
         h = ValueTracker(0.0)
         k = ValueTracker(0.0)
-        graph = always_redraw(
-            lambda: axes.plot(
-                lambda x: a.get_value() * (x - h.get_value()) ** 2 + k.get_value(),
+
+        def graph_curve():
+            def parabola(x):
+                return a.get_value() * (x - h.get_value()) ** 2 + k.get_value()
+
+            return axes.plot(
+                parabola,
                 x_range=[h.get_value() - 2.0, h.get_value() + 2.0],
                 color=BLUE,
             )
-        )
-        vertex = always_redraw(lambda: Dot(axes.c2p(h.get_value(), k.get_value()), color=YELLOW))
-        symmetry_axis = always_redraw(
-            lambda: DashedLine(
+
+        def vertex_point():
+            return Dot(axes.c2p(h.get_value(), k.get_value()), color=YELLOW)
+
+        def symmetry_line():
+            return DashedLine(
                 axes.c2p(h.get_value(), -4.7),
                 axes.c2p(h.get_value(), 4.7),
                 color=YELLOW,
             )
-        )
-        readout = always_redraw(
-            lambda: VGroup(
-                MathTex("a="),
-                DecimalNumber(a.get_value(), num_decimal_places=1, color=RED),
-                MathTex(r"\quad h="),
-                DecimalNumber(h.get_value(), num_decimal_places=1, color=YELLOW),
-                MathTex(r"\quad k="),
-                DecimalNumber(k.get_value(), num_decimal_places=1, color=WHITE),
+
+        def parameter_readout():
+            return (
+                VGroup(
+                    MathTex("a="),
+                    DecimalNumber(a.get_value(), num_decimal_places=1, color=RED),
+                    MathTex(r"\quad h="),
+                    DecimalNumber(h.get_value(), num_decimal_places=1, color=YELLOW),
+                    MathTex(r"\quad k="),
+                    DecimalNumber(k.get_value(), num_decimal_places=1, color=WHITE),
+                )
+                .arrange(buff=0.06)
+                .scale(0.72)
+                .to_edge(DOWN)
             )
-            .arrange(buff=0.06)
-            .scale(0.72)
-            .to_edge(DOWN)
-        )
+
+        graph = always_redraw(graph_curve)
+        vertex = always_redraw(vertex_point)
+        symmetry_axis = always_redraw(symmetry_line)
+        readout = always_redraw(parameter_readout)
 
         self.play(Write(formula), run_time=0.5)
         self.play(Create(axes), Write(axis_labels), run_time=0.8)

@@ -1,8 +1,7 @@
 """Fast checks for the ManimCE benchmark implementation (no Docker required)."""
 
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).parent
 

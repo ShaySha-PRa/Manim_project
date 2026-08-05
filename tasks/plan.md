@@ -1,93 +1,94 @@
-# Implementation Plan: Phase 5 隔离沙箱与异步任务
+# Implementation Plan: Phase 8 Web 工作台、账号与版本系统
 
 ## Overview
 
-以 Phase 4 的可信同步渲染内核为基准，增加 SQLite 权威状态、Redis UUID 唤醒信号、Host Runner 租约协调和一次性无网络 Docker 沙箱。父 agent 先冻结所有共享边界，再由四个 Terra agent 在互斥目录并行实现，最后由父 agent 串行集成和运行真实攻击门禁。
-
-## Architecture Decisions
-
-- SQLite 是唯一状态真相源；Redis 信号可丢失、可重复、可重建。
-- 沿用 `claimed` 表示有效租约，lease token 防止旧 Runner 写回。
-- API 通过依赖注入隔离数据库、signal publisher 和内部认证，便于真实/测试实现替换。
-- Sandbox command builder 与 Docker executor 分离；所有安全参数先做纯函数测试。
-- 真实 Docker 攻击测试只由 Agent D/父 agent 串行执行。
-- 父 agent 独占共享契约、迁移、依赖和入口文件。
+父 agent 冻结 schema 1.4、0005、公共错误、安全策略和 Phase 5–7 编排；六个 Terra
+agent 分两批完成互斥的认证、项目版本、交付、Web 外壳、三栏工作台和独立黑盒验收。
 
 ## Dependency Graph
 
 ```text
-父规格/威胁模型/状态机/迁移/红灯测试
-       ├── A API Job lifecycle
-       ├── B Redis + Runner lease/recovery
-       ├── C Docker sandbox policy/executor
-       └── D black-box security/failure tests
-                    ↓
-              父级接口集成
-                    ↓
-       fake-boundary tests → real Redis → real Docker
-                    ↓
-             restart/idempotency/security gates
+父规格/威胁模型/契约/迁移/红灯测试
+        ├── A 认证与 Session
+        ├── B 项目与不可变版本
+        └── C SSE 与 Artifact
+                  ↓
+            父级中间集成门禁
+        ├── D 登录与设计系统
+        ├── E 三栏工作台
+        └── F 黑盒与浏览器验收
+                  ↓
+       父级 Phase 5–7 集成与最终门禁
 ```
 
-## Task List
+## Slice 0：父级冻结
 
-### Slice 0：父级冻结
+- [x] 保护 Phase 0–7 未提交修改并运行基线门禁。
+- [x] 固化 Phase 8 规格、STRIDE 威胁模型和状态机。
+- [x] 固化 schema 1.4、0005、API 错误和 owner/CSRF/Artifact 边界。
+- [x] 生成共享契约并确认父级红灯测试精确失败。
 
-- [x] 核对 Phase 4 工作区并保护未提交修改。
-- [x] 核对 Docker、Redis、FastAPI 官方模式。
-- [x] 固化 `docs/PHASE5_SPEC.md` 和 STRIDE 威胁模型。
-- [x] 固化 schema 1.1、状态机、lease 和失败枚举。
-- [x] 创建 Alembic `0002_phase5` 迁移。
-- [x] 编写父级接口与安全红灯测试。
-- [ ] 生成契约并确认父级基础测试通过、实现边界测试红灯。
+## Slice 1：第一批后端 Agent
 
-### Slice 1：四 agent 并行
+- [x] Terra A：账号、认证、Session、管理员 CLI 和限流。
+- [x] Terra B：Project CRUD、Prompt/ContentPlan 不可变版本与分页。
+- [x] Terra C：SSE 重连、Artifact 预览下载和阶段错误映射。
+- [x] 父 agent 审查写集、修复安全发现并通过中间门禁。
 
-- [ ] Terra A：API Job 生命周期与 API 测试。
-- [ ] Terra B：Redis signal、Runner 租约/恢复与测试。
-- [ ] Terra C：Sandbox policy/executor 与单元测试。
-- [ ] Terra D：黑盒安全、失败注入、恢复与 benchmark。
+## Slice 2：第二批 Web 与验收 Agent
 
-### Slice 2：父级集成
+- [x] Terra D：登录、首次改密、全局布局和设计系统。
+- [x] Terra E：三栏工作台、版本、任务、视频和 Python 只读面板。
+- [x] Terra F：双用户攻击集、故障注入和浏览器验收计划。
+- [x] 执行真实浏览器响应式、键盘、恢复和双用户端到端验收。
 
-- [ ] 五轴审查四个 agent，拒绝越界修改。
-- [ ] 集成 API router、依赖注入和内部令牌。
-- [ ] 集成 Runner queue、API client、sandbox 和 Phase 4 renderer。
-- [ ] 更新 Compose，只让 Host Runner 接触 Docker。
-- [ ] 修复 Required/Critical findings。
+## Slice 3：父级集成与最终门禁
 
-### Slice 3：门禁
+- [x] 提供共享 Web API Client 并集成 Phase 5–7 浏览器编排。
+- [x] 记录 Job Event，证明 SSE 重连和终态幂等。
+- [x] 以独立黑盒完成两个用户端到端流程及 API 重启恢复。
+- [x] 运行全仓测试、契约、迁移、前端、依赖和敏感信息门禁。
+- [x] 清理全仓历史 Ruff 基线并完成真实浏览器门禁。
+- [x] 保存 Phase 8 状态并更新 Project Plan、README 和 todo。
 
-- [ ] 运行 Phase 5 与全仓测试、Ruff、契约和迁移检查。
-- [ ] 运行真实 Redis 提交/重复/恢复/重启测试。
-- [ ] 运行真实 Docker loop/fork/OOM/disk/network/path/symlink 测试。
-- [ ] 验证 timeout/cancel 无残留容器。
-- [ ] 验证 Phase 4 可信渲染无回归。
-- [ ] 保存 `docs/PHASE5_STATUS.md` 并更新总计划/todo。
+## 风险与缓解
 
-## Checkpoints
+| 风险 | 缓解 |
+|---|---|
+| 未提交 Phase 5–7 被覆盖 | 严格写集、父级独占共享文件、每批审查 status/diff |
+| 浏览器 owner 注入 | Browser DTO 无 owner，Session 唯一推导 |
+| Cookie 被 CSRF 利用 | SameSite + Origin allowlist + Session 绑定 CSRF |
+| SSE 越权或重复终态 | owner 查询、持久 Event ID、唯一状态版本 |
+| Artifact 路径逃逸 | DB ID allowlist + realpath 根约束 + 拒绝 symlink |
+| 前后端类型漂移 | schema 1.4 生成 TypeScript，父级独占 API Client |
 
-- Slice 0：共享基础绿灯；A/B/C 模块缺失导致边界测试精确红灯。
-- Slice 1：agent 文件范围完全互斥，自己的测试通过。
-- Slice 2：fake DB/Redis/Docker 端到端状态机通过。
-- Slice 3：真实安全和恢复门禁通过后才能声明完成。
+## Open Questions
 
-## Risks and Mitigations
+- 无；本轮用户指令已授权认证、迁移和安全策略，未授权提交或推送。
 
-| 风险 | 影响 | 缓解 |
-|---|---|---|
-| Redis 与 SQLite 双写 | 丢失/重复任务 | DB 先提交；Redis 仅 signal；恢复扫描 |
-| 取消与完成竞争 | 错误成功状态 | lease token + conditional state update |
-| Docker 参数被输入污染 | 宿主提权 | 固定 argv、固定镜像、派生名称、无附加参数 |
-| 攻击测试损害宿主 | 资源耗尽 | 先静态/假执行测试，再串行小限制实测 |
-| 四 agent 改共享文件 | 合并冲突 | 硬性文件所有权，越界只报告 |
-| Phase 4 未提交改动混入 | 难审查 | 保留并按路径审查，不重写、不清理 |
+# Implementation Plan: Phase 9 质量诊断、回归与自动降级
 
-## Official Sources
+## Slice 0：父级冻结
 
-- https://docs.docker.com/reference/cli/docker/container/run/
-- https://docs.docker.com/engine/security/seccomp/
-- https://redis.io/docs/latest/develop/use-cases/job-queue/redis-py/
-- https://redis.io/docs/latest/develop/clients/redis-py/produsage/
-- https://fastapi.tiangolo.com/tutorial/dependencies/
-- https://fastapi.tiangolo.com/advanced/testing-dependencies/
+- [x] 关闭 Phase 8 真实浏览器与全仓 Ruff 遗留门禁。
+- [x] 冻结目标时长、质量状态机、阈值、错误、两次修复和降级矩阵。
+- [x] 冻结 schema 1.5、0006 append-only 迁移及 RED→GREEN 父级测试。
+
+## Slice 1：第一批 Terra
+
+- [x] A：AST 时间轴、静态/实际时长和 ContentPlan 一致性。
+- [x] B：确定性帧采样、空白/静止/越界/重叠/字号/乱码。
+- [x] C：质量报告、诊断、provenance、人工评分和 owner 隔离。
+- [x] 父 agent 审查并完成 API/Runner 中间集成门禁。
+
+## Slice 2：第二批 Terra
+
+- [x] D：最多两次修复、重复签名熔断和分类降级。
+- [x] E：30 条黄金集、失败注入、重复性、性能与版本回归。
+- [x] F：质量状态、指标、诊断和建议 Web UI。
+
+## Slice 3：父级最终验收
+
+- [x] 集成 Phase 5–8、真实 MP4 诊断、Preview/Final 一帧一致性。
+- [x] 完成至少 60 次终态渲染和 30 条黄金任务。
+- [x] 运行全仓、迁移、契约、前端、安全、敏感扫描并保存状态。

@@ -17,6 +17,8 @@ def test_api_job_router_freezes_public_and_internal_paths() -> None:
     assert ("/internal/render-jobs/{job_id}/start", "POST") in routes
     assert ("/internal/render-jobs/{job_id}/complete", "POST") in routes
     assert ("/internal/render-jobs/{job_id}/fail", "POST") in routes
+    assert ("/internal/render-jobs/{job_id}/cancelled", "POST") in routes
+    assert ("/internal/render-jobs/recoverable", "GET") in routes
 
 
 def test_redis_signal_codec_accepts_only_one_uuid() -> None:

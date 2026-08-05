@@ -13,16 +13,18 @@ from manim_workbench_contracts import (
     RenderJobSubmission,
 )
 
-from .dependencies import JobSignalPublisher
+from .dependencies import JobSignalPublisher, JobSignalUnavailable
 from .errors import (
     ARTIFACT_SET_INVALID,
     CANCELLATION_REQUESTED,
+    IDENTITY_CONFLICT,
     JOB_NOT_CLAIMABLE,
     JOB_NOT_FOUND,
     LEASE_INVALID,
     STATE_CONFLICT,
+    WORK_ITEM_INVALID,
 )
-from .models import JobResponse
+from .models import JobResponse, RecoverableJobsResponse
 from .repository import JobRecord, JobRepository
 
 _REQUIRED_ARTIFACT_KINDS = {"video", "thumbnail", "render_log", "metadata"}
@@ -35,10 +37,17 @@ class JobService:
 
     def submit(self, submission: RenderJobSubmission) -> tuple[JobResponse, bool]:
         record, created = self._repository.create_or_get(submission)
+        if not created and (
+            record.project_id != submission.project_id
+            or record.owner_id != submission.owner_id
+            or record.code_version_id != submission.code_version_id
+            or record.profile != submission.profile
+        ):
+            raise IDENTITY_CONFLICT
         if created:
             try:
                 self._publisher.publish(record.id)
-            except Exception:
+            except JobSignalUnavailable:
                 # Redis is only a lossy wake-up signal; the committed SQLite row is recoverable.
                 pass
         return self._response(record), created
@@ -55,13 +64,22 @@ class JobService:
     def claim(self, job_id: UUID, request: RenderJobLeaseRequest) -> RenderJobLease:
         if self._repository.get(job_id) is None:
             raise JOB_NOT_FOUND
-        record = self._repository.claim(job_id, request.runner_id, request.lease_seconds)
+        claim = self._repository.claim(job_id, request.runner_id, request.lease_seconds)
+        if claim.work_item_invalid:
+            raise WORK_ITEM_INVALID
+        record = claim.record
         if record is None or record.lease_token is None or record.lease_expires_at is None:
             raise JOB_NOT_CLAIMABLE
+        assert claim.work_item is not None
         return RenderJobLease(
             job_id=record.id,
             code_version_id=record.code_version_id,
+            content_plan_version_id=claim.work_item.content_plan_version_id,
+            target_duration_seconds=claim.work_item.target_duration_seconds,
             profile=record.profile,
+            scene_class=claim.work_item.scene_class,
+            source_code=claim.work_item.source_code,
+            source_sha256=claim.work_item.source_sha256,
             lease_token=record.lease_token,
             lease_expires_at=record.lease_expires_at,
             attempt_number=record.attempt_count,
@@ -98,6 +116,17 @@ class JobService:
             self._raise_lease_mutation_error(job_id, before, report.lease_token)
         return self._response(record)
 
+    def confirm_cancelled(self, job_id: UUID, lease_token: str) -> JobResponse:
+        before = self._require_job(job_id)
+        record = self._repository.confirm_cancelled(job_id, lease_token)
+        if record is None:
+            self._raise_cancel_confirmation_error(job_id, before, lease_token)
+        return self._response(record)
+
+    def recoverable(self, limit: int) -> RecoverableJobsResponse:
+        records = self._repository.recoverable(limit)
+        return RecoverableJobsResponse(jobs=tuple(self._response(record) for record in records))
+
     def _require_job(self, job_id: UUID) -> JobRecord:
         record = self._repository.get(job_id)
         if record is None:
@@ -124,6 +153,20 @@ class JobService:
             RenderJobStatus.FAILED,
             RenderJobStatus.CANCELLED,
         }:
+            raise STATE_CONFLICT
+        raise STATE_CONFLICT
+
+    def _raise_cancel_confirmation_error(
+        self, job_id: UUID, before: JobRecord, lease_token: str
+    ) -> None:
+        current = self._repository.get(job_id)
+        if current is None:
+            raise JOB_NOT_FOUND
+        if current.lease_token != lease_token or current.lease_expires_at is None:
+            raise LEASE_INVALID
+        if current.cancellation_requested_at is None:
+            raise STATE_CONFLICT
+        if before.status != current.status:
             raise STATE_CONFLICT
         raise STATE_CONFLICT
 

@@ -1,0 +1,16 @@
+.git
+.venv
+.pytest_cache
+.ruff_cache
+.next
+node_modules
+data
+runtime
+artifacts
+benchmarks
+eval
+reference_scenes
+tests
+*.mp4
+*.pdf
+.env

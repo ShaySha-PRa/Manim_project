@@ -1,5 +1,51 @@
 {
   "$defs": {
+    "ApiErrorDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[a-z][a-z0-9_]{2,99}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PipelineStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ApiErrorDetail",
+      "type": "object"
+    },
+    "ApiErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/ApiErrorDetail"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "title": "ApiErrorResponse",
+      "type": "object"
+    },
     "Artifact": {
       "additionalProperties": false,
       "properties": {
@@ -62,6 +108,57 @@
       "title": "Artifact",
       "type": "object"
     },
+    "ArtifactDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_size": {
+          "minimum": 0,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "download_url": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Download Url",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ArtifactKind"
+        },
+        "preview_url": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Preview Url",
+          "type": "string"
+        },
+        "render_job_id": {
+          "format": "uuid",
+          "title": "Render Job Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "render_job_id",
+        "kind",
+        "sha256",
+        "byte_size",
+        "preview_url",
+        "download_url"
+      ],
+      "title": "ArtifactDescriptor",
+      "type": "object"
+    },
     "ArtifactKind": {
       "enum": [
         "video",
@@ -77,14 +174,278 @@
         "primary_school",
         "middle_school",
         "high_school",
-        "undergraduate"
+        "undergraduate",
+        "general_audience"
       ],
       "title": "Audience",
       "type": "string"
     },
+    "AuthenticatedUser": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "email": {
+          "maxLength": 320,
+          "minLength": 3,
+          "pattern": "^[^@\\s]+@[^@\\s]+$",
+          "title": "Email",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "must_change_password": {
+          "title": "Must Change Password",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "must_change_password",
+        "created_at"
+      ],
+      "title": "AuthenticatedUser",
+      "type": "object"
+    },
+    "ClarificationField": {
+      "enum": [
+        "audience",
+        "duration",
+        "derivation_style",
+        "assumptions",
+        "mathematical_intent"
+      ],
+      "title": "ClarificationField",
+      "type": "string"
+    },
+    "ClarificationQuestion": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/ClarificationField"
+        },
+        "options": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 6,
+          "title": "Options",
+          "type": "array"
+        },
+        "question": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "question"
+      ],
+      "title": "ClarificationQuestion",
+      "type": "object"
+    },
+    "CodeGenerationCategory": {
+      "enum": [
+        "formula_derivation",
+        "function_visualization"
+      ],
+      "title": "CodeGenerationCategory",
+      "type": "string"
+    },
+    "CodeGenerationErrorCode": {
+      "enum": [
+        "content_plan_not_found",
+        "provider_unavailable",
+        "provider_authentication",
+        "provider_configuration",
+        "provider_timeout",
+        "invalid_model_response",
+        "response_too_large",
+        "ast_parse_failed",
+        "static_policy_repairable",
+        "security_policy_violation",
+        "compile_failed",
+        "scene_structure_invalid",
+        "render_failed",
+        "sandbox_timeout",
+        "sandbox_resource_limit",
+        "attempt_budget_exhausted",
+        "category_degraded",
+        "generation_paused",
+        "internal_error"
+      ],
+      "title": "CodeGenerationErrorCode",
+      "type": "string"
+    },
+    "CodeGenerationMode": {
+      "enum": [
+        "full",
+        "deterministic_template"
+      ],
+      "title": "CodeGenerationMode",
+      "type": "string"
+    },
+    "CodeGenerationOutcome": {
+      "enum": [
+        "ready",
+        "degraded",
+        "failed",
+        "paused"
+      ],
+      "title": "CodeGenerationOutcome",
+      "type": "string"
+    },
+    "CodeGenerationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/CodeGenerationCategory"
+        },
+        "content_plan_version_id": {
+          "format": "uuid",
+          "title": "Content Plan Version Id",
+          "type": "string"
+        },
+        "force_regenerate": {
+          "default": false,
+          "title": "Force Regenerate",
+          "type": "boolean"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "prompt_version_id": {
+          "format": "uuid",
+          "title": "Prompt Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_id",
+        "owner_id",
+        "prompt_version_id",
+        "content_plan_version_id",
+        "category"
+      ],
+      "title": "CodeGenerationRequest",
+      "type": "object"
+    },
+    "CodeGenerationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "attempts_used": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Attempts Used",
+          "type": "integer"
+        },
+        "code_version": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodeVersion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodeGenerationErrorCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mode": {
+          "$ref": "#/$defs/CodeGenerationMode"
+        },
+        "outcome": {
+          "$ref": "#/$defs/CodeGenerationOutcome"
+        }
+      },
+      "required": [
+        "outcome",
+        "attempts_used",
+        "mode"
+      ],
+      "title": "CodeGenerationResponse",
+      "type": "object"
+    },
+    "CodeModelResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "assumptions": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "code": {
+          "maxLength": 200000,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "scene_class": {
+          "const": "GeneratedScene",
+          "title": "Scene Class",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_class",
+        "code"
+      ],
+      "title": "CodeModelResponse",
+      "type": "object"
+    },
     "CodeVersion": {
       "additionalProperties": false,
       "properties": {
+        "assumptions": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "category": {
+          "$ref": "#/$defs/CodeGenerationCategory",
+          "default": "formula_derivation"
+        },
         "content_plan_version_id": {
           "format": "uuid",
           "title": "Content Plan Version Id",
@@ -104,6 +465,10 @@
           "const": "0.20.1",
           "title": "Engine Version",
           "type": "string"
+        },
+        "generation_mode": {
+          "$ref": "#/$defs/CodeGenerationMode",
+          "default": "full"
         },
         "id": {
           "format": "uuid",
@@ -132,9 +497,40 @@
           "title": "Project Id",
           "type": "string"
         },
+        "prompt_template_version": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Template Version"
+        },
         "prompt_version_id": {
           "format": "uuid",
           "title": "Prompt Version Id",
+          "type": "string"
+        },
+        "provider_model": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Model"
+        },
+        "scene_class": {
+          "pattern": "^[A-Z][A-Za-z0-9]{1,99}$",
+          "title": "Scene Class",
           "type": "string"
         },
         "source_code": {
@@ -165,11 +561,298 @@
         "content_plan_version_id",
         "source_code",
         "source_sha256",
+        "scene_class",
         "engine",
         "engine_version"
       ],
       "title": "CodeVersion",
       "type": "object"
+    },
+    "ContentPlanDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "ambiguities": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Ambiguities",
+          "type": "array"
+        },
+        "audience": {
+          "$ref": "#/$defs/Audience"
+        },
+        "derivation_style": {
+          "$ref": "#/$defs/DerivationStyle"
+        },
+        "explicit_assumptions": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Explicit Assumptions",
+          "type": "array"
+        },
+        "language": {
+          "$ref": "#/$defs/Language"
+        },
+        "scenes": {
+          "items": {
+            "$ref": "#/$defs/ContentPlanScene"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Scenes",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_duration_seconds": {
+          "maximum": 180,
+          "minimum": 30,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "title",
+        "audience",
+        "language",
+        "target_duration_seconds",
+        "derivation_style",
+        "explicit_assumptions",
+        "ambiguities",
+        "scenes"
+      ],
+      "title": "ContentPlanDraft",
+      "type": "object"
+    },
+    "ContentPlanGenerationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "audience": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Audience"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "derivation_style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DerivationStyle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "explicit_assumptions": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Explicit Assumptions",
+          "type": "array"
+        },
+        "language": {
+          "$ref": "#/$defs/Language",
+          "default": "zh-CN"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "prompt_version_id": {
+          "format": "uuid",
+          "title": "Prompt Version Id",
+          "type": "string"
+        },
+        "target_duration_seconds": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": 30,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Duration Seconds"
+        }
+      },
+      "required": [
+        "project_id",
+        "owner_id",
+        "prompt_version_id"
+      ],
+      "title": "ContentPlanGenerationRequest",
+      "type": "object"
+    },
+    "ContentPlanGenerationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "attempts_used": {
+          "maximum": 2,
+          "minimum": 1,
+          "title": "Attempts Used",
+          "type": "integer"
+        },
+        "clarifications": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClarificationQuestion"
+          },
+          "maxItems": 4,
+          "title": "Clarifications",
+          "type": "array"
+        },
+        "content_plan_version": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentPlanVersion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContentPlanLimitation"
+          },
+          "maxItems": 4,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "outcome": {
+          "$ref": "#/$defs/ContentPlanOutcome"
+        }
+      },
+      "required": [
+        "outcome",
+        "attempts_used"
+      ],
+      "title": "ContentPlanGenerationResponse",
+      "type": "object"
+    },
+    "ContentPlanLimitation": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[a-z][a-z0-9_]{2,63}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "supported_alternative": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supported Alternative"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ContentPlanLimitation",
+      "type": "object"
+    },
+    "ContentPlanModelResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "clarifications": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClarificationQuestion"
+          },
+          "maxItems": 4,
+          "title": "Clarifications",
+          "type": "array"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContentPlanLimitation"
+          },
+          "maxItems": 4,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "outcome": {
+          "$ref": "#/$defs/ContentPlanOutcome"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentPlanDraft"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "outcome"
+      ],
+      "title": "ContentPlanModelResponse",
+      "type": "object"
+    },
+    "ContentPlanOutcome": {
+      "enum": [
+        "ready",
+        "needs_clarification",
+        "unsupported"
+      ],
+      "title": "ContentPlanOutcome",
+      "type": "string"
     },
     "ContentPlanScene": {
       "additionalProperties": false,
@@ -221,6 +904,17 @@
     "ContentPlanVersion": {
       "additionalProperties": false,
       "properties": {
+        "ambiguities": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Ambiguities",
+          "type": "array"
+        },
         "audience": {
           "$ref": "#/$defs/Audience"
         },
@@ -228,6 +922,10 @@
           "format": "date-time",
           "title": "Created At",
           "type": "string"
+        },
+        "derivation_style": {
+          "$ref": "#/$defs/DerivationStyle",
+          "default": "step_by_step"
         },
         "explicit_assumptions": {
           "items": {
@@ -279,7 +977,10 @@
           "type": "array"
         },
         "schema_version": {
-          "const": "1.0",
+          "enum": [
+            "1.0",
+            "1.1"
+          ],
           "title": "Schema Version",
           "type": "string"
         },
@@ -319,6 +1020,66 @@
       "title": "ContentPlanVersion",
       "type": "object"
     },
+    "ContentPlanVersionCreateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "content_plan": {
+          "$ref": "#/$defs/ContentPlanDraft"
+        },
+        "parent_version_id": {
+          "format": "uuid",
+          "title": "Parent Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "parent_version_id",
+        "content_plan"
+      ],
+      "title": "ContentPlanVersionCreateRequest",
+      "type": "object"
+    },
+    "ContentPlanVersionPage": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ContentPlanVersion"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "ContentPlanVersionPage",
+      "type": "object"
+    },
+    "DerivationStyle": {
+      "enum": [
+        "step_by_step",
+        "conceptual",
+        "proof_oriented",
+        "visual_intuition"
+      ],
+      "title": "DerivationStyle",
+      "type": "string"
+    },
     "FormulaStep": {
       "additionalProperties": false,
       "properties": {
@@ -351,10 +1112,49 @@
           "title": "Attempt Number",
           "type": "integer"
         },
+        "candidate_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Sha256"
+        },
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
         "created_at": {
           "format": "date-time",
           "title": "Created At",
           "type": "string"
+        },
+        "diagnostic_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diagnostic Sha256"
         },
         "error_code": {
           "anyOf": [
@@ -403,6 +1203,45 @@
           "title": "Project Id",
           "type": "string"
         },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        },
+        "provider_model": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Model"
+        },
+        "provider_request_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Request Id"
+        },
         "stage": {
           "$ref": "#/$defs/GenerationStage"
         },
@@ -441,12 +1280,168 @@
       "title": "GenerationStatus",
       "type": "string"
     },
+    "JobEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "event_id": {
+          "minimum": 1,
+          "title": "Event Id",
+          "type": "integer"
+        },
+        "render_job_id": {
+          "format": "uuid",
+          "title": "Render Job Id",
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/PipelineStage"
+        },
+        "state_version": {
+          "minimum": 0,
+          "title": "State Version",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/RenderJobStatus"
+        }
+      },
+      "required": [
+        "event_id",
+        "render_job_id",
+        "state_version",
+        "stage",
+        "status",
+        "created_at"
+      ],
+      "title": "JobEvent",
+      "type": "object"
+    },
     "Language": {
       "enum": [
         "zh-CN",
         "en-US"
       ],
       "title": "Language",
+      "type": "string"
+    },
+    "LoginRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "email": {
+          "maxLength": 320,
+          "minLength": 3,
+          "pattern": "^[^@\\s]+@[^@\\s]+$",
+          "title": "Email",
+          "type": "string"
+        },
+        "password": {
+          "maxLength": 1024,
+          "minLength": 12,
+          "title": "Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "email",
+        "password"
+      ],
+      "title": "LoginRequest",
+      "type": "object"
+    },
+    "LoginResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "csrf_token": {
+          "maxLength": 256,
+          "minLength": 32,
+          "title": "Csrf Token",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "user": {
+          "$ref": "#/$defs/AuthenticatedUser"
+        }
+      },
+      "required": [
+        "user",
+        "csrf_token",
+        "expires_at"
+      ],
+      "title": "LoginResponse",
+      "type": "object"
+    },
+    "LogoutResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "const": true,
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "LogoutResponse",
+      "type": "object"
+    },
+    "PasswordChangeRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 12,
+          "title": "Current Password",
+          "type": "string"
+        },
+        "new_password": {
+          "maxLength": 1024,
+          "minLength": 14,
+          "title": "New Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "current_password",
+        "new_password"
+      ],
+      "title": "PasswordChangeRequest",
+      "type": "object"
+    },
+    "PipelineStage": {
+      "enum": [
+        "prompt",
+        "content_plan",
+        "code_generation",
+        "preview_render",
+        "final_render",
+        "artifact_delivery",
+        "quality_analysis",
+        "quality_recovery"
+      ],
+      "title": "PipelineStage",
       "type": "string"
     },
     "Project": {
@@ -494,6 +1489,86 @@
         "created_at"
       ],
       "title": "Project",
+      "type": "object"
+    },
+    "ProjectCreateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "ProjectCreateRequest",
+      "type": "object"
+    },
+    "ProjectPage": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Project"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "ProjectPage",
+      "type": "object"
+    },
+    "ProjectUpdateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "archived": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archived"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "title": "ProjectUpdateRequest",
       "type": "object"
     },
     "PromptVersion": {
@@ -554,6 +1629,425 @@
       ],
       "title": "PromptVersion",
       "type": "object"
+    },
+    "PromptVersionCreateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "title": "PromptVersionCreateRequest",
+      "type": "object"
+    },
+    "PromptVersionPage": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/PromptVersion"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "PromptVersionPage",
+      "type": "object"
+    },
+    "QualityDiagnostic": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/QualityDiagnosticCode"
+        },
+        "evidence_ref": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Ref"
+        },
+        "measured_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Measured Value"
+        },
+        "message": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/QualitySeverity"
+        },
+        "stage": {
+          "$ref": "#/$defs/PipelineStage"
+        },
+        "suggestion": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Suggestion",
+          "type": "string"
+        },
+        "threshold_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold Value"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "stage",
+        "message",
+        "suggestion"
+      ],
+      "title": "QualityDiagnostic",
+      "type": "object"
+    },
+    "QualityDiagnosticCode": {
+      "enum": [
+        "source_not_approved",
+        "default_play_duration_assumed",
+        "duration_too_short",
+        "duration_too_long",
+        "preview_final_timeline_mismatch",
+        "long_static_segment",
+        "blank_frame",
+        "object_out_of_bounds",
+        "object_overlap",
+        "text_too_small",
+        "cjk_glyph_missing",
+        "key_formula_missing",
+        "object_missing",
+        "animation_order_mismatch",
+        "timeline_unknown",
+        "terminal_wait_padding",
+        "media_metadata_invalid",
+        "media_metadata_inconsistent",
+        "planned_scene_missing"
+      ],
+      "title": "QualityDiagnosticCode",
+      "type": "string"
+    },
+    "QualityHumanRatingRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "score"
+      ],
+      "title": "QualityHumanRatingRequest",
+      "type": "object"
+    },
+    "QualityReport": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_duration_seconds": {
+          "anyOf": [
+            {
+              "maximum": 3600,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Duration Seconds"
+        },
+        "ast_policy_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Ast Policy Version",
+          "type": "string"
+        },
+        "code_version_id": {
+          "format": "uuid",
+          "title": "Code Version Id",
+          "type": "string"
+        },
+        "content_plan_schema_version": {
+          "maxLength": 20,
+          "minLength": 1,
+          "title": "Content Plan Schema Version",
+          "type": "string"
+        },
+        "content_plan_version_id": {
+          "format": "uuid",
+          "title": "Content Plan Version Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "diagnostic_policy_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Diagnostic Policy Version",
+          "type": "string"
+        },
+        "diagnostic_signature": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Diagnostic Signature",
+          "type": "string"
+        },
+        "estimated_duration_seconds": {
+          "anyOf": [
+            {
+              "maximum": 3600,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estimated Duration Seconds"
+        },
+        "frame_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Count"
+        },
+        "frame_rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 240,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Rate"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "image_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Image Digest",
+          "type": "string"
+        },
+        "manim_version": {
+          "maxLength": 50,
+          "minLength": 1,
+          "title": "Manim Version",
+          "type": "string"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "prompt_template_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Prompt Template Version",
+          "type": "string"
+        },
+        "provider_model": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Provider Model",
+          "type": "string"
+        },
+        "render_job_id": {
+          "format": "uuid",
+          "title": "Render Job Id",
+          "type": "string"
+        },
+        "repair_count": {
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Repair Count",
+          "type": "integer"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "status": {
+          "$ref": "#/$defs/QualityStatus"
+        },
+        "target_duration_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 600,
+          "title": "Target Duration Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "render_job_id",
+        "code_version_id",
+        "content_plan_version_id",
+        "status",
+        "target_duration_seconds",
+        "repair_count",
+        "diagnostic_signature",
+        "provider_model",
+        "prompt_template_version",
+        "content_plan_schema_version",
+        "manim_version",
+        "image_digest",
+        "ast_policy_version",
+        "diagnostic_policy_version",
+        "created_at"
+      ],
+      "title": "QualityReport",
+      "type": "object"
+    },
+    "QualityReportPage": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/QualityReport"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "QualityReportPage",
+      "type": "object"
+    },
+    "QualitySeverity": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "title": "QualitySeverity",
+      "type": "string"
+    },
+    "QualityStatus": {
+      "enum": [
+        "pending",
+        "analyzing",
+        "repair_required",
+        "repairing",
+        "passed",
+        "degraded",
+        "failed"
+      ],
+      "title": "QualityStatus",
+      "type": "string"
     },
     "RenderArtifactPayload": {
       "additionalProperties": false,
@@ -854,6 +2348,11 @@
           "title": "Code Version Id",
           "type": "string"
         },
+        "content_plan_version_id": {
+          "format": "uuid",
+          "title": "Content Plan Version Id",
+          "type": "string"
+        },
         "job_id": {
           "format": "uuid",
           "title": "Job Id",
@@ -871,12 +2370,39 @@
         },
         "profile": {
           "$ref": "#/$defs/RenderProfile"
+        },
+        "scene_class": {
+          "pattern": "^[A-Z][A-Za-z0-9]{1,99}$",
+          "title": "Scene Class",
+          "type": "string"
+        },
+        "source_code": {
+          "maxLength": 200000,
+          "minLength": 1,
+          "title": "Source Code",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "target_duration_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 600,
+          "title": "Target Duration Seconds",
+          "type": "number"
         }
       },
       "required": [
         "job_id",
         "code_version_id",
+        "content_plan_version_id",
+        "target_duration_seconds",
         "profile",
+        "scene_class",
+        "source_code",
+        "source_sha256",
         "lease_token",
         "lease_expires_at",
         "attempt_number"
@@ -992,18 +2518,170 @@
       ],
       "title": "User",
       "type": "object"
+    },
+    "WorkspaceCodeGenerationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/CodeGenerationCategory"
+        },
+        "content_plan_version_id": {
+          "format": "uuid",
+          "title": "Content Plan Version Id",
+          "type": "string"
+        },
+        "force_regenerate": {
+          "default": false,
+          "title": "Force Regenerate",
+          "type": "boolean"
+        },
+        "prompt_version_id": {
+          "format": "uuid",
+          "title": "Prompt Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt_version_id",
+        "content_plan_version_id",
+        "category"
+      ],
+      "title": "WorkspaceCodeGenerationRequest",
+      "type": "object"
+    },
+    "WorkspaceContentPlanGenerationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "audience": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Audience"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "derivation_style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DerivationStyle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "explicit_assumptions": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Explicit Assumptions",
+          "type": "array"
+        },
+        "language": {
+          "$ref": "#/$defs/Language",
+          "default": "zh-CN"
+        },
+        "prompt_version_id": {
+          "format": "uuid",
+          "title": "Prompt Version Id",
+          "type": "string"
+        },
+        "target_duration_seconds": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": 30,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Duration Seconds"
+        }
+      },
+      "required": [
+        "prompt_version_id"
+      ],
+      "title": "WorkspaceContentPlanGenerationRequest",
+      "type": "object"
+    },
+    "WorkspaceRenderJobSubmission": {
+      "additionalProperties": false,
+      "properties": {
+        "code_version_id": {
+          "format": "uuid",
+          "title": "Code Version Id",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "maxLength": 128,
+          "minLength": 16,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/RenderProfile"
+        }
+      },
+      "required": [
+        "code_version_id",
+        "profile",
+        "idempotency_key"
+      ],
+      "title": "WorkspaceRenderJobSubmission",
+      "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.1",
+  "$id": "https://manim-workbench.local/contracts/1.5",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
+    "ApiErrorDetail",
+    "ApiErrorResponse",
     "Artifact",
+    "ArtifactDescriptor",
+    "AuthenticatedUser",
+    "ClarificationQuestion",
+    "CodeGenerationRequest",
+    "CodeGenerationResponse",
+    "CodeModelResponse",
     "CodeVersion",
+    "ContentPlanDraft",
+    "ContentPlanGenerationRequest",
+    "ContentPlanGenerationResponse",
+    "ContentPlanLimitation",
+    "ContentPlanModelResponse",
     "ContentPlanVersion",
+    "ContentPlanVersionCreateRequest",
+    "ContentPlanVersionPage",
     "GenerationAttempt",
+    "JobEvent",
+    "LoginRequest",
+    "LoginResponse",
+    "LogoutResponse",
+    "PasswordChangeRequest",
     "Project",
+    "ProjectCreateRequest",
+    "ProjectPage",
+    "ProjectUpdateRequest",
     "PromptVersion",
+    "PromptVersionCreateRequest",
+    "PromptVersionPage",
+    "QualityDiagnostic",
+    "QualityHumanRatingRequest",
+    "QualityReport",
+    "QualityReport",
+    "QualityReportPage",
     "RenderArtifactPayload",
     "RenderJob",
     "RenderJobCompletion",
@@ -1012,7 +2690,10 @@
     "RenderJobLease",
     "RenderJobLeaseRequest",
     "RenderJobSubmission",
-    "User"
+    "User",
+    "WorkspaceCodeGenerationRequest",
+    "WorkspaceContentPlanGenerationRequest",
+    "WorkspaceRenderJobSubmission"
   ],
-  "x-contract-schema-version": "1.1"
+  "x-contract-schema-version": "1.5"
 }

@@ -12,6 +12,9 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    with op.batch_alter_table("code_versions") as batch:
+        batch.add_column(sa.Column("scene_class", sa.String(100), nullable=True))
+
     with op.batch_alter_table("render_jobs") as batch:
         batch.add_column(
             sa.Column("attempt_count", sa.Integer(), nullable=False, server_default="0")
@@ -43,3 +46,5 @@ def downgrade() -> None:
         batch.drop_column("lease_token")
         batch.drop_column("lease_owner")
         batch.drop_column("attempt_count")
+    with op.batch_alter_table("code_versions") as batch:
+        batch.drop_column("scene_class")

@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 import json
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-GL_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(GL_ROOT))
-
-from scripts.write_result import SCENES, write_result
+from benchmarks.phase2.manimgl.scripts.write_result import SCENES, write_result
 
 
 class WriteResultTests(unittest.TestCase):

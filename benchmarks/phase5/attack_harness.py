@@ -17,6 +17,7 @@ import argparse
 import hashlib
 import json
 import os
+import statistics
 import subprocess
 import time
 from dataclasses import asdict, dataclass
@@ -27,7 +28,10 @@ from uuid import uuid4
 
 RECORD_TYPE = "phase5-sandbox-attack-v1"
 LIVE_ENVIRONMENT_VARIABLE = "PHASE5_RUN_LIVE_ATTACKS"
-DOCKER_IMAGE = "manimcommunity/manim@sha256:f18f53f2e4eaf2ea41713437d34363fb3f5cc6008b03fd798676ac0359396c3b"
+DOCKER_IMAGE = (
+    "manimcommunity/manim@sha256:"
+    "f18f53f2e4eaf2ea41713437d34363fb3f5cc6008b03fd798676ac0359396c3b"
+)
 MAX_OUTPUT_BYTES = 32 * 1024 * 1024
 
 
@@ -49,7 +53,10 @@ ATTACK_CASES: tuple[AttackCase, ...] = (
     AttackCase("loop", "while True: pass\n", "sandbox_timeout", 5),
     AttackCase(
         "fork",
-        "import os\nwhile True: os.fork()\n",
+        "import os,time\nwhile True:\n"
+        "    try:\n        pid=os.fork()\n"
+        "    except OSError:\n        print('pid-limit-blocked', flush=True)\n        break\n"
+        "    if pid == 0:\n        time.sleep(30)\n        os._exit(0)\n",
         "sandbox_pid_limit",
         8,
     ),
@@ -69,19 +76,24 @@ ATTACK_CASES: tuple[AttackCase, ...] = (
     AttackCase(
         "network",
         "import socket\ntry:\n    socket.create_connection(('1.1.1.1', 53), 1)\n"
-        "except OSError:\n    print('network-blocked')\nelse:\n    raise SystemExit('network-open')\n",
+        "except OSError:\n    print('network-blocked')\n"
+        "else:\n    raise SystemExit('network-open')\n",
         "sandbox_security_violation",
         5,
     ),
     AttackCase(
         "path",
-        "from pathlib import Path\nassert not Path('/host-secret').exists()\nprint('path-blocked')\n",
+        "from pathlib import Path\n"
+        "assert not Path('/host-secret').exists()\n"
+        "print('path-blocked')\n",
         "sandbox_security_violation",
         5,
     ),
     AttackCase(
         "symlink",
-        "from pathlib import Path\nPath('/output/link').symlink_to('/etc/passwd')\nprint('symlink-created')\n",
+        "from pathlib import Path\n"
+        "Path('/output/link').symlink_to('/etc/passwd')\n"
+        "print('symlink-created')\n",
         "artifact_publish_failed",
         5,
     ),
@@ -113,6 +125,8 @@ class AttackRecord:
     timed_out: bool
     container_removed: bool
     output_safe: bool
+    artifact_rejected: bool
+    canary_not_visible: bool
     record_type: str = RECORD_TYPE
 
     @classmethod
@@ -130,6 +144,8 @@ class AttackRecord:
             timed_out=False,
             container_removed=True,
             output_safe=True,
+            artifact_rejected=False,
+            canary_not_visible=True,
         )
 
     @classmethod
@@ -147,6 +163,8 @@ class AttackRecord:
             timed_out=False,
             container_removed=True,
             output_safe=False,
+            artifact_rejected=False,
+            canary_not_visible=True,
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -203,6 +221,8 @@ def validate_record(record: dict[str, Any]) -> dict[str, Any]:
         "timed_out",
         "container_removed",
         "output_safe",
+        "artifact_rejected",
+        "canary_not_visible",
     }
     if set(record) != required:
         raise ValueError("attack record is missing record_type or another closed-schema field")
@@ -228,7 +248,13 @@ def validate_record(record: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("attack record command_sha256 is invalid")
     if record["returncode"] is not None and not isinstance(record["returncode"], int):
         raise ValueError("attack record returncode is invalid")
-    for name in ("timed_out", "container_removed", "output_safe"):
+    for name in (
+        "timed_out",
+        "container_removed",
+        "output_safe",
+        "artifact_rejected",
+        "canary_not_visible",
+    ):
         if not isinstance(record[name], bool):
             raise ValueError(f"attack record {name} must be a boolean")
     return record
@@ -259,10 +285,20 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, object]:
     unsafe_cleanup = sorted(
         name
         for name, record in latest.items()
-        if record["container_removed"] is not True or record["output_safe"] is not True
+        if record["container_removed"] is not True
+        or record["canary_not_visible"] is not True
+    )
+    unmitigated_outputs = sorted(
+        name
+        for name, record in latest.items()
+        if record["output_safe"] is not True and record["artifact_rejected"] is not True
     )
     gate_failures = [f"attack failed: {name}" for name in failed]
     gate_failures.extend(f"cleanup or output validation failed: {name}" for name in unsafe_cleanup)
+    gate_failures.extend(
+        f"malicious output was not rejected: {name}" for name in unmitigated_outputs
+    )
+    durations = [float(record["duration_seconds"]) for record in latest.values()]
     return {
         "record_count": len(records),
         "effective_record_count": len(latest),
@@ -270,12 +306,17 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, object]:
         "passed_attack_count": len(latest) - len(failed),
         "failed_attacks": failed,
         "unsafe_cleanup_attacks": unsafe_cleanup,
+        "unmitigated_output_attacks": unmitigated_outputs,
+        "duration_median_seconds": statistics.median(durations),
+        "duration_max_seconds": max(durations),
         "gate_failures": gate_failures,
         "gate_passed": not gate_failures,
     }
 
 
-def build_docker_command(case: AttackCase, source: Path, output: Path, container_name: str) -> list[str]:
+def build_docker_command(
+    case: AttackCase, source: Path, output: Path, container_name: str
+) -> list[str]:
     """Build the hard-capped command used only for the explicit live probes."""
 
     return [
@@ -311,8 +352,9 @@ def build_docker_command(case: AttackCase, source: Path, output: Path, container
         f"{source}:/input/attack.py:ro",
         "--volume",
         f"{output}:/output:rw",
-        DOCKER_IMAGE,
+        "--entrypoint",
         "python",
+        DOCKER_IMAGE,
         "/input/attack.py",
     ]
 
@@ -320,10 +362,17 @@ def build_docker_command(case: AttackCase, source: Path, output: Path, container
 def run_case(case: AttackCase, work_root: Path) -> AttackRecord:
     """Run one explicitly requested live probe and always remove its container."""
 
+    work_root = work_root.resolve()
     case_root = work_root / case.name
     case_root.mkdir(parents=True, exist_ok=True)
     source = case_root / "attack.py"
-    source.write_text(case.source, encoding="utf-8")
+    host_canary = case_root / f"host-canary-{uuid4().hex}.txt"
+    host_canary.write_text(uuid4().hex, encoding="utf-8")
+    container_canary_path = f"/host-canary-{uuid4().hex}.txt"
+    source_text = (
+        _path_attack_source(container_canary_path) if case.name == "path" else case.source
+    )
+    source.write_text(source_text, encoding="utf-8")
     output = case_root / "output"
     output.mkdir(exist_ok=True)
     container_name = f"manim-phase5-attack-{case.name}-{uuid4().hex[:12]}"
@@ -349,11 +398,25 @@ def run_case(case: AttackCase, work_root: Path) -> AttackRecord:
     finally:
         _cleanup_container(container_name)
     container_removed = _container_is_absent(container_name)
-    output_safe = _output_is_safe(output)
+    output_safe, unsafe_output_detected = _inspect_output(output)
+    artifact_rejected = (
+        case.name == "symlink"
+        and unsafe_output_detected
+        and artifact_validator_rejected(output)
+    )
+    canary_not_visible = case.name != "path" or (
+        "canary-not-visible" in (completed.stdout if completed is not None else "")
+        and str(host_canary) not in command
+        and container_canary_path not in command
+    )
     duration = round(time.perf_counter() - started, 6)
     returncode = completed.returncode if completed is not None else None
+    output_mitigated = output_safe or artifact_rejected
     passed = (
-        observed_outcome == case.expected_outcome and container_removed and output_safe
+        observed_outcome == case.expected_outcome
+        and container_removed
+        and output_mitigated
+        and canary_not_visible
     )
     return AttackRecord(
         attack=case.name,
@@ -367,6 +430,8 @@ def run_case(case: AttackCase, work_root: Path) -> AttackRecord:
         timed_out=timed_out,
         container_removed=container_removed,
         output_safe=output_safe,
+        artifact_rejected=artifact_rejected,
+        canary_not_visible=canary_not_visible,
     )
 
 
@@ -392,7 +457,13 @@ def _classify(case: AttackCase, returncode: int, output: str, *, timed_out: bool
     lowered = output.lower()
     if timed_out:
         return "sandbox_timeout"
-    if case.name == "fork" and ("resource temporarily unavailable" in lowered or returncode != 0):
+    if returncode == 125:
+        return "docker_start_failed"
+    if case.name == "fork" and (
+        "pid-limit-blocked" in lowered
+        or "resource temporarily unavailable" in lowered
+        or returncode != 0
+    ):
         return "sandbox_pid_limit"
     if case.name == "oom" and (returncode in {137, 139} or returncode != 0):
         return "sandbox_oom"
@@ -400,7 +471,7 @@ def _classify(case: AttackCase, returncode: int, output: str, *, timed_out: bool
         return "sandbox_output_limit"
     if case.name == "network" and "network-blocked" in lowered:
         return "sandbox_security_violation"
-    if case.name == "path" and "path-blocked" in lowered:
+    if case.name == "path" and "canary-not-visible" in lowered:
         return "sandbox_security_violation"
     if case.name == "environment" and "environment-blocked" in lowered:
         return "sandbox_security_violation"
@@ -435,15 +506,41 @@ def _container_is_absent(container_name: str) -> bool:
     return probe.returncode != 0
 
 
-def _output_is_safe(output: Path) -> bool:
+def _inspect_output(output: Path) -> tuple[bool, bool]:
+    """Return (safe, malicious content detected) before publication is attempted."""
+
     total_size = 0
     for path in output.rglob("*"):
         if path.is_symlink() or not path.is_file():
-            return False
+            return False, True
         total_size += path.stat().st_size
         if total_size > MAX_OUTPUT_BYTES:
-            return False
-    return True
+            return False, True
+    return True, False
+
+
+def artifact_validator_rejected(output: Path) -> bool:
+    """Ask the product's public output-validation boundary to reject hostile output."""
+
+    from manim_workbench_runner.sandbox.artifacts import (  # noqa: PLC0415
+        ArtifactValidationError,
+        validate_output_directory,
+    )
+
+    try:
+        validate_output_directory(output, max_total_bytes=MAX_OUTPUT_BYTES)
+    except ArtifactValidationError:
+        return True
+    return False
+
+
+def _path_attack_source(container_canary_path: str) -> str:
+    return (
+        "from pathlib import Path\n"
+        f"canary = Path({container_canary_path!r})\n"
+        "assert not canary.exists(), 'host canary became visible in the sandbox'\n"
+        "print('canary-not-visible')\n"
+    )
 
 
 def _sha256_json(value: object) -> str:
@@ -460,7 +557,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--work-root", type=Path, required=True)
     parser.add_argument("--runs-jsonl", type=Path, required=True)
     parser.add_argument("--summary", type=Path, required=True)
-    parser.add_argument("--execute", action="store_true", help="confirm real Docker attack execution")
+    parser.add_argument(
+        "--execute", action="store_true", help="confirm real Docker attack execution"
+    )
     args = parser.parse_args(argv)
     if not args.execute or not live_execution_enabled():
         parser.error(

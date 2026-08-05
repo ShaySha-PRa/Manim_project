@@ -41,6 +41,7 @@ def test_attack_cases_have_hard_resource_limits_and_no_live_default(
         "residual_container",
     }
     for case in harness.ATTACK_CASES:
+        compile(case.source, f"attack-{case.name}.py", "exec")
         assert case.timeout_seconds <= 15
         assert case.cpus <= 0.25
         assert case.memory_bytes <= 128 * 1024 * 1024
@@ -76,6 +77,15 @@ def test_live_attack_command_forces_python_entrypoint_and_has_only_two_data_moun
     assert "/host-canary" not in " ".join(command)
 
 
+def test_docker_start_failure_cannot_masquerade_as_a_resource_limit() -> None:
+    harness = load_harness()
+    for case_name in ("fork", "oom", "disk"):
+        case = next(case for case in harness.ATTACK_CASES if case.name == case_name)
+        assert harness._classify(case, 125, "docker rejected run", timed_out=False) == (
+            "docker_start_failed"
+        )
+
+
 def test_jsonl_is_append_only_resumable_and_rejects_forged_records(tmp_path: Path) -> None:
     harness = load_harness()
     runs_path = tmp_path / "runs.jsonl"
@@ -107,6 +117,8 @@ def test_summary_fails_closed_for_missing_or_failed_attack_evidence(tmp_path: Pa
     report = harness.summarize(harness.read_records(runs_path))
     assert report["gate_passed"] is True
     assert report["effective_record_count"] == len(harness.ATTACK_CASES)
+    assert report["duration_median_seconds"] == 0.1
+    assert report["duration_max_seconds"] == 0.1
 
     with pytest.raises(ValueError, match="missing"):
         harness.summarize(harness.read_records(runs_path)[:-1])
@@ -131,3 +143,14 @@ def test_detected_symlink_is_accepted_as_rejected_malicious_output_evidence(tmp_
     report = harness.summarize(harness.read_records(runs_path))
     assert report["gate_passed"] is True
     assert report["unmitigated_output_attacks"] == []
+
+
+def test_symlink_evidence_comes_from_the_product_artifact_validation_boundary(
+    tmp_path: Path,
+) -> None:
+    harness = load_harness()
+    output = tmp_path / "output"
+    output.mkdir()
+    (output / "link").symlink_to("/etc/passwd")
+
+    assert harness.artifact_validator_rejected(output) is True

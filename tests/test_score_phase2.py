@@ -4,7 +4,6 @@ import unittest
 
 from scripts.score_phase2 import ResultError, score_results
 
-
 SCENES = (
     "formula_transform",
     "derivative",

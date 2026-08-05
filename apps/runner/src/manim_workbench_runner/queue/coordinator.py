@@ -13,10 +13,13 @@ from manim_workbench_contracts import RenderJobLease
 from .redis_queue import SignalQueueUnavailable
 from .signals import JobSignalDecodeError
 from .types import (
+    JobControl,
     JobLifecyclePort,
     LeaseNotActiveError,
+    SandboxCancellationRequested,
     SandboxExecutionError,
     SandboxExecutor,
+    SandboxWorkItem,
     SignalQueue,
 )
 
@@ -74,8 +77,8 @@ class RunnerCoordinator:
         runner_id: str,
         retry_policy: QueueRetryPolicy | None = None,
         sleep: Callable[[float], None] = default_sleep,
-        lease_seconds: int = 30,
-        heartbeat_extend_seconds: int = 30,
+        lease_seconds: int = 300,
+        heartbeat_extend_seconds: int = 300,
     ) -> None:
         if not runner_id:
             raise ValueError("runner_id cannot be empty")
@@ -101,6 +104,7 @@ class RunnerCoordinator:
         except JobSignalDecodeError:
             return CoordinatorOutcome.MALFORMED_SIGNAL
         if signal is None:
+            self.recover()
             return CoordinatorOutcome.IDLE
 
         try:
@@ -128,27 +132,53 @@ class RunnerCoordinator:
                 return CoordinatorOutcome.CLAIM_REJECTED
 
             start_control = self._lifecycle.start(lease)
-            cancellation_outcome = self._cancellation_outcome(lease, start_control)
-            if cancellation_outcome is not None:
-                return cancellation_outcome
-
-            heartbeat_control = self._lifecycle.heartbeat(
-                lease, extend_seconds=self._heartbeat_extend_seconds
+            cancellation_outcome = self._control_outcome(
+                lease,
+                start_control,
+                active_work=None,
             )
-            cancellation_outcome = self._cancellation_outcome(lease, heartbeat_control)
             if cancellation_outcome is not None:
                 return cancellation_outcome
 
-            result = self._sandbox.execute(lease)
+            pre_execution_control = self._lifecycle.heartbeat(
+                lease,
+                extend_seconds=self._heartbeat_extend_seconds,
+            )
+            cancellation_outcome = self._control_outcome(
+                lease,
+                pre_execution_control,
+                active_work=None,
+            )
+            if cancellation_outcome is not None:
+                return cancellation_outcome
+
+            work = SandboxWorkItem(lease=lease)
+            try:
+                result = self._sandbox.execute(
+                    work,
+                    control_probe=lambda: self._poll_running_control(work),
+                )
+            except SandboxCancellationRequested:
+                self._lifecycle.confirm_cancelled(lease)
+                return CoordinatorOutcome.CANCELLED
+
             final_heartbeat = self._lifecycle.heartbeat(
                 lease, extend_seconds=self._heartbeat_extend_seconds
             )
-            cancellation_outcome = self._cancellation_outcome(lease, final_heartbeat)
+            cancellation_outcome = self._control_outcome(
+                lease,
+                final_heartbeat,
+                active_work=work,
+            )
             if cancellation_outcome is not None:
                 return cancellation_outcome
 
-            completion_control = self._lifecycle.complete(lease, result)
-            cancellation_outcome = self._cancellation_outcome(lease, completion_control)
+            completion_control = self._lifecycle.complete(lease, result.artifacts)
+            cancellation_outcome = self._control_outcome(
+                lease,
+                completion_control,
+                active_work=work,
+            )
             if cancellation_outcome is not None:
                 return cancellation_outcome
             return CoordinatorOutcome.SUCCEEDED
@@ -158,17 +188,31 @@ class RunnerCoordinator:
             self._lifecycle.fail(lease, error.failure_code)
             return CoordinatorOutcome.FAILED
 
-    def _cancellation_outcome(
-        self, lease: RenderJobLease, control: object
+    def _poll_running_control(self, work: SandboxWorkItem) -> JobControl:
+        control = self._lifecycle.heartbeat(
+            work.lease,
+            extend_seconds=self._heartbeat_extend_seconds,
+        )
+        if not control.active:
+            self._sandbox.cancel(work)
+            raise LeaseNotActiveError("lease expired or was superseded while running")
+        if control.cancellation_requested:
+            self._sandbox.cancel(work)
+            raise SandboxCancellationRequested("job cancellation requested while running")
+        return control
+
+    def _control_outcome(
+        self,
+        lease: RenderJobLease,
+        control: JobControl,
+        *,
+        active_work: SandboxWorkItem | None,
     ) -> CoordinatorOutcome | None:
-        if not hasattr(control, "active") or not hasattr(control, "cancellation_requested"):
-            raise TypeError(
-                "lifecycle control response must expose active and cancellation_requested"
-            )
         if not control.active:
             return CoordinatorOutcome.LEASE_LOST
         if control.cancellation_requested:
-            self._sandbox.cancel(lease)
+            if active_work is not None:
+                self._sandbox.cancel(active_work)
             self._lifecycle.confirm_cancelled(lease)
             return CoordinatorOutcome.CANCELLED
         return None

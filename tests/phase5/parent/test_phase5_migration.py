@@ -32,6 +32,10 @@ def test_phase5_migration_adds_durable_lease_and_recovery_state(tmp_path: Path) 
         row[1] for row in connection.execute("PRAGMA index_list(render_jobs)")
     }
     assert "ix_render_jobs_recovery" in indexes
+    code_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(code_versions)")
+    }
+    assert "scene_class" in code_columns
 
 
 def test_phase5_migration_downgrades_to_phase3_schema(tmp_path: Path) -> None:
@@ -48,3 +52,7 @@ def test_phase5_migration_downgrades_to_phase3_schema(tmp_path: Path) -> None:
     assert "attempt_count" not in columns
     assert "lease_token" not in columns
     assert "state_version" not in columns
+    code_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(code_versions)")
+    }
+    assert "scene_class" not in code_columns

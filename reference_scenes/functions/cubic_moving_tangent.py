@@ -31,12 +31,22 @@ class CubicMovingTangentScene(Scene):
             y_length=4.8,
             tips=False,
         ).add_coordinates()
-        graph = axes.plot(lambda x: x**3, x_range=[-1.8, 1.8], color=BLUE)
+
+        def cubic(x):
+            return x**3
+
+        graph = axes.plot(cubic, x_range=[-1.8, 1.8], color=BLUE)
         graph_label = MathTex(r"y=x^3", color=BLUE).scale(0.75).move_to(axes.c2p(-1.45, -4.7))
         parameter = ValueTracker(-1.2)
-        point = always_redraw(
-            lambda: Dot(axes.c2p(parameter.get_value(), parameter.get_value() ** 3), color=RED)
-        )
+
+        def moving_point():
+            return Dot(
+                axes.c2p(parameter.get_value(), parameter.get_value() ** 3),
+                color=RED,
+            )
+
+        point = always_redraw(moving_point)
+
         def tangent_line() -> Line:
             x_value = parameter.get_value()
             slope = 3 * x_value**2
@@ -47,17 +57,23 @@ class CubicMovingTangentScene(Scene):
             )
 
         tangent = always_redraw(tangent_line)
-        readout = always_redraw(
-            lambda: VGroup(
-                MathTex("a="),
-                DecimalNumber(parameter.get_value(), num_decimal_places=1, color=RED),
-                MathTex(r"\qquad m=3a^2="),
-                DecimalNumber(3 * parameter.get_value() ** 2, num_decimal_places=2, color=YELLOW),
+
+        def parameter_readout():
+            return (
+                VGroup(
+                    MathTex("a="),
+                    DecimalNumber(parameter.get_value(), num_decimal_places=1, color=RED),
+                    MathTex(r"\qquad m=3a^2="),
+                    DecimalNumber(
+                        3 * parameter.get_value() ** 2, num_decimal_places=2, color=YELLOW
+                    ),
+                )
+                .arrange(buff=0.06)
+                .scale(0.72)
+                .to_edge(DOWN)
             )
-            .arrange(buff=0.06)
-            .scale(0.72)
-            .to_edge(DOWN)
-        )
+
+        readout = always_redraw(parameter_readout)
 
         self.play(Write(title), run_time=0.6)
         self.play(Create(axes), Create(graph), Write(graph_label), run_time=0.9)

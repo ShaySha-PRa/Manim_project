@@ -5,7 +5,31 @@ API references (fixed release):
 - https://github.com/3b1b/manim/blob/v1.7.2/manimlib/mobject/coordinate_systems.py
 """
 
-from manimlib import *
+from manimlib import (
+    BLUE,
+    DOWN,
+    RED,
+    RIGHT,
+    UP,
+    UR,
+    YELLOW,
+    Axes,
+    DashedLine,
+    DecimalNumber,
+    Dot,
+    FadeIn,
+    Line,
+    Scene,
+    ShowCreation,
+    Tex,
+    Text,
+    Transform,
+    TransformMatchingTex,
+    ValueTracker,
+    VGroup,
+    Write,
+    always_redraw,
+)
 
 
 def benchmark_axes(x_range=(-4, 4, 1), y_range=(-2, 9, 1)):

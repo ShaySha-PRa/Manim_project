@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, Header, Query, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -17,6 +17,9 @@ from manim_workbench_contracts import (
 )
 from sqlalchemy import Engine
 
+from manim_workbench_api.delivery.dependencies import get_artifact_root
+from manim_workbench_api.quality.completion import record_completed_quality
+
 from .dependencies import (
     JobSignalPublisher,
     get_database_engine,
@@ -25,9 +28,10 @@ from .dependencies import (
     internal_token_is_valid,
 )
 from .errors import INTERNAL_TOKEN_INVALID, VALIDATION_ERROR, JobError
-from .models import JobResponse
+from .models import JobResponse, LeaseActionRequest, RecoverableJobsResponse
 from .repository import JobRepository
 from .service import JobService
+
 
 class StableValidationRoute(APIRoute):
     """Keep request validation errors on the same public error envelope."""
@@ -176,7 +180,14 @@ def complete_render_job(
     if error := _token_error(request_token, expected_token):
         return error
     try:
-        return _service(engine, publisher).complete(job_id, completion)
+        response = _service(engine, publisher).complete(job_id, completion)
+        record_completed_quality(
+            engine=engine,
+            artifact_root=get_artifact_root(),
+            job_id=job_id,
+            completion=completion,
+        )
+        return response
     except JobError as error:
         return error.response()
 
@@ -194,5 +205,38 @@ def fail_render_job(
         return error
     try:
         return _service(engine, publisher).fail(job_id, report)
+    except JobError as error:
+        return error.response()
+
+
+@router.get("/internal/render-jobs/recoverable", response_model=RecoverableJobsResponse)
+def recoverable_render_jobs(
+    limit: int = Query(default=50, ge=1, le=100),
+    request_token: RequestToken = None,
+    expected_token: InternalToken = "",
+    engine: DatabaseEngine = None,  # type: ignore[assignment]
+    publisher: SignalPublisher = None,  # type: ignore[assignment]
+) -> RecoverableJobsResponse | JSONResponse:
+    if error := _token_error(request_token, expected_token):
+        return error
+    try:
+        return _service(engine, publisher).recoverable(limit)
+    except JobError as error:
+        return error.response()
+
+
+@router.post("/internal/render-jobs/{job_id}/cancelled", response_model=JobResponse)
+def confirm_render_job_cancelled(
+    job_id: UUID,
+    request: LeaseActionRequest,
+    request_token: RequestToken = None,
+    expected_token: InternalToken = "",
+    engine: DatabaseEngine = None,  # type: ignore[assignment]
+    publisher: SignalPublisher = None,  # type: ignore[assignment]
+) -> JobResponse | JSONResponse:
+    if error := _token_error(request_token, expected_token):
+        return error
+    try:
+        return _service(engine, publisher).confirm_cancelled(job_id, request.lease_token)
     except JobError as error:
         return error.response()

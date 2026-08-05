@@ -28,7 +28,11 @@ def _option(command: tuple[str, ...], flag: str) -> tuple[str, str]:
 
 
 def test_build_sandbox_command_has_only_fixed_least_privilege_options(tmp_path: Path) -> None:
-    from manim_workbench_runner.sandbox.policy import SandboxLimits, build_sandbox_command
+    from manim_workbench_runner.sandbox.policy import (
+        FIXED_WRAPPER,
+        SandboxLimits,
+        build_sandbox_command,
+    )
 
     invocation = _invocation(tmp_path)
     command = build_sandbox_command(
@@ -49,20 +53,35 @@ def test_build_sandbox_command_has_only_fixed_least_privilege_options(tmp_path: 
     assert _option(command, "--user") == ("--user", "1000:1000")
     assert _option(command, "--pids-limit") == ("--pids-limit", "64")
     assert _option(command, "--cpus") == ("--cpus", "1.0")
+    assert _option(command, "--cpuset-cpus") == ("--cpuset-cpus", "0")
     assert _option(command, "--memory") == ("--memory", "1g")
     assert _option(command, "--memory-swap") == ("--memory-swap", "1g")
     assert "/tmp:rw,noexec,nosuid,nodev,size=256m" in command
     assert "/home/manim:rw,noexec,nosuid,nodev,size=64m" in command
     assert "HOME=/home/manim" in command
+    for fixed_thread_limit in (
+        "OPENBLAS_NUM_THREADS=1",
+        "OMP_NUM_THREADS=1",
+        "MKL_NUM_THREADS=1",
+        "NUMEXPR_NUM_THREADS=1",
+        "BLIS_NUM_THREADS=1",
+    ):
+        assert fixed_thread_limit in command
     assert any(item.endswith(":/input/scene.py:ro") for item in command)
     assert any(item.endswith(":/output:rw") for item in command)
+    assert "/usr/share/fonts:/usr/share/fonts/host:ro" in command
     assert "--privileged" not in command
     assert not any(item.startswith("--pid=") or item == "--pid" for item in command)
     assert not any(item.startswith("--ipc=") or item == "--ipc" for item in command)
     assert not any(item.startswith("--network=host") for item in command)
     assert not any("docker.sock" in item for item in command)
     assert not any("seccomp=unconfined" in item for item in command)
-    assert command[-2:] == ("/input/scene.py", "GeneratedScene")
+    assert _option(command, "--entrypoint") == ("--entrypoint", "python")
+    assert FIXED_WRAPPER in command
+    assert "shell=False" in FIXED_WRAPPER
+    assert "thumbnail.jpg" in FIXED_WRAPPER
+    assert "metadata.json" in FIXED_WRAPPER
+    assert command[-3:] == ("preview", "l", "GeneratedScene")
 
 
 def test_command_uses_stable_safe_name_derived_from_job_id(tmp_path: Path) -> None:
@@ -76,6 +95,27 @@ def test_command_uses_stable_safe_name_derived_from_job_id(tmp_path: Path) -> No
     assert first_name == "manim-wb-12345678123456781234567812345678"
     assert first_name == second_name
     assert first_name.replace("-", "").isalnum()
+
+
+def test_final_profile_has_a_fixed_bounded_memory_budget(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from manim_workbench_runner.sandbox.policy import SandboxLimits, build_sandbox_command
+
+    invocation = replace(_invocation(tmp_path), profile=RenderProfile.FINAL)
+    command = build_sandbox_command(invocation, SandboxLimits())
+
+    assert _option(command, "--memory") == ("--memory", "2g")
+    assert _option(command, "--memory-swap") == ("--memory-swap", "2g")
+
+
+def test_sandbox_limits_reject_resource_limit_overrides() -> None:
+    from manim_workbench_runner.sandbox.policy import SandboxLimits
+
+    with pytest.raises(ValueError, match="resource limits"):
+        SandboxLimits(pids_limit=65)
+    with pytest.raises(ValueError, match="CPU slot"):
+        SandboxLimits(cpuset_cpu=8)
 
 
 @pytest.mark.parametrize("field", ("source", "output"))

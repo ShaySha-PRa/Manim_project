@@ -26,7 +26,11 @@ class RiemannSumAreaScene(Scene):
         ).add_coordinates()
         axes.shift(0.25 * UP)
         axis_labels = axes.get_axis_labels(MathTex("x"), MathTex("y"))
-        graph = axes.plot(lambda x: x**2, x_range=[0, 2], color=BLUE)
+
+        def quadratic(x):
+            return x**2
+
+        graph = axes.plot(quadratic, x_range=[0, 2], color=BLUE)
         graph_label = MathTex(r"y=x^2", color=BLUE).scale(0.75).move_to(axes.c2p(1.4, 3.6))
         coarse = axes.get_riemann_rectangles(
             graph,

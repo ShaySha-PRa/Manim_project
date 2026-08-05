@@ -1,0 +1,33 @@
+{
+  "records": [
+    {
+      "actual_duration_seconds": 90.0,
+      "analysis_and_render_seconds": 59.346,
+      "case_id": "G01",
+      "category": "function_visualization",
+      "diagnostic_codes": [],
+      "diagnostic_signature": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "estimated_duration_seconds": 89.99999999999996,
+      "frame_count": 5400,
+      "frame_rate": 60.0,
+      "profile": "final",
+      "target_duration_seconds": 90,
+      "terminal_status": "passed"
+    },
+    {
+      "actual_duration_seconds": 90.0,
+      "analysis_and_render_seconds": 11.885,
+      "case_id": "G01",
+      "category": "function_visualization",
+      "diagnostic_codes": [],
+      "diagnostic_signature": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "estimated_duration_seconds": 89.99999999999996,
+      "frame_count": 1350,
+      "frame_rate": 15.0,
+      "profile": "preview",
+      "target_duration_seconds": 90,
+      "terminal_status": "passed"
+    }
+  ],
+  "schema_version": "1.0"
+}

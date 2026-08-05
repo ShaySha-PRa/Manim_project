@@ -64,6 +64,7 @@ queued ──claim──> claimed ──start──> running ──complete─�
 - 终态：`succeeded`、`failed`、`cancelled`，不可离开。
 - `claimed` 表示已取得租约，不增加同义 `leased` 状态。
 - claim 原子设置 `lease_owner`、随机 256-bit `lease_token`、`lease_expires_at`，并递增 `attempt_count` 与 `state_version`。
+- claim 响应同时携带内部执行所需的 `scene_class`、`source_code` 和 `source_sha256`；Runner 不得直连 SQLite，并在落盘前复核源码哈希。
 - heartbeat、start、complete、fail 必须同时匹配 Job ID、非过期 lease token 和允许的当前状态。
 - 过期 lease 最多重排至 `queued` 三次；达到最大尝试次数后转 `failed/runner_lost`。
 - queued 取消立即进入 `cancelled`；claimed/running 取消写入 `cancellation_requested_at`，Runner 必须终止容器并确认 cancelled。
@@ -91,6 +92,8 @@ queued ──claim──> claimed ──start──> running ──complete─�
 - `POST /internal/render-jobs/{job_id}/start`
 - `POST /internal/render-jobs/{job_id}/complete`
 - `POST /internal/render-jobs/{job_id}/fail`
+- `POST /internal/render-jobs/{job_id}/cancelled`
+- `GET /internal/render-jobs/recoverable?limit=...`
 
 内部路由通过常量时间比较验证 `X-Internal-Token`。令牌只来自环境变量，不进入 Redis、数据库、日志、Docker 参数或子容器环境。
 
@@ -174,7 +177,9 @@ Host Runner 必须使用 container ID file 或确定性名称在 timeout/cancel 
 - `infra/compose.yaml`
 - `pyproject.toml`、`uv.lock`
 - `apps/api/src/manim_workbench_api/main.py`
+- `apps/api/src/manim_workbench_api/phase5_runtime.py`
 - `apps/runner/src/manim_workbench_runner/__main__.py`
+- `apps/runner/src/manim_workbench_runner/phase5_runtime.py`
 - `tests/phase5/parent/**`
 - `tests/phase5/integration/**`
 
@@ -242,4 +247,3 @@ sg docker -c 'docker ps'
 - redis-py production usage: https://redis.io/docs/latest/develop/clients/redis-py/produsage/
 - FastAPI dependencies: https://fastapi.tiangolo.com/tutorial/dependencies/
 - FastAPI test dependency overrides: https://fastapi.tiangolo.com/advanced/testing-dependencies/
-

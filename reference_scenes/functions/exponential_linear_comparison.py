@@ -36,36 +36,52 @@ class ExponentialLinearComparisonScene(Scene):
             tips=False,
         ).add_coordinates()
         axis_labels = axes.get_axis_labels(MathTex("x"), MathTex("y"))
-        exponential = axes.plot(lambda x: math.exp(x), x_range=[-2.2, 1.8], color=BLUE)
-        linear = axes.plot(lambda x: 1 + x, x_range=[-2.4, 2.4], color=GREEN)
+
+        def exponential_function(x):
+            return math.exp(x)
+
+        def tangent_function(x):
+            return 1 + x
+
+        exponential = axes.plot(exponential_function, x_range=[-2.2, 1.8], color=BLUE)
+        linear = axes.plot(tangent_function, x_range=[-2.4, 2.4], color=GREEN)
         exponential_label = MathTex(r"y=e^x", color=BLUE).scale(0.72).move_to(axes.c2p(1.25, 4.2))
         linear_label = MathTex(r"y=1+x", color=GREEN).scale(0.68).move_to(axes.c2p(1.55, 2.15))
         tracker = ValueTracker(-1.4)
-        point = always_redraw(
-            lambda: Dot(axes.c2p(tracker.get_value(), math.exp(tracker.get_value())), color=RED)
-        )
-        gap = always_redraw(
-            lambda: DashedLine(
+
+        def moving_point():
+            return Dot(
+                axes.c2p(tracker.get_value(), math.exp(tracker.get_value())),
+                color=RED,
+            )
+
+        def moving_gap():
+            return DashedLine(
                 axes.c2p(tracker.get_value(), 1 + tracker.get_value()),
                 axes.c2p(tracker.get_value(), math.exp(tracker.get_value())),
                 color=YELLOW,
             )
-        )
-        readout = always_redraw(
-            lambda: VGroup(
-                MathTex("x="),
-                DecimalNumber(tracker.get_value(), num_decimal_places=1, color=RED),
-                MathTex(r",\qquad e^x-(1+x)="),
-                DecimalNumber(
-                    math.exp(tracker.get_value()) - 1 - tracker.get_value(),
-                    num_decimal_places=2,
-                    color=YELLOW,
-                ),
+
+        def comparison_readout():
+            return (
+                VGroup(
+                    MathTex("x="),
+                    DecimalNumber(tracker.get_value(), num_decimal_places=1, color=RED),
+                    MathTex(r",\qquad e^x-(1+x)="),
+                    DecimalNumber(
+                        math.exp(tracker.get_value()) - 1 - tracker.get_value(),
+                        num_decimal_places=2,
+                        color=YELLOW,
+                    ),
+                )
+                .arrange(RIGHT, buff=0.10)
+                .scale(0.62)
+                .to_edge(DOWN)
             )
-            .arrange(RIGHT, buff=0.10)
-            .scale(0.62)
-            .to_edge(DOWN)
-        )
+
+        point = always_redraw(moving_point)
+        gap = always_redraw(moving_gap)
+        readout = always_redraw(comparison_readout)
         tangent_point = Dot(axes.c2p(0, 1), color=YELLOW)
 
         self.play(Write(title), run_time=0.6)

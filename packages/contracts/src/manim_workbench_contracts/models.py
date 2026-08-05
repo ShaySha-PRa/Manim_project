@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-CONTRACT_SCHEMA_VERSION = "1.1"
+CONTRACT_SCHEMA_VERSION = "1.5"
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
@@ -24,11 +24,72 @@ class Audience(str, Enum):
     MIDDLE_SCHOOL = "middle_school"
     HIGH_SCHOOL = "high_school"
     UNDERGRADUATE = "undergraduate"
+    GENERAL_AUDIENCE = "general_audience"
 
 
 class Language(str, Enum):
     ZH_CN = "zh-CN"
     EN_US = "en-US"
+
+
+class DerivationStyle(str, Enum):
+    STEP_BY_STEP = "step_by_step"
+    CONCEPTUAL = "conceptual"
+    PROOF_ORIENTED = "proof_oriented"
+    VISUAL_INTUITION = "visual_intuition"
+
+
+class ContentPlanOutcome(str, Enum):
+    READY = "ready"
+    NEEDS_CLARIFICATION = "needs_clarification"
+    UNSUPPORTED = "unsupported"
+
+
+class CodeGenerationCategory(str, Enum):
+    FORMULA_DERIVATION = "formula_derivation"
+    FUNCTION_VISUALIZATION = "function_visualization"
+
+
+class CodeGenerationMode(str, Enum):
+    FULL = "full"
+    DETERMINISTIC_TEMPLATE = "deterministic_template"
+
+
+class CodeGenerationOutcome(str, Enum):
+    READY = "ready"
+    DEGRADED = "degraded"
+    FAILED = "failed"
+    PAUSED = "paused"
+
+
+class CodeGenerationErrorCode(str, Enum):
+    CONTENT_PLAN_NOT_FOUND = "content_plan_not_found"
+    PROVIDER_UNAVAILABLE = "provider_unavailable"
+    PROVIDER_AUTHENTICATION = "provider_authentication"
+    PROVIDER_CONFIGURATION = "provider_configuration"
+    PROVIDER_TIMEOUT = "provider_timeout"
+    INVALID_MODEL_RESPONSE = "invalid_model_response"
+    RESPONSE_TOO_LARGE = "response_too_large"
+    AST_PARSE_FAILED = "ast_parse_failed"
+    STATIC_POLICY_REPAIRABLE = "static_policy_repairable"
+    SECURITY_POLICY_VIOLATION = "security_policy_violation"
+    COMPILE_FAILED = "compile_failed"
+    SCENE_STRUCTURE_INVALID = "scene_structure_invalid"
+    RENDER_FAILED = "render_failed"
+    SANDBOX_TIMEOUT = "sandbox_timeout"
+    SANDBOX_RESOURCE_LIMIT = "sandbox_resource_limit"
+    ATTEMPT_BUDGET_EXHAUSTED = "attempt_budget_exhausted"
+    CATEGORY_DEGRADED = "category_degraded"
+    GENERATION_PAUSED = "generation_paused"
+    INTERNAL_ERROR = "internal_error"
+
+
+class ClarificationField(str, Enum):
+    AUDIENCE = "audience"
+    DURATION = "duration"
+    DERIVATION_STYLE = "derivation_style"
+    ASSUMPTIONS = "assumptions"
+    MATHEMATICAL_INTENT = "mathematical_intent"
 
 
 class RenderProfile(str, Enum):
@@ -76,10 +137,102 @@ class GenerationStatus(str, Enum):
     FAILED = "failed"
 
 
+class PipelineStage(str, Enum):
+    PROMPT = "prompt"
+    CONTENT_PLAN = "content_plan"
+    CODE_GENERATION = "code_generation"
+    PREVIEW_RENDER = "preview_render"
+    FINAL_RENDER = "final_render"
+    ARTIFACT_DELIVERY = "artifact_delivery"
+    QUALITY_ANALYSIS = "quality_analysis"
+    QUALITY_RECOVERY = "quality_recovery"
+
+
+class QualityStatus(str, Enum):
+    PENDING = "pending"
+    ANALYZING = "analyzing"
+    REPAIR_REQUIRED = "repair_required"
+    REPAIRING = "repairing"
+    PASSED = "passed"
+    DEGRADED = "degraded"
+    FAILED = "failed"
+
+
+class QualitySeverity(str, Enum):
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
+class QualityDiagnosticCode(str, Enum):
+    SOURCE_NOT_APPROVED = "source_not_approved"
+    DEFAULT_PLAY_DURATION_ASSUMED = "default_play_duration_assumed"
+    DURATION_TOO_SHORT = "duration_too_short"
+    DURATION_TOO_LONG = "duration_too_long"
+    PREVIEW_FINAL_TIMELINE_MISMATCH = "preview_final_timeline_mismatch"
+    LONG_STATIC_SEGMENT = "long_static_segment"
+    BLANK_FRAME = "blank_frame"
+    OBJECT_OUT_OF_BOUNDS = "object_out_of_bounds"
+    OBJECT_OVERLAP = "object_overlap"
+    TEXT_TOO_SMALL = "text_too_small"
+    CJK_GLYPH_MISSING = "cjk_glyph_missing"
+    KEY_FORMULA_MISSING = "key_formula_missing"
+    OBJECT_MISSING = "object_missing"
+    ANIMATION_ORDER_MISMATCH = "animation_order_mismatch"
+    TIMELINE_UNKNOWN = "timeline_unknown"
+    TERMINAL_WAIT_PADDING = "terminal_wait_padding"
+    MEDIA_METADATA_INVALID = "media_metadata_invalid"
+    MEDIA_METADATA_INCONSISTENT = "media_metadata_inconsistent"
+    PLANNED_SCENE_MISSING = "planned_scene_missing"
+
+
+class SessionState(str, Enum):
+    ACTIVE = "active"
+    REVOKED = "revoked"
+    EXPIRED = "expired"
+
+
 class User(ContractModel):
     id: UUID
     email: Annotated[str, Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$")]
     created_at: datetime
+
+
+class AuthenticatedUser(ContractModel):
+    id: UUID
+    email: Annotated[str, Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$")]
+    must_change_password: bool
+    created_at: datetime
+
+
+class LoginRequest(ContractModel):
+    email: Annotated[str, Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$")]
+    password: Annotated[str, Field(min_length=12, max_length=1_024)]
+
+
+class LoginResponse(ContractModel):
+    user: AuthenticatedUser
+    csrf_token: Annotated[str, Field(min_length=32, max_length=256)]
+    expires_at: datetime
+
+
+class PasswordChangeRequest(ContractModel):
+    current_password: Annotated[str, Field(min_length=12, max_length=1_024)]
+    new_password: Annotated[str, Field(min_length=14, max_length=1_024)]
+
+
+class LogoutResponse(ContractModel):
+    ok: Literal[True]
+
+
+class ApiErrorDetail(ContractModel):
+    code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{2,99}$")]
+    message: Annotated[str, Field(min_length=1, max_length=1_000)]
+    stage: PipelineStage | None = None
+
+
+class ApiErrorResponse(ContractModel):
+    error: ApiErrorDetail
 
 
 class Project(ContractModel):
@@ -88,6 +241,30 @@ class Project(ContractModel):
     title: ShortText
     created_at: datetime
     archived_at: datetime | None = None
+
+
+class ProjectCreateRequest(ContractModel):
+    title: ShortText
+
+
+class ProjectUpdateRequest(ContractModel):
+    title: ShortText | None = None
+    archived: bool | None = None
+
+    @model_validator(mode="after")
+    def require_update(self) -> ProjectUpdateRequest:
+        if self.title is None and self.archived is None:
+            raise ValueError("at least one project field must be provided")
+        return self
+
+
+class ProjectPage(ContractModel):
+    items: Annotated[tuple[Project, ...], Field(max_length=100)]
+    next_cursor: UUID | None = None
+
+
+class PromptVersionCreateRequest(ContractModel):
+    prompt: LongText
 
 
 class VersionedRecord(ContractModel):
@@ -111,6 +288,11 @@ class PromptVersion(VersionedRecord):
     prompt: LongText
 
 
+class PromptVersionPage(ContractModel):
+    items: Annotated[tuple[PromptVersion, ...], Field(max_length=100)]
+    next_cursor: Annotated[int | None, Field(ge=1)] = None
+
+
 class FormulaStep(ContractModel):
     expression: Annotated[str, Field(min_length=1, max_length=2_000)]
     explanation: Annotated[str, Field(min_length=1, max_length=2_000)]
@@ -125,13 +307,134 @@ class ContentPlanScene(ContractModel):
 
 
 class ContentPlanVersion(VersionedRecord):
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.0", "1.1"]
     title: ShortText
     audience: Audience
     language: Language
     target_duration_seconds: Annotated[int, Field(ge=15, le=600)]
+    derivation_style: DerivationStyle = DerivationStyle.STEP_BY_STEP
     explicit_assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)]
+    ambiguities: Annotated[tuple[ShortText, ...], Field(max_length=20)] = ()
     scenes: Annotated[tuple[ContentPlanScene, ...], Field(min_length=1, max_length=24)]
+
+    @model_validator(mode="before")
+    @classmethod
+    def require_phase6_fields(cls, value: object) -> object:
+        if isinstance(value, dict) and value.get("schema_version") == "1.1":
+            missing = {"derivation_style", "ambiguities"} - set(value)
+            if missing:
+                raise ValueError(f"ContentPlan 1.1 missing explicit fields: {sorted(missing)}")
+        return value
+
+
+class ContentPlanVersionPage(ContractModel):
+    items: Annotated[tuple[ContentPlanVersion, ...], Field(max_length=100)]
+    next_cursor: Annotated[int | None, Field(ge=1)] = None
+
+
+class ContentPlanGenerationRequest(ContractModel):
+    project_id: UUID
+    owner_id: UUID
+    prompt_version_id: UUID
+    audience: Audience | None = None
+    language: Language = Language.ZH_CN
+    target_duration_seconds: Annotated[int | None, Field(ge=30, le=180)] = None
+    derivation_style: DerivationStyle | None = None
+    explicit_assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)] = ()
+
+
+class WorkspaceContentPlanGenerationRequest(ContractModel):
+    prompt_version_id: UUID
+    audience: Audience | None = None
+    language: Language = Language.ZH_CN
+    target_duration_seconds: Annotated[int | None, Field(ge=30, le=180)] = None
+    derivation_style: DerivationStyle | None = None
+    explicit_assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)] = ()
+
+
+class ClarificationQuestion(ContractModel):
+    field: ClarificationField
+    question: Annotated[str, Field(min_length=1, max_length=500)]
+    options: Annotated[tuple[ShortText, ...], Field(max_length=6)] = ()
+
+
+class ContentPlanLimitation(ContractModel):
+    code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{2,63}$")]
+    message: Annotated[str, Field(min_length=1, max_length=1_000)]
+    supported_alternative: Annotated[str | None, Field(max_length=1_000)] = None
+
+
+class ContentPlanDraft(ContractModel):
+    schema_version: Literal["1.1"]
+    title: ShortText
+    audience: Audience
+    language: Language
+    target_duration_seconds: Annotated[int, Field(ge=30, le=180)]
+    derivation_style: DerivationStyle
+    explicit_assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)]
+    ambiguities: Annotated[tuple[ShortText, ...], Field(max_length=20)]
+    scenes: Annotated[tuple[ContentPlanScene, ...], Field(min_length=1, max_length=24)]
+
+
+class ContentPlanVersionCreateRequest(ContractModel):
+    parent_version_id: UUID
+    content_plan: ContentPlanDraft
+
+
+class ContentPlanModelResponse(ContractModel):
+    outcome: ContentPlanOutcome
+    plan: ContentPlanDraft | None = None
+    clarifications: Annotated[tuple[ClarificationQuestion, ...], Field(max_length=4)] = ()
+    limitations: Annotated[tuple[ContentPlanLimitation, ...], Field(max_length=4)] = ()
+
+    @model_validator(mode="after")
+    def validate_outcome_payload(self) -> ContentPlanModelResponse:
+        if self.outcome is ContentPlanOutcome.READY:
+            if self.plan is None or self.clarifications or self.limitations:
+                raise ValueError("ready requires only plan")
+        elif self.outcome is ContentPlanOutcome.NEEDS_CLARIFICATION:
+            if self.plan is not None or not self.clarifications or self.limitations:
+                raise ValueError("needs_clarification requires only clarifications")
+        elif self.plan is not None or self.clarifications or not self.limitations:
+            raise ValueError("unsupported requires only limitations")
+        return self
+
+
+class ContentPlanGenerationResponse(ContractModel):
+    outcome: ContentPlanOutcome
+    content_plan_version: ContentPlanVersion | None = None
+    clarifications: Annotated[tuple[ClarificationQuestion, ...], Field(max_length=4)] = ()
+    limitations: Annotated[tuple[ContentPlanLimitation, ...], Field(max_length=4)] = ()
+    attempts_used: Annotated[int, Field(ge=1, le=2)]
+
+
+class CodeGenerationRequest(ContractModel):
+    project_id: UUID
+    owner_id: UUID
+    prompt_version_id: UUID
+    content_plan_version_id: UUID
+    category: CodeGenerationCategory
+    force_regenerate: bool = False
+
+
+class WorkspaceCodeGenerationRequest(ContractModel):
+    prompt_version_id: UUID
+    content_plan_version_id: UUID
+    category: CodeGenerationCategory
+    force_regenerate: bool = False
+
+
+class CodeModelResponse(ContractModel):
+    scene_class: Literal["GeneratedScene"]
+    code: Annotated[str, Field(min_length=1, max_length=200_000)]
+    assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)] = ()
+
+    @field_validator("code")
+    @classmethod
+    def reject_markdown_fences(cls, value: str) -> str:
+        if "```" in value:
+            raise ValueError("code must not contain Markdown fences")
+        return value
 
 
 class CodeVersion(VersionedRecord):
@@ -139,8 +442,41 @@ class CodeVersion(VersionedRecord):
     content_plan_version_id: UUID
     source_code: Annotated[str, Field(min_length=1, max_length=200_000)]
     source_sha256: Sha256
+    scene_class: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{1,99}$")]
     engine: Literal["manimce"]
     engine_version: Literal["0.20.1"]
+    category: CodeGenerationCategory = CodeGenerationCategory.FORMULA_DERIVATION
+    generation_mode: CodeGenerationMode = CodeGenerationMode.FULL
+    prompt_template_version: Annotated[str | None, Field(max_length=100)] = None
+    provider_model: Annotated[str | None, Field(max_length=100)] = None
+    assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)] = ()
+
+
+class CodeGenerationResponse(ContractModel):
+    outcome: CodeGenerationOutcome
+    code_version: CodeVersion | None = None
+    attempts_used: Annotated[int, Field(ge=0, le=3)]
+    mode: CodeGenerationMode
+    error_code: CodeGenerationErrorCode | None = None
+
+    @model_validator(mode="after")
+    def validate_outcome_payload(self) -> CodeGenerationResponse:
+        successful = self.outcome in {
+            CodeGenerationOutcome.READY,
+            CodeGenerationOutcome.DEGRADED,
+        }
+        if successful and (self.code_version is None or self.error_code is not None):
+            raise ValueError("ready/degraded requires only code_version")
+        if not successful and (self.code_version is not None or self.error_code is None):
+            raise ValueError("failed/paused requires only error_code")
+        if self.outcome is CodeGenerationOutcome.READY and self.mode is not CodeGenerationMode.FULL:
+            raise ValueError("ready requires full generation mode")
+        if (
+            self.outcome is CodeGenerationOutcome.DEGRADED
+            and self.mode is not CodeGenerationMode.DETERMINISTIC_TEMPLATE
+        ):
+            raise ValueError("degraded requires deterministic template mode")
+        return self
 
 
 class RenderJob(ContractModel):
@@ -172,6 +508,12 @@ class RenderJobSubmission(ContractModel):
     idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]
 
 
+class WorkspaceRenderJobSubmission(ContractModel):
+    code_version_id: UUID
+    profile: RenderProfile
+    idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]
+
+
 class RenderJobLeaseRequest(ContractModel):
     runner_id: Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{2,99}$")]
     lease_seconds: Annotated[int, Field(ge=5, le=300)] = 30
@@ -180,7 +522,12 @@ class RenderJobLeaseRequest(ContractModel):
 class RenderJobLease(ContractModel):
     job_id: UUID
     code_version_id: UUID
+    content_plan_version_id: UUID
+    target_duration_seconds: Annotated[float, Field(gt=0, le=600)]
     profile: RenderProfile
+    scene_class: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{1,99}$")]
+    source_code: Annotated[str, Field(min_length=1, max_length=200_000)]
+    source_sha256: Sha256
     lease_token: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     lease_expires_at: datetime
     attempt_number: Annotated[int, Field(ge=1, le=3)]
@@ -236,6 +583,83 @@ class Artifact(ContractModel):
         return value
 
 
+class JobEvent(ContractModel):
+    event_id: Annotated[int, Field(ge=1)]
+    render_job_id: UUID
+    state_version: Annotated[int, Field(ge=0)]
+    stage: PipelineStage
+    status: RenderJobStatus
+    error_code: Annotated[str | None, Field(max_length=100)] = None
+    created_at: datetime
+
+
+class ArtifactDescriptor(ContractModel):
+    id: UUID
+    render_job_id: UUID
+    kind: ArtifactKind
+    sha256: Sha256
+    byte_size: Annotated[int, Field(ge=0)]
+    preview_url: Annotated[str, Field(min_length=1, max_length=500)]
+    download_url: Annotated[str, Field(min_length=1, max_length=500)]
+
+
+class QualityDiagnostic(ContractModel):
+    code: QualityDiagnosticCode
+    severity: QualitySeverity
+    stage: PipelineStage
+    message: Annotated[str, Field(min_length=1, max_length=1_000)]
+    suggestion: Annotated[str, Field(min_length=1, max_length=1_000)]
+    evidence_ref: RelativePath | None = None
+    measured_value: float | None = None
+    threshold_value: float | None = None
+
+    @field_validator("evidence_ref")
+    @classmethod
+    def validate_evidence_ref(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.replace("\\", "/")
+        if normalized.startswith("/") or ".." in normalized.split("/"):
+            raise ValueError("evidence_ref must stay relative")
+        return value
+
+
+class QualityReport(ContractModel):
+    id: UUID
+    project_id: UUID
+    owner_id: UUID
+    render_job_id: UUID
+    code_version_id: UUID
+    content_plan_version_id: UUID
+    status: QualityStatus
+    target_duration_seconds: Annotated[float, Field(gt=0, le=600)]
+    estimated_duration_seconds: Annotated[float | None, Field(ge=0, le=3_600)] = None
+    actual_duration_seconds: Annotated[float | None, Field(ge=0, le=3_600)] = None
+    frame_rate: Annotated[float | None, Field(gt=0, le=240)] = None
+    frame_count: Annotated[int | None, Field(ge=0)] = None
+    score: Annotated[int | None, Field(ge=0, le=100)] = None
+    repair_count: Annotated[int, Field(ge=0, le=2)]
+    diagnostic_signature: Sha256
+    provider_model: Annotated[str, Field(min_length=1, max_length=100)]
+    prompt_template_version: Annotated[str, Field(min_length=1, max_length=100)]
+    content_plan_schema_version: Annotated[str, Field(min_length=1, max_length=20)]
+    manim_version: Annotated[str, Field(min_length=1, max_length=50)]
+    image_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    ast_policy_version: Annotated[str, Field(min_length=1, max_length=100)]
+    diagnostic_policy_version: Annotated[str, Field(min_length=1, max_length=100)]
+    created_at: datetime
+
+
+class QualityReportPage(ContractModel):
+    items: Annotated[tuple[QualityReport, ...], Field(max_length=100)]
+    next_cursor: UUID | None = None
+
+
+class QualityHumanRatingRequest(ContractModel):
+    score: Annotated[int, Field(ge=0, le=100)]
+    notes: Annotated[str | None, Field(max_length=2_000)] = None
+
+
 class GenerationAttempt(ContractModel):
     id: UUID
     project_id: UUID
@@ -246,17 +670,49 @@ class GenerationAttempt(ContractModel):
     input_version_id: UUID
     output_version_id: UUID | None = None
     error_code: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    provider_request_id: Annotated[str | None, Field(max_length=200)] = None
+    provider_model: Annotated[str | None, Field(max_length=100)] = None
+    prompt_tokens: Annotated[int | None, Field(ge=0)] = None
+    completion_tokens: Annotated[int | None, Field(ge=0)] = None
+    candidate_sha256: Sha256 | None = None
+    diagnostic_sha256: Sha256 | None = None
     created_at: datetime
 
 
 CONTRACT_MODELS = (
     User,
+    AuthenticatedUser,
+    LoginRequest,
+    LoginResponse,
+    PasswordChangeRequest,
+    LogoutResponse,
+    ApiErrorDetail,
+    ApiErrorResponse,
     Project,
+    ProjectCreateRequest,
+    ProjectUpdateRequest,
+    ProjectPage,
+    PromptVersionCreateRequest,
     PromptVersion,
+    PromptVersionPage,
     ContentPlanVersion,
+    ContentPlanVersionPage,
+    ContentPlanVersionCreateRequest,
+    ContentPlanGenerationRequest,
+    WorkspaceContentPlanGenerationRequest,
+    ClarificationQuestion,
+    ContentPlanLimitation,
+    ContentPlanDraft,
+    ContentPlanModelResponse,
+    ContentPlanGenerationResponse,
+    CodeGenerationRequest,
+    WorkspaceCodeGenerationRequest,
+    CodeModelResponse,
     CodeVersion,
+    CodeGenerationResponse,
     RenderJob,
     RenderJobSubmission,
+    WorkspaceRenderJobSubmission,
     RenderJobLeaseRequest,
     RenderJobLease,
     RenderJobHeartbeat,
@@ -264,7 +720,14 @@ CONTRACT_MODELS = (
     RenderJobCompletion,
     RenderJobFailureReport,
     Artifact,
+    ArtifactDescriptor,
+    QualityDiagnostic,
+    QualityReport,
+    QualityReportPage,
+    QualityHumanRatingRequest,
+    JobEvent,
     GenerationAttempt,
+    QualityReport,
 )
 
 PROJECT_RECORD_MODELS = (
@@ -280,12 +743,22 @@ PROJECT_RECORD_MODELS = (
 CONTRACT_ENUMS = (
     Audience,
     Language,
+    DerivationStyle,
+    ContentPlanOutcome,
+    CodeGenerationCategory,
+    CodeGenerationMode,
+    CodeGenerationOutcome,
+    CodeGenerationErrorCode,
+    ClarificationField,
     RenderProfile,
     RenderJobStatus,
     RenderJobFailureCode,
     ArtifactKind,
     GenerationStage,
     GenerationStatus,
+    QualityStatus,
+    QualitySeverity,
+    QualityDiagnosticCode,
 )
 
 RENDER_JOB_TRANSITIONS: dict[RenderJobStatus, frozenset[RenderJobStatus]] = {

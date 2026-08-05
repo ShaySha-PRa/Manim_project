@@ -54,44 +54,66 @@
 - [x] 固化 Phase 5 规格、STRIDE 威胁模型、状态机和 agent 文件所有权。
 - [x] 固化 schema 1.1、lease 接口、失败枚举和 Alembic 0002 迁移。
 - [x] 编写父级接口与安全红灯测试。
-- [ ] Agent A：实现 API Job 生命周期。
-- [ ] Agent B：实现 Redis signal、Runner 租约与恢复。
-- [ ] Agent C：实现一次性无网络 Docker 沙箱。
-- [ ] Agent D：实现黑盒攻击、故障注入和性能统计。
-- [ ] 父 agent 完成接口集成、代码审查和 Required/Critical 修复。
-- [ ] 完成真实 Redis 重启、幂等和恢复门禁。
-- [ ] 完成真实 Docker 资源、取消、逃逸和残留容器门禁。
-- [ ] 保存 Phase 5 验收报告并确认 Phase 0–4 无回归。
+- [x] Agent A：实现 API Job 生命周期。
+- [x] Agent B：实现 Redis signal、Runner 租约与恢复。
+- [x] Agent C：实现一次性无网络 Docker 沙箱。
+- [x] Agent D：实现黑盒攻击、故障注入和性能统计。
+- [x] 父 agent 完成接口集成、代码审查和 Required/Critical 修复。
+- [x] 完成真实 Redis 重启、幂等和恢复门禁。
+- [x] 完成真实 Docker 资源、取消、逃逸和残留容器门禁。
+- [x] 保存 Phase 5 验收报告并确认 Phase 0–4 无回归。
 
 ## Phase 6：DeepSeek ContentPlan 生成
 
-- [ ] 接入 `deepseek-v4-flash`。
-- [ ] 定义 ContentPlan Schema 和业务校验。
-- [ ] 实现显式假设、重试和失败反馈。
-- [ ] 在黄金集上通过 Phase 6 门禁。
+- [x] 固化规格、威胁模型、评分规则和 agent 文件所有权。
+- [x] 固化 ContentPlan 1.1、生成接口、错误分类和 0003 迁移。
+- [x] 编写并确认父级失败测试。
+- [x] Agent A：实现 DeepSeek Provider、有限重试和用量元数据。
+- [x] Agent B：实现业务语义校验、歧义和不支持策略。
+- [x] Agent C：实现确定性 Prompt 模板和请求构造。
+- [x] Agent D：实现黄金集评测、失败注入、重复性和统计。
+- [x] 父 agent 完成 API、持久化、审查与结果合并。
+- [x] 完成真实 API smoke 与 30 条黄金集 95/90/95 门禁。
+- [x] 保存 Phase 6 验收报告并确认 Phase 0–5 无回归。
 
 ## Phase 7：完整 Python 生成、校验与修复
 
-- [ ] 定义代码生成输出契约。
-- [ ] 建立 AST 和 import 白名单。
-- [ ] 实现沙箱渲染与两次修复链路。
-- [ ] 实现按类别自动降级。
-- [ ] 通过质量与安全门禁。
+- [x] 父 agent 固化规格、威胁模型、状态机、共享契约、迁移和失败测试。
+- [x] Agent A：完整 Python 生成 Prompt、参考 Scene 注入和响应解析。
+- [x] Agent B：AST、import、调用、属性和 API 白名单安全校验。
+- [x] Agent C：编译预检、Scene 结构校验、错误分类和日志脱敏。
+- [x] Agent D：两次修复链、修复 Prompt 和按类别自动降级。
+- [x] Agent E：黑盒攻击集、失败注入、重复性、质量和性能统计。
+- [x] 父 agent 完成 API、持久化和 Phase 5/6 集成。
+- [x] 通过首次 75%、修复后 90%、安全 100%、数学 90%、视觉 80% 门禁。
+- [x] 保存 Phase 7 验收报告并确认 Phase 0–6 无回归。
 
 ## Phase 8：Web 工作台、账号与版本系统
 
-- [ ] 实现三栏工作台。
-- [ ] 实现管理员账号和安全会话。
-- [ ] 实现不可变版本历史。
-- [ ] 实现 SSE 任务进度和鉴权产物下载。
-- [ ] 完成跨用户隔离测试。
+- [x] 固化 Phase 8 规格、STRIDE 威胁模型、schema 1.4 和 0005 迁移。
+- [x] Agent A：管理员账号、Argon2id、Session、首次改密和限流。
+- [x] Agent B：Project CRUD 与 Prompt/ContentPlan 不可变版本历史。
+- [x] Agent C：SSE 重连、任务恢复与鉴权 Artifact 交付。
+- [x] 父 agent 完成第一批审查和 Phase 5–7 中间集成。
+- [x] Agent D：登录、首次改密、全局布局和设计系统。
+- [x] Agent E：三栏工作台和完整生成/渲染流程。
+- [x] Agent F：双用户黑盒安全、故障注入和浏览器验收计划。
+- [x] 父 agent 完成最终代码集成、安全修复和 Phase 8 状态报告。
+- [x] 在项目内 Playwright/Chrome 隔离环境完成真实双用户浏览器验收。
+- [x] 清理 Phase 2 历史 Ruff 基线并通过全仓 Ruff 门禁。
 
 ## Phase 9：质量诊断与回归
 
-- [ ] 实现确定性视觉和时长诊断。
-- [ ] 建立模型、Prompt、引擎和策略版本追踪。
-- [ ] 运行完整黄金集回归。
-- [ ] 完成自动修复和降级验证。
+- [x] 父 agent 固化 Phase 9 规格、威胁模型、schema 1.5、0006 和 RED 测试。
+- [x] Terra A：时间轴、目标时长与 ContentPlan 一致性诊断。
+- [x] Terra B：确定性视觉诊断与脱敏证据。
+- [x] Terra C：QualityReport、版本追踪、分页与 owner 隔离。
+- [x] 父 agent 完成第一批审查、集成和中间门禁。
+- [x] Terra D：两次自动修复与降级决策。
+- [x] Terra E：30 条黄金集、失败注入和离线 60 条终态门禁。
+- [x] Terra F：质量诊断 Web UI、响应式与可访问性。
+- [x] 运行 30 条真实黄金任务、60 次 Preview/Final 回归。
+- [x] 完成自动修复、重复签名熔断和降级验证。
 
 ## Phase 10：小范围试用
 

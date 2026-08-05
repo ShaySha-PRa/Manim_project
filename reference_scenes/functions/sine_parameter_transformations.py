@@ -35,35 +35,48 @@ class SineParameterTransformationsScene(Scene):
             tips=False,
         )
         axis_labels = axes.get_axis_labels(MathTex("x"), MathTex("y"))
-        baseline = axes.plot(lambda x: math.sin(x), x_range=[-2 * PI, 2 * PI], color=GRAY_B)
+
+        def sine(x):
+            return math.sin(x)
+
+        baseline = axes.plot(sine, x_range=[-2 * PI, 2 * PI], color=GRAY_B)
         amplitude = ValueTracker(1.0)
         frequency = ValueTracker(1.0)
         phase = ValueTracker(0.0)
         vertical_shift = ValueTracker(0.0)
-        transformed = always_redraw(
-            lambda: axes.plot(
-                lambda x: amplitude.get_value()
-                * math.sin(frequency.get_value() * x + phase.get_value())
-                + vertical_shift.get_value(),
+
+        def transformed_graph():
+            def transformed_sine(x):
+                return (
+                    amplitude.get_value() * math.sin(frequency.get_value() * x + phase.get_value())
+                    + vertical_shift.get_value()
+                )
+
+            return axes.plot(
+                transformed_sine,
                 x_range=[-2 * PI, 2 * PI],
                 color=BLUE,
             )
-        )
-        readout = always_redraw(
-            lambda: VGroup(
-                MathTex("A="),
-                DecimalNumber(amplitude.get_value(), num_decimal_places=1, color=RED),
-                MathTex(r"\quad\omega="),
-                DecimalNumber(frequency.get_value(), num_decimal_places=1, color=YELLOW),
-                MathTex(r"\quad\varphi="),
-                DecimalNumber(phase.get_value(), num_decimal_places=1, color=WHITE),
-                MathTex(r"\quad D="),
-                DecimalNumber(vertical_shift.get_value(), num_decimal_places=1, color=WHITE),
+
+        def parameter_readout():
+            return (
+                VGroup(
+                    MathTex("A="),
+                    DecimalNumber(amplitude.get_value(), num_decimal_places=1, color=RED),
+                    MathTex(r"\quad\omega="),
+                    DecimalNumber(frequency.get_value(), num_decimal_places=1, color=YELLOW),
+                    MathTex(r"\quad\varphi="),
+                    DecimalNumber(phase.get_value(), num_decimal_places=1, color=WHITE),
+                    MathTex(r"\quad D="),
+                    DecimalNumber(vertical_shift.get_value(), num_decimal_places=1, color=WHITE),
+                )
+                .arrange(buff=0.05)
+                .scale(0.62)
+                .to_edge(DOWN)
             )
-            .arrange(buff=0.05)
-            .scale(0.62)
-            .to_edge(DOWN)
-        )
+
+        transformed = always_redraw(transformed_graph)
+        readout = always_redraw(parameter_readout)
         baseline_label = (
             MathTex(r"y=\sin x", color=GRAY_B).scale(0.65).move_to(axes.c2p(-4.8, -2.7))
         )

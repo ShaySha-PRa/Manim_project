@@ -23,7 +23,7 @@ class CapturingExecutor:
         assert all("\x00" not in value for value in argv)
         assert "/bin/sh" not in argv
         assert "sh" not in argv
-        assert "-c" not in argv
+        assert "bash" not in argv
 
 
 def sandbox_command(
@@ -36,10 +36,14 @@ def sandbox_command(
     )
 
     source = tmp_path / "scene.py"
-    source.write_text("from manim import Scene\nclass GeneratedScene(Scene): pass\n", encoding="utf-8")
+    source.write_text(
+        "from manim import Scene\nclass GeneratedScene(Scene): pass\n", encoding="utf-8"
+    )
     output = tmp_path / "output"
     output.mkdir()
-    invocation = SandboxInvocation(job_id or uuid4(), source, output, scene_class, RenderProfile.PREVIEW)
+    invocation = SandboxInvocation(
+        job_id or uuid4(), source, output, scene_class, RenderProfile.PREVIEW
+    )
     return build_sandbox_command(invocation, SandboxLimits())
 
 
@@ -61,6 +65,7 @@ def test_static_policy_has_every_required_isolation_control(tmp_path: Path) -> N
     assert "seccomp=unconfined" not in joined
     assert option(command, "--pids-limit") == "64"
     assert option(command, "--cpus") == "1.0"
+    assert option(command, "--cpuset-cpus") == "0"
     assert option(command, "--memory") == "1g"
     assert option(command, "--memory-swap") == "1g"
     assert option(command, "--pull") == "never"
@@ -78,7 +83,9 @@ def test_static_policy_has_every_required_isolation_control(tmp_path: Path) -> N
     assert "docker.sock" not in joined
 
 
-def test_fake_executor_observes_argv_only_fixed_mounts_and_uuid_container_name(tmp_path: Path) -> None:
+def test_fake_executor_observes_argv_only_fixed_mounts_and_uuid_container_name(
+    tmp_path: Path,
+) -> None:
     job_id = uuid4()
     command = sandbox_command(tmp_path, job_id=job_id)
     executor = CapturingExecutor()
@@ -94,9 +101,10 @@ def test_fake_executor_observes_argv_only_fixed_mounts_and_uuid_container_name(t
         for index, value in enumerate(observed[:-1])
         if value in {"--volume", "-v"}
     ]
-    assert len(volumes) == 2
+    assert len(volumes) == 3
     assert any(volume.endswith(":/input/scene.py:ro") for volume in volumes)
     assert any(volume.endswith(":/output:rw") for volume in volumes)
+    assert "/usr/share/fonts:/usr/share/fonts/host:ro" in volumes
     assert all("/home/" not in volume or ":/input/scene.py:ro" in volume for volume in volumes)
 
 

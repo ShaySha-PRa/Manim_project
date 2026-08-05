@@ -1,92 +1,424 @@
 :root {
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #090c11;
-  color: #f4f6f8;
+  font-family: Inter, "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0b1015;
+  color: #edf2f5;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  min-width: 20rem;
+  background: #0b1015;
+}
+
 body {
-  margin: 0;
-}
-
-main {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 2rem;
-  background:
-    radial-gradient(circle at 18% 12%, rgb(55 125 255 / 18%), transparent 34rem),
-    linear-gradient(145deg, #090c11, #101620);
+  margin: 0;
+  background-color: #0b1015;
 }
 
-.panel {
-  width: min(46rem, 100%);
-  padding: clamp(2rem, 6vw, 4rem);
-  border: 1px solid #293241;
-  border-radius: 1.5rem;
-  background: rgb(14 19 27 / 88%);
-  box-shadow: 0 2rem 6rem rgb(0 0 0 / 35%);
+button,
+input {
+  font: inherit;
+}
+
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 0.1875rem solid #78c8bb;
+  outline-offset: 0.1875rem;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 20;
+  transform: translateY(-160%);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #78c8bb;
+  background: #0b1015;
+  color: #edf2f5;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.app-header {
+  min-height: 3.5rem;
+  border-bottom: 1px solid #26323a;
+  background: #0b1015;
+}
+
+.app-header__content {
+  display: flex;
+  width: min(76rem, calc(100% - 2rem));
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 auto;
+  gap: 1rem;
+}
+
+.app-brand,
+.app-nav {
+  display: flex;
+  align-items: center;
+}
+
+.app-brand {
+  gap: 0.5rem;
+  color: #edf2f5;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.app-brand__mark {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 1px solid #78c8bb;
+  color: #78c8bb;
+  font-family: Georgia, serif;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.app-nav {
+  gap: 1rem;
+}
+
+.app-nav a {
+  color: #aebcc4;
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.app-nav a:hover {
+  color: #edf2f5;
+}
+
+.auth-main {
+  display: grid;
+  min-height: calc(100vh - 3.5rem);
+  align-items: center;
+  padding: clamp(1.5rem, 5vw, 5rem) 1rem;
+  background-color: #0b1015;
+  background-image:
+    linear-gradient(#172129 1px, transparent 1px),
+    linear-gradient(90deg, #172129 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+}
+
+.auth-layout {
+  display: grid;
+  width: min(70rem, 100%);
+  grid-template-columns: minmax(0, 1.15fr) minmax(22rem, 0.85fr);
+  gap: clamp(2rem, 7vw, 7rem);
+  align-items: center;
+  margin: 0 auto;
+}
+
+.auth-aside {
+  display: grid;
+  min-height: 32rem;
+  align-content: space-between;
+  padding: clamp(1rem, 3vw, 2rem) 0;
+}
+
+.auth-aside__index {
+  margin: 0;
+  color: #6c7c87;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
 }
 
 .eyebrow {
-  margin: 0 0 1rem;
-  color: #72a7ff;
+  margin: 0 0 0.875rem;
+  color: #78c8bb;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
 }
 
-h1 {
+.auth-aside h1,
+.auth-panel h2 {
   margin: 0;
-  font-size: clamp(2.2rem, 7vw, 4.5rem);
-  line-height: 0.98;
-  letter-spacing: -0.05em;
+  color: #f7fbfd;
+  font-weight: 650;
+  letter-spacing: -0.035em;
 }
 
-.lede {
-  margin: 1.5rem 0 2.5rem;
-  color: #b8c1ce;
-  font-size: 1.05rem;
-  line-height: 1.75;
+.auth-aside h1 {
+  max-width: 9em;
+  font-size: clamp(2.5rem, 5.5vw, 5.75rem);
+  line-height: 1.02;
 }
 
-dl {
-  margin: 0;
-  border-top: 1px solid #293241;
-}
-
-dl div {
-  display: grid;
-  grid-template-columns: 7rem 1fr;
-  gap: 1rem;
-  padding: 1rem 0;
-  border-bottom: 1px solid #293241;
-}
-
-dt {
-  color: #72a7ff;
-  font-weight: 700;
-}
-
-dd {
-  margin: 0;
-  color: #dbe1e8;
-}
-
-.notice {
+.auth-aside h1 + p {
+  max-width: 32rem;
   margin: 1.5rem 0 0;
-  color: #98a2b2;
-  font-size: 0.875rem;
+  color: #b7c5cc;
+  font-size: 1rem;
+  line-height: 1.8;
 }
 
-@media (max-width: 32rem) {
-  dl div {
-    grid-template-columns: 1fr;
-    gap: 0.35rem;
+.auth-aside__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 3rem 0 0;
+}
+
+.auth-aside__facts div {
+  min-width: 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid #3a4b55;
+}
+
+.auth-aside__facts dt {
+  color: #78c8bb;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.07em;
+}
+
+.auth-aside__facts dd {
+  margin: 0.5rem 0 0;
+  color: #d8e1e5;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.ui-panel {
+  border: 1px solid #33434d;
+  background: #11191f;
+}
+
+.auth-panel {
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+.auth-panel h2 {
+  font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+  line-height: 1.1;
+}
+
+.auth-panel__description {
+  margin: 1rem 0 2rem;
+  color: #aebcc4;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+
+.auth-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.form-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.form-field label {
+  color: #dce6ea;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.form-help {
+  margin: 0;
+  color: #8d9da7;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.ui-input {
+  width: 100%;
+  min-height: 2.875rem;
+  border: 1px solid #41535f;
+  border-radius: 0.25rem;
+  padding: 0.625rem 0.75rem;
+  background: #0b1015;
+  color: #f7fbfd;
+}
+
+.ui-input:hover {
+  border-color: #607681;
+}
+
+.ui-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ui-button {
+  display: inline-flex;
+  min-height: 2.875rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  padding: 0.625rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.ui-button--full {
+  width: 100%;
+}
+
+.ui-button--primary {
+  border-color: #78c8bb;
+  background: #78c8bb;
+  color: #08211f;
+}
+
+.ui-button--primary:hover:not(:disabled) {
+  border-color: #9ddbd1;
+  background: #9ddbd1;
+}
+
+.ui-button--secondary {
+  border-color: #52646f;
+  background: transparent;
+  color: #dce6ea;
+}
+
+.ui-button--secondary:hover:not(:disabled),
+.ui-button--quiet:hover:not(:disabled) {
+  border-color: #78c8bb;
+  color: #9ddbd1;
+}
+
+.ui-button--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: #b7c5cc;
+}
+
+.ui-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.ui-status {
+  margin: 0;
+  border-left: 0.1875rem solid #78c8bb;
+  padding: 0.625rem 0.75rem;
+  background: #14231f;
+  color: #cce7e2;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.ui-status--error {
+  border-color: #e39a87;
+  background: #2a1b1b;
+  color: #f0c5bb;
+}
+
+.ui-status--success {
+  border-color: #78c8bb;
+}
+
+.auth-panel__footer {
+  margin-top: 2rem;
+  border-top: 1px solid #33434d;
+  padding-top: 1rem;
+  color: #8d9da7;
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 64rem) {
+  .auth-layout {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 40rem;
+    gap: 2.5rem;
+  }
+
+  .auth-aside {
+    min-height: auto;
+    gap: 2rem;
+    padding-top: 0;
+  }
+
+  .auth-aside h1 {
+    max-width: 13em;
+    font-size: clamp(2.5rem, 8vw, 4.5rem);
   }
 }
 
+@media (max-width: 48rem) {
+  .auth-main {
+    padding-block: 2rem;
+  }
+
+  .auth-aside__facts {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 30rem) {
+  .app-header__content {
+    width: min(100% - 1.5rem, 76rem);
+  }
+
+  .app-nav {
+    gap: 0.75rem;
+  }
+
+  .app-brand {
+    font-size: 0.8125rem;
+  }
+
+  .auth-main {
+    padding: 1.5rem 0.75rem;
+  }
+
+  .auth-aside h1 {
+    font-size: 2.35rem;
+  }
+
+  .auth-aside__facts {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .auth-aside__facts div {
+    display: grid;
+    grid-template-columns: 4rem 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+
+  .auth-aside__facts dd {
+    margin: 0;
+  }
+
+  .auth-panel {
+    padding: 1.25rem;
+  }
+}

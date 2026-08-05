@@ -7,11 +7,82 @@ from pathlib import Path
 from uuid import UUID
 
 from manim_workbench_contracts import RenderProfile
+
 from manim_workbench_runner.rendering.models import MANIM_IMAGE, PROFILE_CONFIGS
 
-SANDBOX_ENTRYPOINT = "manim"
+SANDBOX_ENTRYPOINT = "python"
 SANDBOX_USER = "1000:1000"
+HOST_FONT_ROOT = Path("/usr/share/fonts")
+SANDBOX_FONT_ROOT = "/usr/share/fonts/host"
+FINAL_MEMORY_LIMIT = "2g"
 _SCENE_CLASS_PATTERN = re.compile(r"[A-Z][A-Za-z0-9]{1,99}")
+
+FIXED_WRAPPER = r"""
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import av
+
+profile, quality, scene_class = sys.argv[1:]
+output = Path("/output")
+media = output / ".media"
+manim_command = [
+    "manim",
+    f"-q{quality}",
+    "--renderer",
+    "cairo",
+    "--seed",
+    "0",
+    "--media_dir",
+    str(media),
+    "--output_file",
+    "video",
+    "/input/scene.py",
+    scene_class,
+]
+completed = subprocess.run(
+    manim_command,
+    text=True,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
+    shell=False,
+    check=False,
+)
+(output / "render.log").write_text(completed.stdout or "", encoding="utf-8")
+if completed.returncode != 0:
+    raise SystemExit(completed.returncode)
+
+videos = sorted(media.rglob("video.mp4"))
+if len(videos) != 1:
+    raise RuntimeError("Manim did not produce exactly one video.mp4")
+video = output / "video.mp4"
+shutil.move(str(videos[0]), str(video))
+shutil.rmtree(media)
+
+with av.open(str(video)) as container:
+    stream = container.streams.video[0]
+    selected = None
+    for frame in container.decode(stream):
+        selected = frame
+        break
+    if selected is None:
+        raise RuntimeError("rendered video has no decodable frame")
+    selected.to_image().save(str(output / "thumbnail.jpg"), quality=85)
+
+(output / "metadata.json").write_text(
+    json.dumps(
+        {"profile": profile, "scene_class": scene_class, "wrapper": "phase5-sandbox-v1"},
+        sort_keys=True,
+    ) + "\n",
+    encoding="utf-8",
+)
+allowed = {"video.mp4", "thumbnail.jpg", "render.log", "metadata.json"}
+if {entry.name for entry in output.iterdir()} != allowed:
+    raise RuntimeError("sandbox output contains an unexpected entry")
+""".strip()
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +100,7 @@ class SandboxLimits:
     cpus: str = "1.0"
     memory: str = "1g"
     memory_swap: str = "1g"
+    cpuset_cpu: int = 0
     tmpfs_size: str = "256m"
     home_tmpfs_size: str = "64m"
     max_output_bytes: int = 512 * 1024 * 1024
@@ -36,10 +108,15 @@ class SandboxLimits:
     allowed_output_root: Path | None = None
 
     def __post_init__(self) -> None:
-        if self.pids_limit < 1:
-            raise ValueError("pids_limit must be positive")
-        if self.cpus != "1.0" or self.memory != "1g" or self.memory_swap != "1g":
+        if (
+            self.pids_limit != 64
+            or self.cpus != "1.0"
+            or self.memory != "1g"
+            or self.memory_swap != "1g"
+        ):
             raise ValueError("Phase 5 sandbox resource limits are fixed")
+        if not 0 <= self.cpuset_cpu <= 7:
+            raise ValueError("sandbox CPU slot must be within the trusted 0..7 pool")
         if self.tmpfs_size != "256m" or self.home_tmpfs_size != "64m":
             raise ValueError("Phase 5 sandbox tmpfs limits are fixed")
         if self.max_output_bytes < 1:
@@ -105,7 +182,15 @@ def build_sandbox_command(
     if not docker_command:
         raise ValueError("docker_command must not be empty")
     source, output = _validated_paths(invocation, limits)
+    font_root = _resolve_existing(
+        HOST_FONT_ROOT,
+        field_name="host_font_root",
+        expect_directory=True,
+    )
     profile = PROFILE_CONFIGS[invocation.profile]
+    memory_limit = (
+        FINAL_MEMORY_LIMIT if invocation.profile is RenderProfile.FINAL else limits.memory
+    )
     return (
         *docker_command,
         "run",
@@ -127,34 +212,42 @@ def build_sandbox_command(
         str(limits.pids_limit),
         "--cpus",
         limits.cpus,
+        "--cpuset-cpus",
+        str(limits.cpuset_cpu),
         "--memory",
-        limits.memory,
+        memory_limit,
         "--memory-swap",
-        limits.memory_swap,
+        memory_limit,
         "--tmpfs",
         f"/tmp:rw,noexec,nosuid,nodev,size={limits.tmpfs_size}",
         "--tmpfs",
         f"/home/manim:rw,noexec,nosuid,nodev,size={limits.home_tmpfs_size}",
         "--env",
         "HOME=/home/manim",
+        "--env",
+        "OPENBLAS_NUM_THREADS=1",
+        "--env",
+        "OMP_NUM_THREADS=1",
+        "--env",
+        "MKL_NUM_THREADS=1",
+        "--env",
+        "NUMEXPR_NUM_THREADS=1",
+        "--env",
+        "BLIS_NUM_THREADS=1",
         "--volume",
         f"{source}:/input/scene.py:ro",
         "--volume",
         f"{output}:/output:rw",
+        "--volume",
+        f"{font_root}:{SANDBOX_FONT_ROOT}:ro",
         "--workdir",
         "/input",
         "--entrypoint",
         SANDBOX_ENTRYPOINT,
         MANIM_IMAGE,
-        f"-q{profile.quality}",
-        "--renderer",
-        profile.renderer,
-        "--seed",
-        str(profile.seed),
-        "--media_dir",
-        "/output/media",
-        "--output_file",
-        "video",
-        "/input/scene.py",
+        "-c",
+        FIXED_WRAPPER,
+        invocation.profile.value,
+        profile.quality,
         invocation.scene_class,
     )

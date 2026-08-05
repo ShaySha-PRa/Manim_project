@@ -7,7 +7,6 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-
 SCENES = (
     "formula_transform",
     "derivative",
@@ -50,7 +49,7 @@ def _non_empty_string(value: Any, field: str) -> str:
 
 
 def _bounded_score(value: Any, field: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise ResultError(f"{field} must be numeric")
     if not 0 <= value <= 100:
         raise ResultError(f"{field} must be between 0 and 100")
@@ -106,7 +105,7 @@ def validate_result(raw: Any) -> ValidatedResult:
             raise ResultError(f"{location}.success must be boolean")
         if isinstance(exit_code, bool) or not isinstance(exit_code, int):
             raise ResultError(f"{location}.exit_code must be an integer")
-        if isinstance(duration, bool) or not isinstance(duration, (int, float)) or duration <= 0:
+        if isinstance(duration, bool) or not isinstance(duration, int | float) or duration <= 0:
             raise ResultError(f"{location}.duration_seconds must be positive")
         _non_empty_string(run.get("command"), f"{location}.command")
         _non_empty_string(run.get("log_path"), f"{location}.log_path")
@@ -117,7 +116,9 @@ def validate_result(raw: Any) -> ValidatedResult:
             output_hash = _non_empty_string(
                 run.get("output_sha256"), f"{location}.output_sha256"
             )
-            if len(output_hash) != 64 or any(char not in "0123456789abcdef" for char in output_hash):
+            if len(output_hash) != 64 or any(
+                char not in "0123456789abcdef" for char in output_hash
+            ):
                 raise ResultError(f"{location}.output_sha256 must be lowercase SHA-256")
             successful_runs += 1
             successful_durations.append(float(duration))

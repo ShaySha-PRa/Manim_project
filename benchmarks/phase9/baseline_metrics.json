@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "minimum_metrics": {
+    "golden_cases": 30,
+    "terminal_records": 60,
+    "terminal_completeness_percent": 100.0,
+    "quality_pass_rate_percent": 100.0,
+    "deterministic_pairs": 30,
+    "owner_isolation_denied_records": 60,
+    "preview_final_one_frame_agreement_pairs": 30,
+    "max_repair_count": 2,
+    "performance_records_within_budget": 60
+  }
+}

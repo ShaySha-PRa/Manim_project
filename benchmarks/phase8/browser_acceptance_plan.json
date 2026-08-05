@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "execution": {
+    "requires": ["local_api", "local_web", "isolated_browser"],
+    "offline_only": true,
+    "external_provider": "forbidden"
+  },
+  "actors": ["teacher_a", "teacher_b"],
+  "flow": [
+    "login",
+    "first_password_change",
+    "create_project",
+    "create_prompt_version",
+    "generate_content_plan",
+    "create_content_plan_version",
+    "generate_code_version",
+    "submit_preview",
+    "submit_final",
+    "view_or_download_python"
+  ],
+  "recovery": [
+    "reload_after_each_terminal_job",
+    "new_browser_context_with_existing_cookie",
+    "api_restart_then_reconnect_sse_from_last_event_id"
+  ],
+  "viewports": [320, 768, 1024, 1440],
+  "accessibility": [
+    "single_h1_then_ordered_headings",
+    "all_controls_have_accessible_names",
+    "keyboard_focus_order_is_visible",
+    "aria_live_announces_job_state",
+    "contrast_meets_wcag_aa"
+  ],
+  "browser_observations": [
+    "zero_console_errors_or_warnings",
+    "no_failed_first_party_network_requests",
+    "record_navigation_and_interaction_timings",
+    "capture_each_viewport"
+  ],
+  "security": [
+    "teacher_b_cannot_open_teacher_a_project_version_job_sse_or_artifact",
+    "no_json_in_normal_flow",
+    "python_is_text_plain_read_only_and_not_executable"
+  ]
+}

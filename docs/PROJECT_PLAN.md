@@ -223,6 +223,15 @@
 - Runner、API、Redis 重启后任务状态可恢复。
 - 重复提交不会重复渲染同一幂等任务。
 
+### 实施结果（2026-08-04）
+
+- 完成 SQLite 权威状态、Redis UUID 信号、Host Runner lease/recovery 与内部 HTTP 接口。
+- 完成固定镜像、无网络、非 root、只读根、资源受限的一次性 Docker 沙箱。
+- 真实 Redis 重启与信号审计通过；9 类真实攻击全部受控且零残留容器。
+- 真实参考 Scene 通过 Phase 5 adapter 发布四类产物，运行中取消链路通过。
+- Compose API 以 UID/GID 10001 运行，API/Redis 均无 Docker socket；完整证据见
+  `docs/PHASE5_STATUS.md`。
+
 ## Phase 6：DeepSeek ContentPlan 生成
 
 ### 目标
@@ -252,6 +261,12 @@ DeepSeek JSON Output 保证合法 JSON，但不等同于严格 Schema，因此�
 - 业务语义通过率不低于 90%。
 - 数学公式解析成功率不低于 95%。
 - 所有失败都有明确重试或用户修正路径。
+
+### 当前状态
+
+Phase 6 已于 2026-08-04 通过。最终 30 条真实 DeepSeek 黄金集为 Schema 30/30、
+业务语义 29/30、公式解析 30/30、可行动结果 30/30；三次重复结构稳定率为 16.7%，
+作为 Phase 7 的非阻断风险持续跟踪。详见 `docs/PHASE6_STATUS.md`。
 
 ## Phase 7：完整 Python 生成、校验与修复
 
@@ -295,6 +310,14 @@ DeepSeek JSON Output 保证合法 JSON，但不等同于严格 Schema，因此�
 - 已达标类别继续使用完整代码生成。
 - 安全门禁失败时全部代码生成暂停。
 
+### 当前状态
+
+Phase 7 已于 2026-08-05 通过。最终 30 条真实 DeepSeek + Docker 黄金集首次渲染
+`27/30`、最终渲染 `28/30`、数学质量不低于 4 分 `28/30`、视觉质量不低于
+4 分 `28/30`；8 个安全攻击全部在沙箱前拦截且无绕过。全仓 `356 passed`，
+Ruff、契约同步、前端 lint/typecheck/build 和敏感信息审计均通过。详见
+`docs/PHASE7_STATUS.md`。
+
 ## Phase 8：Web 工作台、账号与版本系统
 
 ### 目标
@@ -334,7 +357,29 @@ DeepSeek JSON Output 保证合法 JSON，但不等同于严格 Schema，因此�
 - 页面刷新、浏览器关闭和服务重启后任务及版本仍存在。
 - 失败消息能指出发生问题的管线阶段。
 
+### 当前状态（2026-08-05）
+
+Phase 8 的后端、Web 和安全实现已完成：schema `1.4`、Alembic `0005`、Argon2id
+账号与服务端 Session、首次登录改密、项目和不可变版本、SSE 续传、鉴权 Artifact、
+共享 API Client 与三栏工作台均已落地。独立双用户攻击集 `11/11` 通过，Phase 8/Web
+定向测试 `67 passed`，全仓 `423 passed`，前端 lint/typecheck/build、契约同步、迁移
+升降级、npm audit、pip-audit、生产代码敏感信息扫描均通过。
+
+Phase 8 遗留门禁已于 2026-08-05 关闭：项目内 Playwright 1.62.1 / Chrome 151 完成真实
+双用户浏览器流程、SSE `Last-Event-ID`、API 进程替换、视频交付、四断点和键盘验收；
+Phase 2 的 212 条历史 Ruff 基线已清零，全仓 Ruff 与 428 个 Python 测试通过。浏览器门禁
+同时发现并修复了重复刷新丢失 `job` 查询参数的问题。详见
+`docs/PHASE8_BROWSER_ACCEPTANCE.md`。
+
 ## Phase 9：质量诊断、回归与自动降级
+
+### 当前状态（2026-08-05）
+
+Phase 9 已完成：schema `1.5`、Alembic `0006_phase9`、append-only QualityReport、稳定诊断、
+目标时长贯穿、确定性视觉采样、两次修复预算、质量 Web UI 和 STRIDE 边界均已落地。
+15 个公式和 15 个函数黄金任务均完成真实 Preview/Final，共 60 次终态渲染；全部为 90 秒，
+Preview/Final 时间轴差为 0，严重视觉项为 0。全仓 519 个 Python 测试、真实双用户浏览器、
+迁移升降级、前端构建和依赖安全门禁通过。详见 `docs/PHASE9_STATUS.md`。
 
 ### 目标
 

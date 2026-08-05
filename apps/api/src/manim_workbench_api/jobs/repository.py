@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from uuid import UUID, uuid4
 
 from manim_workbench_contracts import (
@@ -13,7 +15,7 @@ from manim_workbench_contracts import (
     RenderJobSubmission,
     RenderProfile,
 )
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, text
 
 
 @dataclass(frozen=True)
@@ -35,6 +37,22 @@ class JobRecord:
     heartbeat_at: datetime | None
     cancellation_requested_at: datetime | None
     state_version: int
+
+
+@dataclass(frozen=True)
+class WorkItem:
+    scene_class: str
+    source_code: str
+    source_sha256: str
+    content_plan_version_id: UUID
+    target_duration_seconds: float
+
+
+@dataclass(frozen=True)
+class ClaimResult:
+    record: JobRecord | None
+    work_item: WorkItem | None
+    work_item_invalid: bool = False
 
 
 def utc_now() -> datetime:
@@ -103,14 +121,17 @@ class JobRepository:
             assert record is not None
             return record, False
 
-    def claim(self, job_id: UUID, runner_id: str, lease_seconds: int) -> JobRecord | None:
+    def claim(self, job_id: UUID, runner_id: str, lease_seconds: int) -> ClaimResult:
         now = utc_now()
         lease_expires_at = now + timedelta(seconds=lease_seconds)
         token = secrets.token_hex(32)
         with self._engine.begin() as connection:
             current = self._get(connection, job_id)
             if current is None:
-                return None
+                return ClaimResult(None, None)
+            work_item = self._load_work_item(connection, job_id)
+            if work_item is None:
+                return ClaimResult(None, None, work_item_invalid=True)
             updated = connection.execute(
                 text(
                     """
@@ -119,6 +140,7 @@ class JobRepository:
                         lease_expires_at = :lease_expires_at, heartbeat_at = :heartbeat_at,
                         attempt_count = attempt_count + 1, state_version = state_version + 1
                     WHERE id = :id AND status = :queued AND attempt_count < 3
+                      AND cancellation_requested_at IS NULL
                       AND state_version = :state_version
                     """
                 ),
@@ -134,8 +156,10 @@ class JobRepository:
                 },
             )
             if updated.rowcount != 1:
-                return None
-            return self._get(connection, job_id)
+                return ClaimResult(None, None)
+            record = self._get(connection, job_id)
+            assert record is not None
+            return ClaimResult(record, work_item)
 
     def heartbeat(self, job_id: UUID, lease_token: str, extend_seconds: int) -> JobRecord | None:
         now = utc_now()
@@ -176,6 +200,8 @@ class JobRepository:
                         """
                         UPDATE render_jobs
                         SET status = :cancelled, finished_at = :finished_at,
+                            lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
+                            heartbeat_at = NULL,
                             state_version = state_version + 1
                         WHERE id = :id AND status = :queued AND state_version = :state_version
                         """
@@ -222,6 +248,8 @@ class JobRepository:
                     """
                     UPDATE render_jobs
                     SET status = :succeeded, finished_at = :finished_at,
+                        lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
+                        heartbeat_at = NULL,
                         state_version = state_version + 1
                     WHERE id = :id AND status = :running AND lease_token = :lease_token
                       AND lease_expires_at > :now AND cancellation_requested_at IS NULL
@@ -252,6 +280,8 @@ class JobRepository:
             lease_token,
             """
             SET status = :failed, failure_code = :failure_code, finished_at = :finished_at,
+                lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
+                heartbeat_at = NULL,
                 state_version = state_version + 1
             """,
             {
@@ -261,6 +291,121 @@ class JobRepository:
             },
             (RenderJobStatus.RUNNING,),
         )
+
+    def confirm_cancelled(self, job_id: UUID, lease_token: str) -> JobRecord | None:
+        now = utc_now()
+        with self._engine.begin() as connection:
+            current = self._get(connection, job_id)
+            if current is None:
+                return None
+            updated = connection.execute(
+                text(
+                    """
+                    UPDATE render_jobs
+                    SET status = :cancelled, finished_at = :finished_at,
+                        lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
+                        heartbeat_at = NULL, state_version = state_version + 1
+                    WHERE id = :id AND status IN (:claimed, :running) AND lease_token = :lease_token
+                      AND lease_expires_at > :now AND cancellation_requested_at IS NOT NULL
+                      AND state_version = :state_version
+                    """
+                ),
+                {
+                    "cancelled": RenderJobStatus.CANCELLED.value,
+                    "finished_at": as_timestamp(now),
+                    "id": str(job_id),
+                    "claimed": RenderJobStatus.CLAIMED.value,
+                    "running": RenderJobStatus.RUNNING.value,
+                    "lease_token": lease_token,
+                    "now": as_timestamp(now),
+                    "state_version": current.state_version,
+                },
+            )
+            if updated.rowcount != 1:
+                return None
+            return self._get(connection, job_id)
+
+    def recoverable(self, limit: int) -> tuple[JobRecord, ...]:
+        now = utc_now()
+        with self._engine.begin() as connection:
+            expired_rows = connection.execute(
+                text(
+                    """
+                    SELECT id FROM render_jobs
+                    WHERE status IN (:claimed, :running) AND lease_expires_at <= :now
+                    ORDER BY lease_expires_at ASC LIMIT :limit
+                    """
+                ),
+                {
+                    "claimed": RenderJobStatus.CLAIMED.value,
+                    "running": RenderJobStatus.RUNNING.value,
+                    "now": as_timestamp(now),
+                    "limit": limit,
+                },
+            ).scalars()
+            for raw_job_id in expired_rows:
+                job_id = UUID(raw_job_id)
+                current = self._get(connection, job_id)
+                if current is None:
+                    continue
+                if current.cancellation_requested_at is not None:
+                    assignments = """
+                        SET status = :cancelled, finished_at = :finished_at,
+                            lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
+                            heartbeat_at = NULL, state_version = state_version + 1
+                    """
+                    parameters = {
+                        "cancelled": RenderJobStatus.CANCELLED.value,
+                        "finished_at": as_timestamp(now),
+                    }
+                elif current.attempt_count >= 3:
+                    assignments = """
+                        SET status = :failed, failure_code = :failure_code,
+                            finished_at = :finished_at,
+                            lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
+                            heartbeat_at = NULL, state_version = state_version + 1
+                    """
+                    parameters = {
+                        "failed": RenderJobStatus.FAILED.value,
+                        "failure_code": "runner_lost",
+                        "finished_at": as_timestamp(now),
+                    }
+                else:
+                    assignments = """
+                        SET status = :queued, lease_owner = NULL, lease_token = NULL,
+                            lease_expires_at = NULL, heartbeat_at = NULL,
+                            state_version = state_version + 1
+                    """
+                    parameters = {"queued": RenderJobStatus.QUEUED.value}
+                connection.execute(
+                    text(
+                        f"""
+                        UPDATE render_jobs
+                        {assignments}
+                        WHERE id = :id AND status IN (:claimed, :running)
+                          AND lease_expires_at <= :now AND state_version = :state_version
+                        """
+                    ),
+                    {
+                        **parameters,
+                        "id": str(job_id),
+                        "claimed": RenderJobStatus.CLAIMED.value,
+                        "running": RenderJobStatus.RUNNING.value,
+                        "now": as_timestamp(now),
+                        "state_version": current.state_version,
+                    },
+                )
+            queued_ids = connection.execute(
+                text(
+                    """
+                    SELECT id FROM render_jobs WHERE status = :queued
+                    ORDER BY created_at ASC LIMIT :limit
+                    """
+                ),
+                {"queued": RenderJobStatus.QUEUED.value, "limit": limit},
+            ).scalars()
+            records = [self._get(connection, UUID(raw_job_id)) for raw_job_id in queued_ids]
+            return tuple(record for record in records if record is not None)
 
     def _update_active_lease(
         self,
@@ -305,13 +450,13 @@ class JobRepository:
 
     @staticmethod
     def _insert_artifacts(
-        connection: object,
+        connection: Connection,
         job: JobRecord,
         artifacts: tuple[RenderArtifactPayload, ...],
         now: datetime,
     ) -> None:
         for artifact in artifacts:
-            connection.execute(  # type: ignore[attr-defined]
+            connection.execute(
                 text(
                     """
                     INSERT INTO artifacts (
@@ -337,10 +482,84 @@ class JobRepository:
             )
 
     @staticmethod
-    def _get(connection: object, job_id: UUID) -> JobRecord | None:
-        row = connection.execute(  # type: ignore[attr-defined]
-            text("SELECT * FROM render_jobs WHERE id = :id"), {"id": str(job_id)}
-        ).mappings().first()
+    def _load_work_item(connection: Connection, job_id: UUID) -> WorkItem | None:
+        has_content_plans = connection.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+                "AND name = 'content_plan_versions'"
+            )
+        ).scalar_one_or_none()
+        if has_content_plans is None:
+            statement = text(
+                """
+                SELECT scene_class, source_code, source_sha256,
+                       id AS content_plan_version_id, 90 AS target_duration_seconds
+                FROM code_versions
+                WHERE id = (SELECT code_version_id FROM render_jobs WHERE id = :id)
+                """
+            )
+        else:
+            statement = text(
+                """
+                SELECT code_versions.scene_class, code_versions.source_code,
+                       code_versions.source_sha256, code_versions.content_plan_version_id,
+                       COALESCE(json_extract(content_plan_versions.content_json,
+                                             '$.target_duration_seconds'), 90)
+                         AS target_duration_seconds
+                FROM render_jobs
+                JOIN code_versions ON code_versions.id = render_jobs.code_version_id
+                JOIN content_plan_versions
+                  ON content_plan_versions.id = code_versions.content_plan_version_id
+                WHERE render_jobs.id = :id
+                """
+            )
+        row = (
+            connection.execute(
+                statement,
+                {"id": str(job_id)},
+            )
+            .mappings()
+            .first()
+        )
+        if row is None:
+            return None
+        scene_class = row["scene_class"]
+        source_code = row["source_code"]
+        source_sha256 = row["source_sha256"]
+        content_plan_version_id = row["content_plan_version_id"]
+        target_duration_seconds = row["target_duration_seconds"]
+        if (
+            not isinstance(scene_class, str)
+            or re.fullmatch(r"[A-Z][A-Za-z0-9]{1,99}", scene_class) is None
+        ):
+            return None
+        if not isinstance(source_code, str) or not 1 <= len(source_code) <= 200_000:
+            return None
+        if (
+            not isinstance(source_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", source_sha256) is None
+        ):
+            return None
+        if sha256(source_code.encode("utf-8")).hexdigest() != source_sha256:
+            return None
+        try:
+            plan_id = UUID(str(content_plan_version_id))
+            target = float(target_duration_seconds)
+        except (TypeError, ValueError):
+            return None
+        if not 0 < target <= 600:
+            return None
+        return WorkItem(scene_class, source_code, source_sha256, plan_id, target)
+
+    @staticmethod
+    def _get(connection: Connection, job_id: UUID) -> JobRecord | None:
+        row = (
+            connection.execute(
+                text("SELECT * FROM render_jobs WHERE id = :id"), {"id": str(job_id)}
+            )
+            .mappings()
+            .first()
+        )
         if row is None:
             return None
         return JobRecord(

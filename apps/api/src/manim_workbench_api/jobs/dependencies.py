@@ -17,6 +17,10 @@ class JobSignalPublisher(Protocol):
         """Publish only a Job UUID after its SQLite transaction has committed."""
 
 
+class JobSignalUnavailable(Exception):
+    """Expected transient signal delivery failure; SQLite recovery will retry it."""
+
+
 class NullJobSignalPublisher:
     """Safe default until the parent agent wires the Runner-owned Redis adapter."""
 
@@ -29,7 +33,10 @@ def get_database_engine() -> Engine:
 
 
 def get_job_signal_publisher() -> JobSignalPublisher:
-    return NullJobSignalPublisher()
+    # Local import prevents a dependency cycle while keeping connection creation lazy.
+    from manim_workbench_api.phase5_runtime import get_redis_job_signal_publisher
+
+    return get_redis_job_signal_publisher()
 
 
 def get_internal_token() -> str:

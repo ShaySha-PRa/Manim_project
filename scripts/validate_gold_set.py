@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 CATEGORIES = {"formula_derivation", "function_visualization"}
 AUDIENCES = {"k12", "college", "general_creator"}
 DIFFICULTIES = {"introductory", "intermediate", "advanced"}

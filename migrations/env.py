@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -5,6 +6,8 @@ from manim_workbench_api.database import configure_sqlite
 from sqlalchemy import engine_from_config, pool
 
 config = context.config
+if database_url := os.environ.get("MANIM_WORKBENCH_DATABASE_URL"):
+    config.set_main_option("sqlalchemy.url", database_url)
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 

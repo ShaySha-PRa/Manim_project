@@ -11,18 +11,20 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from pathlib import Path
 import shlex
 import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parent
 ARTIFACTS = ROOT / "artifacts"
-IMAGE = "manimcommunity/manim@sha256:f18f53f2e4eaf2ea41713437d34363fb3f5cc6008b03fd798676ac0359396c3b"
+IMAGE = (
+    "manimcommunity/manim@sha256:f18f53f2"
+    "e4eaf2ea41713437d34363fb3f5cc6008b03fd798676ac0359396c3b"
+)
 DOCKER = shlex.split(os.environ.get("MANIMCE_DOCKER", "docker"))
 SCENES = {
     "formula_transform": "FormulaTransform",
@@ -65,9 +67,15 @@ def blocked(message: str, command: list[str], output: str) -> int:
 
 def probe_environment() -> dict[str, Any] | None:
     probe = DOCKER + [
-        "run", "--rm", "--entrypoint", "/bin/sh", IMAGE, "-c",
+        "run",
+        "--rm",
+        "--entrypoint",
+        "/bin/sh",
+        IMAGE,
+        "-c",
         "python --version; manim --version; "
-        "python -c \"import av; print('PyAV ' + av.__version__ + ' / ' + repr(av.library_versions))\"; "
+        "python -c \"import av; print('PyAV ' + av.__version__ + ' / ' + "
+        "repr(av.library_versions))\"; "
         "latex --version | head -n 1 | sed 's/^/LATEX: /'; "
         "fc-match -f 'FONT: %{family} %{style}\\n' sans-serif; "
         "fc-match -f 'FONT: %{family} %{style}\\n' serif; "
@@ -77,8 +85,19 @@ def probe_environment() -> dict[str, Any] | None:
     if completed.returncode:
         blocked("The reproducibility probe failed before rendering.", probe, completed.stdout)
         return None
-    digest_command = DOCKER + ["image", "inspect", "--format", "{{index .RepoDigests 0}}", IMAGE]
-    digest = subprocess.run(digest_command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    digest_command = DOCKER + [
+        "image",
+        "inspect",
+        "--format",
+        "{{index .RepoDigests 0}}",
+        IMAGE,
+    ]
+    digest = subprocess.run(
+        digest_command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
     return {
         "probe_command": command_text(probe),
         "probe_output": completed.stdout.strip(),
@@ -106,12 +125,21 @@ def render_command(scene_class: str, media_dir: Path, output_name: str) -> list[
 
 def environment_fields(probe: dict[str, Any]) -> dict[str, Any]:
     lines = probe["probe_output"].splitlines()
+    python_version = next((line for line in lines if line.startswith("Python ")), "unknown")
+    ffmpeg_version = next((line for line in lines if line.startswith("PyAV ")), "unknown")
+    latex_version = next(
+        (line.removeprefix("LATEX: ") for line in lines if line.startswith("LATEX: ")),
+        "unknown",
+    )
+    font_versions = [
+        line.removeprefix("FONT: ") for line in lines if line.startswith("FONT: ")
+    ] or ["fc-match returned no fonts"]
     return {
         "engine_version": "0.20.1",
-        "python_version": next((line for line in lines if line.startswith("Python ")), "unknown"),
-        "ffmpeg_version": next((line for line in lines if line.startswith("PyAV ")), "unknown"),
-        "latex_version": next((line.removeprefix("LATEX: ") for line in lines if line.startswith("LATEX: ")), "unknown"),
-        "font_versions": [line.removeprefix("FONT: ") for line in lines if line.startswith("FONT: ")] or ["fc-match returned no fonts"],
+        "python_version": python_version,
+        "ffmpeg_version": ffmpeg_version,
+        "latex_version": latex_version,
+        "font_versions": font_versions,
         "container_or_environment": probe["image_digest"],
     }
 
@@ -152,12 +180,32 @@ def main() -> int:
         "first_attempt_success": first_attempt_success,
         "runs": runs,
         "capabilities": {
-            "visual_score": {"score": 82, "evidence": "Parent review sampled final frames from all six scenes: mathematical objects were clear, with minor label overlap in parameter and area scenes."},
-            "sections_cache_score": {"score": 80, "evidence": "Fresh-run timing disables caching; the fixed CE release exposes native caching and section configuration documented by Manim Community."},
-            "deployment_score": {"score": 95, "evidence": "All 12 runs used the official v0.20.1 image at a captured immutable digest without a custom build."},
+            "visual_score": {
+                "score": 82,
+                "evidence": (
+                    "Parent review sampled final frames from all six scenes: "
+                    "mathematical objects were clear, with minor label overlap in "
+                    "parameter and area scenes."
+                ),
+            },
+            "sections_cache_score": {
+                "score": 80,
+                "evidence": (
+                    "Fresh-run timing disables caching; the fixed CE release exposes native "
+                    "caching and section configuration documented by Manim Community."
+                ),
+            },
+            "deployment_score": {
+                "score": 95,
+                "evidence": (
+                    "All 12 runs used the official v0.20.1 image at a captured immutable digest "
+                    "without a custom build."
+                ),
+            },
         },
         "notes": [
-            "Each of the 12 entries is a fresh Docker process at low quality with caching disabled.",
+            "Each of the 12 entries is a fresh Docker process at low quality with caching "
+            "disabled.",
             "A successful exit code without the expected MP4 is recorded as a failed run.",
             "No compatibility retry is performed by this harness; first attempt is preserved.",
         ],

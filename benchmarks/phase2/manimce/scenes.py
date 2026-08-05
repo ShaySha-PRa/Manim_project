@@ -5,8 +5,30 @@ https://docs.manim.community/en/stable/reference/manim.mobject.graphing.coordina
 https://docs.manim.community/en/stable/reference/manim.animation.updaters.mobject_update_utils.html
 """
 
-from manim import *
-
+from manim import (
+    BLUE,
+    DOWN,
+    RED,
+    RIGHT,
+    UP,
+    UR,
+    YELLOW,
+    Axes,
+    Create,
+    DashedLine,
+    DecimalNumber,
+    Dot,
+    FadeIn,
+    Line,
+    MathTex,
+    Scene,
+    Text,
+    Transform,
+    ValueTracker,
+    VGroup,
+    Write,
+    always_redraw,
+)
 
 SCENE_IDS: dict[str, type[Scene]] = {}
 
@@ -60,7 +82,13 @@ class FunctionPlot(Scene):
         symmetry = DashedLine(axes.c2p(0, -0.7), axes.c2p(0, 5.8), color=YELLOW)
         graph_label = MathTex(r"y=x^2", color=BLUE).next_to(axes.c2p(1.7, 3.0), UR)
         self.play(Create(axes), Write(labels))
-        self.play(Create(graph), Create(symmetry), FadeIn(vertex), Write(vertex_label), Write(graph_label))
+        self.play(
+            Create(graph),
+            Create(symmetry),
+            FadeIn(vertex),
+            Write(vertex_label),
+            Write(graph_label),
+        )
         self.wait(0.4)
 
 
@@ -102,8 +130,14 @@ class Tangent(Scene):
             x0 = a.get_value()
             slope = 3 * x0**2
             left, right = x0 - 0.7, x0 + 0.7
-            f = lambda x: x0**3 + slope * (x - x0)
-            return Line(axes.c2p(left, f(left)), axes.c2p(right, f(right)), color=YELLOW)
+            def tangent_height(x: float) -> float:
+                return x0**3 + slope * (x - x0)
+
+            return Line(
+                axes.c2p(left, tangent_height(left)),
+                axes.c2p(right, tangent_height(right)),
+                color=YELLOW,
+            )
 
         point = always_redraw(lambda: Dot(axes.c2p(a.get_value(), a.get_value() ** 3), color=RED))
         tangent = always_redraw(tangent_line)
@@ -132,7 +166,9 @@ class Area(Scene):
             graph, x_range=[0, 2], dx=0.1, input_sample_type="right", stroke_width=0.5,
         )
         area_label = MathTex(r"\int_0^2 x^2\,dx=\frac{8}{3}").to_edge(UP)
-        interval_label = MathTex(r"y=x^2\ \text{on}\ [0,2]", color=BLUE).next_to(axes.c2p(1.2, 3.0), RIGHT)
+        interval_label = MathTex(r"y=x^2\ \text{on}\ [0,2]", color=BLUE).next_to(
+            axes.c2p(1.2, 3.0), RIGHT
+        )
         self.play(Create(axes), Create(graph), Write(interval_label))
         self.play(Create(coarse), run_time=0.9)
         self.play(Transform(coarse, fine), run_time=1.1)
