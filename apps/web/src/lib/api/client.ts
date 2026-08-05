@@ -28,6 +28,12 @@ import type {
 
 const DEFAULT_API_ORIGIN = "http://localhost:8000";
 
+export function createIdempotencyKey(): string {
+  const randomUUID = globalThis.crypto?.randomUUID;
+  if (randomUUID) return randomUUID.call(globalThis.crypto);
+  return `fallback-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export class ApiClientError extends Error {
   readonly status: number;
   readonly code: string;

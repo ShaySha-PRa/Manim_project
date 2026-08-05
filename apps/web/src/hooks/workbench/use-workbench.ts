@@ -17,7 +17,7 @@ import type {
   RenderJob,
 } from "@manim-workbench/contracts";
 
-import { ApiClientError, workbenchApi } from "../../lib/api/client";
+import { ApiClientError, createIdempotencyKey, workbenchApi } from "../../lib/api/client";
 
 import { useRenderMonitor } from "./use-render-monitor";
 
@@ -283,7 +283,7 @@ export function useWorkbench() {
       const nextJob = await workbenchApi.submitRenderJob(activeProject.id, {
         code_version_id: codeVersion.id,
         profile,
-        idempotency_key: crypto.randomUUID(),
+        idempotency_key: createIdempotencyKey(),
       });
       setArtifacts([]);
       setJob(nextJob);
