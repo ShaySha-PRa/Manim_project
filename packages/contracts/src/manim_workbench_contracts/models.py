@@ -432,7 +432,7 @@ class ExperimentCreateRequest(ContractModel):
 
 class ExperimentPage(ContractModel):
     items: Annotated[tuple[Experiment, ...], Field(max_length=100)]
-    next_cursor: UUID | None = None
+    cursor: UUID | None = None
 
 
 def _validate_unique_experiment_code_file_paths(
@@ -553,18 +553,18 @@ class ExperimentVersionCreateRequest(ContractModel):
 
 class ExperimentVersionPage(ContractModel):
     items: Annotated[tuple[ExperimentVersion, ...], Field(max_length=100)]
-    next_cursor: Annotated[int | None, Field(ge=1)] = None
+    cursor: Annotated[int | None, Field(ge=1)] = None
 
 
 class ExperimentPatchOperation(ContractModel):
-    operation: ExperimentPatchOperationKind
+    kind: ExperimentPatchOperationKind
     path: Annotated[str, Field(min_length=1, max_length=500, pattern=r"^/")]
     value: BoundedJsonValue | MISSING = MISSING
 
     @staticmethod
     def _json_schema(schema: dict[str, Any]) -> None:
         properties = schema["properties"]
-        operation_schema = deepcopy(properties["operation"])
+        kind_schema = deepcopy(properties["kind"])
         path_schema = deepcopy(properties["path"])
         value_schema = deepcopy(properties["value"])
         schema.clear()
@@ -574,26 +574,26 @@ class ExperimentPatchOperation(ContractModel):
                     {
                         "additionalProperties": False,
                         "properties": {
-                            "operation": {
-                                **operation_schema,
+                            "kind": {
+                                **kind_schema,
                                 "enum": ["add", "replace"],
                             },
                             "path": path_schema,
                             "value": value_schema,
                         },
-                        "required": ["operation", "path", "value"],
+                        "required": ["kind", "path", "value"],
                         "type": "object",
                     },
                     {
                         "additionalProperties": False,
                         "properties": {
-                            "operation": {
-                                **operation_schema,
+                            "kind": {
+                                **kind_schema,
                                 "const": "remove",
                             },
                             "path": deepcopy(path_schema),
                         },
-                        "required": ["operation", "path"],
+                        "required": ["kind", "path"],
                         "type": "object",
                     },
                 ],
@@ -606,12 +606,12 @@ class ExperimentPatchOperation(ContractModel):
     @model_validator(mode="after")
     def validate_value_by_operation(self) -> ExperimentPatchOperation:
         value_provided = "value" in self.model_fields_set
-        if self.operation in {
+        if self.kind in {
             ExperimentPatchOperationKind.ADD,
             ExperimentPatchOperationKind.REPLACE,
         } and not value_provided:
             raise ValueError("add and replace operations require a value")
-        if self.operation is ExperimentPatchOperationKind.REMOVE and value_provided:
+        if self.kind is ExperimentPatchOperationKind.REMOVE and value_provided:
             raise ValueError("remove operations must not include a value")
         return self
 
@@ -640,7 +640,7 @@ class ExperimentPatchProposal(ContractModel):
 
 class ExperimentPatchProposalPage(ContractModel):
     items: Annotated[tuple[ExperimentPatchProposal, ...], Field(max_length=100)]
-    next_cursor: UUID | None = None
+    cursor: UUID | None = None
 
 
 class ExperimentPatchProposalApplyRequest(ContractModel):

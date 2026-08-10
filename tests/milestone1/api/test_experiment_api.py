@@ -207,7 +207,7 @@ def test_create_list_get_and_initial_draft_use_owner_scoped_contracts(
     )
     second_page = api.client_a.get(
         f"/api/v1/projects/{api.project_a}/experiments",
-        params={"limit": 1, "cursor": first_page.json()["next_cursor"]},
+        params={"limit": 1, "cursor": first_page.json()["cursor"]},
     )
     boundary_page = api.client_a.get(
         f"/api/v1/projects/{api.project_a}/experiments", params={"limit": 100}
@@ -220,7 +220,7 @@ def test_create_list_get_and_initial_draft_use_owner_scoped_contracts(
     assert [item["id"] for item in all_rows.json()["items"]] == sorted(
         item["id"] for item in created
     )
-    assert first_page.json()["next_cursor"] == first_page.json()["items"][0]["id"]
+    assert first_page.json()["cursor"] == first_page.json()["items"][0]["id"]
     assert second_page.status_code == boundary_page.status_code == 200
     assert len(second_page.json()["items"]) == 1
     assert len(boundary_page.json()["items"]) == 3
@@ -267,7 +267,7 @@ def test_draft_compare_and_swap_and_idempotent_versions_are_exposed(
     )
     second_page = api.client_a.get(
         f"/api/v1/experiments/{experiment_id}/versions",
-        params={"limit": 1, "cursor": first_page.json()["next_cursor"]},
+        params={"limit": 1, "cursor": first_page.json()["cursor"]},
     )
     maximum_page = api.client_a.get(
         f"/api/v1/experiments/{experiment_id}/versions", params={"limit": 100}
@@ -298,7 +298,7 @@ def test_patch_proposal_list_apply_reject_and_error_lifecycle(
         experiment_id,
         expected_revision=1,
         operation=ExperimentPatchOperation(
-            operation="add", path="/visualization/mode", value="interactive"
+            kind="add", path="/visualization/mode", value="interactive"
         ),
     )
     list_only_proposal = _seed_proposal(
@@ -306,7 +306,7 @@ def test_patch_proposal_list_apply_reject_and_error_lifecycle(
         experiment_id,
         expected_revision=1,
         operation=ExperimentPatchOperation(
-            operation="add", path="/visualization/list-only", value=True
+            kind="add", path="/visualization/list-only", value=True
         ),
     )
     final_list_proposal = _seed_proposal(
@@ -314,7 +314,7 @@ def test_patch_proposal_list_apply_reject_and_error_lifecycle(
         experiment_id,
         expected_revision=1,
         operation=ExperimentPatchOperation(
-            operation="add", path="/visualization/third", value=True
+            kind="add", path="/visualization/third", value=True
         ),
     )
     listed = api.client_a.get(f"/api/v1/experiments/{experiment_id}/patch-proposals")
@@ -323,7 +323,7 @@ def test_patch_proposal_list_apply_reject_and_error_lifecycle(
     )
     second_list_page = api.client_a.get(
         f"/api/v1/experiments/{experiment_id}/patch-proposals",
-        params={"limit": 1, "cursor": first_list_page.json()["next_cursor"]},
+        params={"limit": 1, "cursor": first_list_page.json()["cursor"]},
     )
     maximum_list_page = api.client_a.get(
         f"/api/v1/experiments/{experiment_id}/patch-proposals", params={"limit": 100}
@@ -343,7 +343,7 @@ def test_patch_proposal_list_apply_reject_and_error_lifecycle(
         experiment_id,
         expected_revision=2,
         operation=ExperimentPatchOperation(
-            operation="add", path="/visualization/label", value="review"
+            kind="add", path="/visualization/label", value="review"
         ),
     )
     rejected = api.client_a.post(
@@ -361,7 +361,7 @@ def test_patch_proposal_list_apply_reject_and_error_lifecycle(
         experiment_id,
         expected_revision=2,
         operation=ExperimentPatchOperation(
-            operation="replace", path="/visualization/missing", value="bad"
+            kind="replace", path="/visualization/missing", value="bad"
         ),
     )
     invalid = api.client_a.post(
@@ -374,7 +374,7 @@ def test_patch_proposal_list_apply_reject_and_error_lifecycle(
         experiment_id,
         expected_revision=1,
         operation=ExperimentPatchOperation(
-            operation="add", path="/visualization/stale", value=True
+            kind="add", path="/visualization/stale", value=True
         ),
     )
     stale = api.client_a.post(
@@ -388,7 +388,7 @@ def test_patch_proposal_list_apply_reject_and_error_lifecycle(
         other_experiment_id,
         expected_revision=1,
         operation=ExperimentPatchOperation(
-            operation="add", path="/visualization/mode", value="other"
+            kind="add", path="/visualization/mode", value="other"
         ),
     )
     wrong_experiment = api.client_a.post(
@@ -402,7 +402,10 @@ def test_patch_proposal_list_apply_reject_and_error_lifecycle(
     assert [item["id"] for item in listed.json()["items"]] == sorted(
         str(proposal_id) for proposal_id in proposal_ids
     )
-    assert first_list_page.json()["next_cursor"] == first_list_page.json()["items"][0]["id"]
+    for item in listed.json()["items"]:
+        assert item["operations"][0]["kind"] == "add"
+        assert "operation" not in item["operations"][0]
+    assert first_list_page.json()["cursor"] == first_list_page.json()["items"][0]["id"]
     assert second_list_page.status_code == maximum_list_page.status_code == 200
     assert len(second_list_page.json()["items"]) == 1
     assert len(maximum_list_page.json()["items"]) == 3
@@ -434,7 +437,7 @@ def test_cross_owner_and_missing_resources_have_identical_responses(
         experiment_id,
         expected_revision=1,
         operation=ExperimentPatchOperation(
-            operation="add", path="/visualization/mode", value="interactive"
+            kind="add", path="/visualization/mode", value="interactive"
         ),
     )
     missing_project = uuid4()
@@ -627,7 +630,7 @@ def test_concurrent_apply_and_reject_have_one_winner_and_stable_loser(
         experiment_id,
         expected_revision=1,
         operation=ExperimentPatchOperation(
-            operation="add", path="/visualization/mode", value="interactive"
+            kind="add", path="/visualization/mode", value="interactive"
         ),
     )
     session_token = api.client_a.cookies.get("manim_workbench_session")

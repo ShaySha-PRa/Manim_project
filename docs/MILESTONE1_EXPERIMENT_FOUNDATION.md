@@ -48,7 +48,7 @@ milestones own those payload schemas.
 | `AssumptionStatus` | `proposed`, `accepted`, `rejected` |
 | `ExperimentPatchProposalStatus` | `pending`, `applied`, `rejected` |
 | `ExperimentPatchOperationKind` | `add`, `replace`, `remove` |
-| `JsonValue` | Recursive `null`/string/finite number/boolean/array/object value. Object values are `Readonly<Record<string, JsonValue>>` in generated TypeScript; booleans remain booleans and are never coerced to numbers. This is the only bounded escape hatch. |
+| `JsonValue` | Recursive `null`/string/finite number/boolean/array/object value. The generated TypeScript object branch is a named readonly `JsonObject` interface whose readonly string-pattern keys reference `JsonValue`; booleans remain booleans and are never coerced to numbers. This is the only bounded escape hatch. |
 
 `JsonValue` has maximum nesting depth 32. Its canonical JSON representation must be no more
 than 200,000 UTF-8 bytes where limits and hashes use exactly:

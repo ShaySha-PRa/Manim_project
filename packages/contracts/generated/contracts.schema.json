@@ -1478,15 +1478,7 @@
     "ExperimentPage": {
       "additionalProperties": false,
       "properties": {
-        "items": {
-          "items": {
-            "$ref": "#/$defs/Experiment"
-          },
-          "maxItems": 100,
-          "title": "Items",
-          "type": "array"
-        },
-        "next_cursor": {
+        "cursor": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1497,7 +1489,15 @@
             }
           ],
           "default": null,
-          "title": "Next Cursor"
+          "title": "Cursor"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Experiment"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
         }
       },
       "required": [
@@ -1555,7 +1555,7 @@
         {
           "additionalProperties": false,
           "properties": {
-            "operation": {
+            "kind": {
               "$ref": "#/$defs/ExperimentPatchOperationKind",
               "enum": [
                 "add",
@@ -1575,7 +1575,7 @@
             }
           },
           "required": [
-            "operation",
+            "kind",
             "path",
             "value"
           ],
@@ -1584,7 +1584,7 @@
         {
           "additionalProperties": false,
           "properties": {
-            "operation": {
+            "kind": {
               "$ref": "#/$defs/ExperimentPatchOperationKind",
               "const": "remove"
             },
@@ -1597,7 +1597,7 @@
             }
           },
           "required": [
-            "operation",
+            "kind",
             "path"
           ],
           "type": "object"
@@ -1717,15 +1717,7 @@
     "ExperimentPatchProposalPage": {
       "additionalProperties": false,
       "properties": {
-        "items": {
-          "items": {
-            "$ref": "#/$defs/ExperimentPatchProposal"
-          },
-          "maxItems": 100,
-          "title": "Items",
-          "type": "array"
-        },
-        "next_cursor": {
+        "cursor": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1736,7 +1728,15 @@
             }
           ],
           "default": null,
-          "title": "Next Cursor"
+          "title": "Cursor"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ExperimentPatchProposal"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
         }
       },
       "required": [
@@ -1917,15 +1917,7 @@
     "ExperimentVersionPage": {
       "additionalProperties": false,
       "properties": {
-        "items": {
-          "items": {
-            "$ref": "#/$defs/ExperimentVersion"
-          },
-          "maxItems": 100,
-          "title": "Items",
-          "type": "array"
-        },
-        "next_cursor": {
+        "cursor": {
           "anyOf": [
             {
               "minimum": 1,
@@ -1936,7 +1928,15 @@
             }
           ],
           "default": null,
-          "title": "Next Cursor"
+          "title": "Cursor"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ExperimentVersion"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
         }
       },
       "required": [

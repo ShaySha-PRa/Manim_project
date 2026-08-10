@@ -144,7 +144,7 @@ class ExperimentRepository:
         visible = rows[:limit]
         return ExperimentPage(
             items=tuple(self._experiment_from_row(row) for row in visible),
-            next_cursor=UUID(str(visible[-1]["id"])) if len(rows) > limit and visible else None,
+            cursor=UUID(str(visible[-1]["id"])) if len(rows) > limit and visible else None,
         )
 
     def get_experiment(self, experiment_id: UUID, owner_id: UUID) -> Experiment:
@@ -298,7 +298,7 @@ class ExperimentRepository:
         visible = rows[:limit]
         return ExperimentVersionPage(
             items=tuple(self._version_from_row(row) for row in visible),
-            next_cursor=int(visible[-1]["version"]) if len(rows) > limit and visible else None,
+            cursor=int(visible[-1]["version"]) if len(rows) > limit and visible else None,
         )
 
     def create_patch_proposal(
@@ -384,7 +384,7 @@ class ExperimentRepository:
         visible = rows[:limit]
         return ExperimentPatchProposalPage(
             items=tuple(self._proposal_from_row(row) for row in visible),
-            next_cursor=UUID(str(visible[-1]["id"])) if len(rows) > limit and visible else None,
+            cursor=UUID(str(visible[-1]["id"])) if len(rows) > limit and visible else None,
         )
 
     def apply_patch_proposal(

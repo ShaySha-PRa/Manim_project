@@ -93,7 +93,7 @@ def _build_json_entrypoint(name: str, value: dict[str, Any]) -> tuple[BaseModel,
         return model, "visualization"
     if name == "patch_operation":
         operation = ExperimentPatchOperation(
-            operation=ExperimentPatchOperationKind.ADD,
+            kind=ExperimentPatchOperationKind.ADD,
             path="/visualization/input",
             value=value,
         )
@@ -320,37 +320,37 @@ def test_patch_operation_schema_and_typescript_encode_value_presence_by_kind() -
     schema = build_json_schema()["$defs"]["ExperimentPatchOperation"]
     add_replace, remove = schema["oneOf"]
 
-    add_replace_operation = add_replace["properties"]["operation"]
-    remove_operation = remove["properties"]["operation"]
-    assert add_replace_operation["$ref"] == "#/$defs/ExperimentPatchOperationKind"
-    assert add_replace_operation["enum"] == ["add", "replace"]
-    assert add_replace["required"] == ["operation", "path", "value"]
+    add_replace_kind = add_replace["properties"]["kind"]
+    remove_kind = remove["properties"]["kind"]
+    assert add_replace_kind["$ref"] == "#/$defs/ExperimentPatchOperationKind"
+    assert add_replace_kind["enum"] == ["add", "replace"]
+    assert add_replace["required"] == ["kind", "path", "value"]
     assert "default" not in add_replace["properties"]["value"]
-    assert remove_operation["$ref"] == "#/$defs/ExperimentPatchOperationKind"
-    assert remove_operation["const"] == "remove"
-    assert remove["required"] == ["operation", "path"]
+    assert remove_kind["$ref"] == "#/$defs/ExperimentPatchOperationKind"
+    assert remove_kind["const"] == "remove"
+    assert remove["required"] == ["kind", "path"]
     assert "value" not in remove["properties"]
 
     typescript = build_typescript(build_json_schema())
     declaration = typescript.split("export type ExperimentPatchOperation =", 1)[1].split(
         "\n\n", 1
     )[0]
-    assert 'readonly operation: "add" | "replace";' in declaration
+    assert 'readonly kind: "add" | "replace";' in declaration
     assert "readonly value: JsonValue;" in declaration
-    assert 'readonly operation: "remove";' in declaration
+    assert 'readonly kind: "remove";' in declaration
     assert "value?:" not in declaration
 
     remove_model = ExperimentPatchOperation(
-        operation=ExperimentPatchOperationKind.REMOVE,
+        kind=ExperimentPatchOperationKind.REMOVE,
         path="/visualization/input",
     )
     replace_null_model = ExperimentPatchOperation(
-        operation=ExperimentPatchOperationKind.REPLACE,
+        kind=ExperimentPatchOperationKind.REPLACE,
         path="/visualization/input",
         value=None,
     )
     assert remove_model.model_dump(mode="json") == {
-        "operation": "remove",
+        "kind": "remove",
         "path": "/visualization/input",
     }
     assert replace_null_model.model_dump(mode="json")["value"] is None

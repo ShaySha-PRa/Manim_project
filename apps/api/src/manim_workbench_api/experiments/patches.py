@@ -29,9 +29,9 @@ def apply_patch(
                 raise ValueError("path is outside editable snapshot")
             parent = _parent(result, tokens[:-1])
             key = tokens[-1]
-            if operation.operation is ExperimentPatchOperationKind.ADD:
+            if operation.kind is ExperimentPatchOperationKind.ADD:
                 _add(parent, key, _operation_value(operation))
-            elif operation.operation is ExperimentPatchOperationKind.REPLACE:
+            elif operation.kind is ExperimentPatchOperationKind.REPLACE:
                 _replace(parent, key, _operation_value(operation))
             else:
                 _remove(parent, key)

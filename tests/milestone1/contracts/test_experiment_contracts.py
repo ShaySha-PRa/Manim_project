@@ -143,7 +143,15 @@ def test_experiment_create_and_page_contracts_apply_defaults_and_bounds() -> Non
     )
 
     assert request.domain_kind is ExperimentDomainKind.GENERIC
-    assert ExperimentPage(items=(experiment,), next_cursor=experiment.id).items == (experiment,)
+    page = ExperimentPage(items=(experiment,), cursor=experiment.id)
+
+    assert page.items == (experiment,)
+    assert page.model_dump(mode="json") == {
+        "items": [experiment.model_dump(mode="json")],
+        "cursor": str(experiment.id),
+    }
+    with pytest.raises(ValidationError):
+        ExperimentPage(items=(experiment,), next_cursor=experiment.id)
     with pytest.raises(ValidationError):
         ExperimentPage(items=(experiment,) * 101)
 
@@ -271,7 +279,12 @@ def test_experiment_versions_enforce_parent_invariants_and_pagination_bounds() -
     first = _experiment_version(version=1, parent_version_id=None)
     later = _experiment_version(version=2, parent_version_id=first.id)
 
-    assert ExperimentVersionPage(items=(first, later), next_cursor=2).next_cursor == 2
+    page = ExperimentVersionPage(items=(first, later), cursor=2)
+
+    assert page.cursor == 2
+    assert page.model_dump(mode="json")["cursor"] == 2
+    with pytest.raises(ValidationError):
+        ExperimentVersionPage(items=(first, later), next_cursor=2)
     assert ExperimentVersionCreateRequest(expected_revision=1).expected_revision == 1
     with pytest.raises(ValidationError):
         _experiment_version(version=1, parent_version_id=uuid4())
@@ -286,43 +299,54 @@ def test_experiment_versions_enforce_parent_invariants_and_pagination_bounds() -
 def test_patch_operations_require_values_by_operation_kind() -> None:
     """Catches JSON Patch operations that silently discard or invent a value."""
     add = ExperimentPatchOperation(
-        operation=ExperimentPatchOperationKind.ADD,
+        kind=ExperimentPatchOperationKind.ADD,
         path="/visualization/showGrid",
         value=True,
     )
     replace_with_null = ExperimentPatchOperation(
-        operation=ExperimentPatchOperationKind.REPLACE,
+        kind=ExperimentPatchOperationKind.REPLACE,
         path="/parameters/0/value",
         value=None,
     )
     remove = ExperimentPatchOperation(
-        operation=ExperimentPatchOperationKind.REMOVE,
+        kind=ExperimentPatchOperationKind.REMOVE,
         path="/parameters/0",
     )
 
     assert add.value is True
     assert replace_with_null.value is None
+    assert add.model_dump(mode="json") == {
+        "kind": "add",
+        "path": "/visualization/showGrid",
+        "value": True,
+    }
     assert "value" not in remove.model_dump(mode="json")
     with pytest.raises(ValidationError):
-        ExperimentPatchOperation(operation=ExperimentPatchOperationKind.ADD, path="/parameters/0")
+        ExperimentPatchOperation(kind=ExperimentPatchOperationKind.ADD, path="/parameters/0")
     with pytest.raises(ValidationError):
         ExperimentPatchOperation(
-            operation=ExperimentPatchOperationKind.REMOVE,
+            kind=ExperimentPatchOperationKind.REMOVE,
             path="/parameters/0",
             value=False,
         )
     with pytest.raises(ValidationError):
         ExperimentPatchOperation(
-            operation=ExperimentPatchOperationKind.REPLACE,
+            kind=ExperimentPatchOperationKind.REPLACE,
             path="parameters/0",
             value=1,
+        )
+    with pytest.raises(ValidationError):
+        ExperimentPatchOperation(
+            operation=ExperimentPatchOperationKind.ADD,
+            path="/visualization/showGrid",
+            value=True,
         )
 
 
 def test_patch_proposal_lifecycle_requires_matching_resolution_timestamp() -> None:
     """Catches proposal statuses that no longer identify whether they were resolved."""
     operation = ExperimentPatchOperation(
-        operation=ExperimentPatchOperationKind.REPLACE,
+        kind=ExperimentPatchOperationKind.REPLACE,
         path="/visualization/showGrid",
         value=False,
     )
@@ -353,7 +377,12 @@ def test_patch_proposal_lifecycle_requires_matching_resolution_timestamp() -> No
         resolved_at=created_at,
     )
 
-    assert ExperimentPatchProposalPage(items=(pending, applied)).items == (pending, applied)
+    page = ExperimentPatchProposalPage(items=(pending, applied), cursor=applied.id)
+
+    assert page.items == (pending, applied)
+    assert page.model_dump(mode="json")["cursor"] == str(applied.id)
+    with pytest.raises(ValidationError):
+        ExperimentPatchProposalPage(items=(pending, applied), next_cursor=applied.id)
     assert ExperimentPatchProposalApplyRequest(expected_revision=1).expected_revision == 1
     assert ExperimentPatchProposalRejectRequest(expected_revision=1, reason="Not applicable").reason
     missing_resolution_payload = pending.model_dump()

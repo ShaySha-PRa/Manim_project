@@ -173,12 +173,12 @@ def test_experiment_reads_and_uuid_pagination_are_owner_scoped(tmp_path: Path) -
     ordered = sorted(created, key=lambda item: str(item.id))
 
     first = repository.list_experiments(PROJECT_ID, OWNER_ID, cursor=None, limit=2)
-    second = repository.list_experiments(PROJECT_ID, OWNER_ID, cursor=first.next_cursor, limit=2)
+    second = repository.list_experiments(PROJECT_ID, OWNER_ID, cursor=first.cursor, limit=2)
 
     assert list(first.items) == ordered[:2]
-    assert first.next_cursor == ordered[1].id
+    assert first.cursor == ordered[1].id
     assert list(second.items) == ordered[2:]
-    assert second.next_cursor is None
+    assert second.cursor is None
     assert repository.get_experiment(ordered[0].id, OWNER_ID) == ordered[0]
     assert repository.get_draft(ordered[0].id, OWNER_ID).experiment_id == ordered[0].id
     assert_error(
@@ -286,7 +286,7 @@ def test_create_version_is_canonical_idempotent_and_paginates_by_descending_vers
     assert second.content_hash == expected_hash
     page = repository.list_versions(experiment.id, OWNER_ID, cursor=None, limit=1)
     assert page.items == (second,)
-    assert page.next_cursor == 2
+    assert page.cursor == 2
     assert repository.list_versions(experiment.id, OWNER_ID, cursor=2, limit=1).items == (first,)
     assert_error(
         lambda: repository.create_version(
@@ -421,7 +421,7 @@ def proposal(repository, experiment_id: UUID, revision: int, operations):  # typ
 
 
 def operation(kind: ExperimentPatchOperationKind, path: str, value=...):  # type: ignore[no-untyped-def]
-    values = {"operation": kind, "path": path}
+    values = {"kind": kind, "path": path}
     if value is not ...:
         values["value"] = value
     return ExperimentPatchOperation(**values)
@@ -451,13 +451,17 @@ def test_proposal_cursor_pagination_and_version_proposal_cross_owner_hiding(
         experiment.id, OWNER_ID, cursor=None, limit=2
     )
     second = repository.list_patch_proposals(
-        experiment.id, OWNER_ID, cursor=first.next_cursor, limit=2
+        experiment.id, OWNER_ID, cursor=first.cursor, limit=2
     )
 
     assert list(first.items) == ordered[:2]
-    assert first.next_cursor == ordered[1].id
+    assert first.cursor == ordered[1].id
     assert list(second.items) == ordered[2:]
-    assert second.next_cursor is None
+    assert second.cursor is None
+    for loaded in (*first.items, *second.items):
+        dumped_operation = loaded.operations[0].model_dump(mode="json")
+        assert dumped_operation["kind"] == "add"
+        assert "operation" not in dumped_operation
     assert_error(
         lambda: repository.list_versions(experiment.id, OTHER_OWNER_ID, cursor=None, limit=10),
         "experiment_not_found",

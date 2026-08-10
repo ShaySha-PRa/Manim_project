@@ -262,7 +262,7 @@ export interface ExperimentObservable {
 
 export interface ExperimentPage {
   readonly items: ReadonlyArray<Experiment>;
-  readonly next_cursor?: string | null;
+  readonly cursor?: string | null;
 }
 
 export interface ExperimentParameter {
@@ -273,7 +273,7 @@ export interface ExperimentParameter {
   readonly editable?: boolean;
 }
 
-export type ExperimentPatchOperation = { readonly operation: "add" | "replace"; readonly path: string; readonly value: JsonValue; } | { readonly operation: "remove"; readonly path: string; };
+export type ExperimentPatchOperation = { readonly kind: "add" | "replace"; readonly path: string; readonly value: JsonValue; } | { readonly kind: "remove"; readonly path: string; };
 
 export type ExperimentPatchOperationKind = "add" | "replace" | "remove";
 
@@ -297,7 +297,7 @@ export interface ExperimentPatchProposalApplyRequest {
 
 export interface ExperimentPatchProposalPage {
   readonly items: ReadonlyArray<ExperimentPatchProposal>;
-  readonly next_cursor?: string | null;
+  readonly cursor?: string | null;
 }
 
 export interface ExperimentPatchProposalRejectRequest {
@@ -331,7 +331,7 @@ export interface ExperimentVersionCreateRequest {
 
 export interface ExperimentVersionPage {
   readonly items: ReadonlyArray<ExperimentVersion>;
-  readonly next_cursor?: number | null;
+  readonly cursor?: number | null;
 }
 
 export interface FormulaStep {

@@ -391,7 +391,7 @@ def seed_phase9_fixture(engine: Engine) -> None:
 
 
 def operation(kind: ExperimentPatchOperationKind, path: str, value=...):  # type: ignore[no-untyped-def]
-    values = {"operation": kind, "path": path}
+    values = {"kind": kind, "path": path}
     if value is not ...:
         values["value"] = value
     return ExperimentPatchOperation(**values)
