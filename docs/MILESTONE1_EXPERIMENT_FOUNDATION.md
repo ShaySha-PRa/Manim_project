@@ -321,3 +321,51 @@ target SHAs.
 
 All acceptance commands run from `/home/joshua/projects/Manim_project`, or the active WSL worktree,
 and the branch remains local after Milestone 1.
+
+## Implementation status and evidence for M1-5
+
+The compatibility-acceptance implementation adds `scripts/milestone1_acceptance.py` and executable
+tests under `tests/milestone1/acceptance/`. The focused command is bounded to local, offline gates:
+it checks generated contracts, runs all M1 tests, runs the existing authentication/project/
+workspace/delivery/job/content/code/quality regression selectors, checks the unchanged Workbench
+boundary, and invokes the existing Phase 8 and Phase 9 offline acceptance scripts. The full command
+extends that same ordered list with Ruff, the complete pytest suite, Web lint/typecheck, and both
+feature-flag build configurations.
+
+The exact local commands are:
+
+    uv run pytest -s -q tests/milestone1/acceptance tests/milestone1
+    uv run python scripts/milestone1_acceptance.py --focused
+    uv run python scripts/milestone1_acceptance.py --full
+
+The first two commands pass on the Task M1-5 worktree. The full command reaches its `pytest-full`
+gate and stops on two pre-existing Phase 5/8 parent assertions that still require the global
+contract schema to be `1.5`; they are outside this task's read-only boundary. The focused command
+uses explicit old-regression selectors so those stale assertions do not mask the M1 compatibility
+evidence.
+
+Each subprocess receives an allow-listed environment with explicit lowercase feature flags and a
+SQLite URL under a newly created temporary directory. DeepSeek credentials, internal tokens, the
+normal `.env`, and the configured `data/manim_workbench.db` are not read. Subprocess output is
+captured and failure summaries contain only a gate name and exit code. The temporary directory is
+removed after both successful and failed runs. The compatibility fixture uses only pytest temporary
+SQLite databases and exercises this migration path:
+
+    empty -> 0007_experiment_core
+    representative 0006_phase9 -> 0007_experiment_core -> 0006_phase9 -> 0007_experiment_core
+
+It records representative legacy rows across authentication, project, Prompt/ContentPlan/Code,
+render, delivery, event, and quality tables; verifies their values before and after each migration;
+and exercises the public ExperimentRepository lifecycle for draft CAS conflicts, immutable and
+idempotent versions, owner hiding, proposal apply/reject, and invalid patches. The checked-in 1.5
+schema fixture and existing contract tests remain the source of truth for pre-M1 definition hashes.
+
+The independent persistence review left one non-blocking Minor for a repository module that remains
+large (about 733 lines) because it spans the bounded M1 persistence surface. It is intentionally
+deferred and does not change the public contract or acceptance behavior.
+
+This evidence does not expand the Milestone 1 scope. Session execution, WebSocket transport, Python
+Runtime, Docker scientific sandbox, GPU/FEM/PDE solvers, real-time visualization, DeepSeek proposal
+generation, the 2m × 2m heat-conduction example, and Studio video generation remain later
+milestones. The existing `/workbench`, login, Manim Preview/Final rendering, user data, and video
+delivery workflow remain the compatibility baseline.

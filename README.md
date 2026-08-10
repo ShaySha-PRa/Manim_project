@@ -19,6 +19,16 @@
 - 目标时长、估算时长、实际时长以及确定性画面质量诊断
 - Phase 9 验收数据和证据位于 benchmarks/phase9/
 
+Milestone 1 另外提供一个默认关闭的 Experiment/Draft/Version/PatchProposal 基础层，以及
+可选的 `/lab` 和 `/studio` 占位入口。它只负责契约、`0007` 持久化、版本快照、草稿并发控制和
+已存储提案的读取/应用/拒绝；不会把科学模型直接交给当前 Manim 视频流水线执行。
+
+明确边界：Milestone 1 不提供计算 Worker、WebSocket、Python Runtime 或科学沙箱，不提供 PDE、
+FEM、GPU 求解器、实时参数交互或实时可视化，不调用 DeepSeek 生成 PatchProposal，不提供
+2m × 2m 热传导实验，也不提供新的 Studio 视频生成。当前可用的视频能力仍是下面的
+Prompt → ContentPlan → CodeVersion → Manim Preview/Final 工作流；它没有因此获得几何或科学
+模型执行能力。
+
 当前项目定位是本地开发和验收环境，不是生产部署方案。真实用户市场验证仍属于后续工作。
 
 ## 演示
@@ -213,7 +223,7 @@ Runner 到 API 的内部调用必须保持本机地址；Runner 会拒绝外部�
 
 健康检查应返回：
 
-    {"status":"ok","service":"api","contract_schema_version":"1.5"}
+    {"status":"ok","service":"api","contract_schema_version":"1.6"}
 
 API 根路径 / 没有业务页面，返回 {"detail":"Not Found"} 是正常的；浏览器 UI 应访问 Web 的 :3000/login 或 :3000/workbench。
 
@@ -240,6 +250,26 @@ API 根路径 / 没有业务页面，返回 {"detail":"Not Found"} 是正常的�
     a、b、c 为实数
     使用配方法进行推导
     最后使用 y=2x^2-4x+1 验证结果
+
+## 可选的 Milestone 1 入口
+
+两个入口默认关闭，不会出现在主导航中。复制 `.env.example` 后保持下面两项为 `false`，
+即可保留现有 `/workbench` 行为：
+
+    NEXT_PUBLIC_EXPERIMENT_LAB_ENABLED=false
+    NEXT_PUBLIC_STUDIO_ENABLED=false
+
+需要查看基础占位页时，在启动 Web 前分别设置精确的小写 `true`，然后重启开发服务器或重新
+构建：
+
+    NEXT_PUBLIC_EXPERIMENT_LAB_ENABLED=true \
+    NEXT_PUBLIC_STUDIO_ENABLED=false \
+    npm run dev:web
+
+启用后可访问 `http://<WSL_IP>:3000/lab` 或 `http://<WSL_IP>:3000/studio`。这两个页面仍受
+现有登录和首次修改密码流程保护，并明确标注运行时与交互渲染尚未启用。实验 API 位于
+`/api/v1/projects/{project_id}/experiments` 及其 Draft、Version、PatchProposal 资源；
+Milestone 1 不包含提案生成接口。
 
 ## 常见问题
 
@@ -304,6 +334,16 @@ API 根路径 / 没有业务页面，返回 {"detail":"Not Found"} 是正常的�
     uv run python scripts/phase8_acceptance.py
     uv run python scripts/phase9_acceptance.py
     uv run python scripts/phase9_real_render_acceptance.py --workers 1
+
+Milestone 1 本地离线验收：
+
+    uv run pytest -s -q tests/milestone1/acceptance tests/milestone1
+    uv run python scripts/milestone1_acceptance.py --focused
+    uv run python scripts/milestone1_acceptance.py --full
+
+`--focused` 和 `--full` 都使用临时 SQLite、捕获并脱敏子进程输出，不启动 Redis、Docker、
+GPU、真实渲染或 DeepSeek；`--full` 额外运行 Ruff、完整 pytest、Web lint/typecheck 和
+两种功能开关构建。脚本不会读取项目 `.env` 或正常的 `data/manim_workbench.db`。
 
 ## 文档索引
 
