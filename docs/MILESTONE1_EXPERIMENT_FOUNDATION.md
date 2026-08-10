@@ -267,12 +267,10 @@ target SHAs.
   enabled direct routes enforce `/login` and `/change-password` recovery; placeholders explicitly
   state that runtime/interactive rendering is not enabled; existing Workbench tests and behavior
   are unchanged.
-- Focused commands: run the Web milestone tests with the repository's Playwright configuration,
-  focused as:
+- Focused commands: run the Web boundary tests with pytest, then run Web lint and typecheck:
 
   ```bash
-  npx playwright test --config tests/phase8/browser/playwright.config.ts \
-    tests/web/milestone1 tests/web/workbench
+  uv run pytest -s -q tests/web/milestone1 tests/web/workbench
   npm run lint
   npm run typecheck
   ```
