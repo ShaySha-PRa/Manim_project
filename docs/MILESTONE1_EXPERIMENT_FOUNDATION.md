@@ -62,13 +62,37 @@ The API is rooted at `/api/v1` and adds:
 List endpoints are bounded to 100 items and use stable cursors. Mutations reuse existing session,
 CSRF, validation-error, and forced-password-change protections.
 
-## Delivery tasks
+## Task 1: Shared experiment contracts
 
-1. Freeze and generate shared contract `1.6` with focused red-green tests.
-2. Add migration `0007`, persistence primitives, append-only/version/concurrency tests.
-3. Add authenticated experiment services and routes with ownership and conflict tests.
-4. Add feature-flagged Lab and Studio placeholders without changing Workbench behavior.
-5. Add repeatable compatibility acceptance and setup documentation.
+Freeze and generate shared contract `1.6` with focused red-green tests. The implementation scope is
+limited to `packages/contracts` and `tests/milestone1/contracts`. Generated TypeScript and JSON
+Schema are committed, but they must only be changed through the repository generator.
+
+## Task 2: Experiment persistence
+
+Add migration `0007`, experiment repository primitives, and append-only/version/concurrency tests.
+The implementation scope is limited to the new migration, `apps/api` experiment persistence files,
+and `tests/milestone1/persistence`. Existing migrations are read-only.
+
+## Task 3: Experiment HTTP API
+
+Add authenticated experiment services and routes with ownership, pagination, validation, proposal
+lifecycle, idempotent snapshot, and revision-conflict tests. The implementation scope is limited to
+the experiment API module, API application router registration, health contract version update, and
+`tests/milestone1/api`.
+
+## Task 4: Feature-flagged Web entries
+
+Add feature-flagged Lab and Studio placeholders without changing Workbench behavior. The
+implementation scope is limited to the two new routes, navigation feature-flag handling, shared CSS
+needed by the placeholders, and `tests/web/milestone1`.
+
+## Task 5: Compatibility acceptance and documentation
+
+Add repeatable compatibility acceptance, environment examples, and Milestone 1 status and usage
+documentation. The implementation scope is limited to the new acceptance script and tests,
+`.env.example`, `README.md`, and Milestone 1 documentation. The acceptance workflow must exercise
+empty and existing-`0006` migration paths without accessing the developer's normal database.
 
 Each task is implemented in a bounded file set, committed independently, and accepted by a fresh
 reviewer for both specification compliance and code quality. The final parent review covers the
