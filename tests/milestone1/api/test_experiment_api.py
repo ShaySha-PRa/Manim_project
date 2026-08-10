@@ -681,6 +681,15 @@ def test_openapi_adds_only_the_ten_experiment_operations_and_health_16() -> None
         ("/api/v1/experiments/{experiment_id}/patch-proposals/{proposal_id}/apply", "post"),
         ("/api/v1/experiments/{experiment_id}/patch-proposals/{proposal_id}/reject", "post"),
     }
+    version_responses = schema["paths"]["/api/v1/experiments/{experiment_id}/versions"][
+        "post"
+    ]["responses"]
+    assert {"200", "201"} <= set(version_responses)
+    for status_code in ("200", "201"):
+        assert version_responses[status_code]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/ExperimentVersion"
+        }
+    assert version_responses["200"]["description"] == "Existing version with identical content."
     assert schema["paths"]["/api/v1/health"]["get"]["responses"]["200"]["content"][
         "application/json"
     ]["schema"]["$ref"] == "#/components/schemas/HealthResponse"

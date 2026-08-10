@@ -157,6 +157,12 @@ def update_draft(
     "/experiments/{experiment_id}/versions",
     response_model=ExperimentVersion,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_200_OK: {
+            "model": ExperimentVersion,
+            "description": "Existing version with identical content.",
+        }
+    },
 )
 def create_version(
     experiment_id: UUID,
