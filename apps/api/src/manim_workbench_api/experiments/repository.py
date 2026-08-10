@@ -50,6 +50,11 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _validate_limit(limit: int) -> None:
+    if not 1 <= limit <= 100:
+        raise ValueError("limit must be between 1 and 100")
+
+
 class ExperimentRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
@@ -116,6 +121,7 @@ class ExperimentRepository:
         cursor: UUID | None,
         limit: int,
     ) -> ExperimentPage:
+        _validate_limit(limit)
         with self._engine.connect() as connection:
             rows = (
                 connection.execute(
@@ -200,6 +206,7 @@ class ExperimentRepository:
         owner_id: UUID,
         request: ExperimentVersionCreateRequest,
     ) -> tuple[ExperimentVersion, bool]:
+        attempted_content_hash: str | None = None
         try:
             with self._write_connection() as connection:
                 self._require_experiment(connection, experiment_id, owner_id)
@@ -210,8 +217,10 @@ class ExperimentRepository:
                 if draft.revision != request.expected_revision:
                     raise EXPERIMENT_REVISION_CONFLICT
                 snapshot = editable_snapshot(draft)
-                content_hash = snapshot_hash(snapshot)
-                existing = self._version_by_hash(connection, experiment_id, content_hash)
+                attempted_content_hash = snapshot_hash(snapshot)
+                existing = self._version_by_hash(
+                    connection, experiment_id, attempted_content_hash
+                )
                 if existing is not None:
                     return self._version_from_row(existing), False
                 previous = (
@@ -236,7 +245,7 @@ class ExperimentRepository:
                     version=version,
                     parent_version_id=parent_version_id,
                     draft_revision=draft.revision,
-                    content_hash=content_hash,
+                    content_hash=attempted_content_hash,
                     created_at=utc_now(),
                     **snapshot,
                 )
@@ -246,7 +255,7 @@ class ExperimentRepository:
             existing = self._read_version_by_hash(
                 experiment_id,
                 owner_id,
-                self._snapshot_hash_at_revision(experiment_id, owner_id, request.expected_revision),
+                attempted_content_hash,
             )
             if existing is not None:
                 return existing, False
@@ -261,6 +270,7 @@ class ExperimentRepository:
         cursor: int | None,
         limit: int,
     ) -> ExperimentVersionPage:
+        _validate_limit(limit)
         with self._engine.connect() as connection:
             self._require_experiment(connection, experiment_id, owner_id)
             rows = (
@@ -348,6 +358,7 @@ class ExperimentRepository:
         cursor: UUID | None,
         limit: int,
     ) -> ExperimentPatchProposalPage:
+        _validate_limit(limit)
         with self._engine.connect() as connection:
             self._require_experiment(connection, experiment_id, owner_id)
             rows = (
@@ -671,15 +682,6 @@ class ExperimentRepository:
             if row is None or str(row["owner_id"]) != str(owner_id):
                 return None
             return self._version_from_row(row)
-
-    def _snapshot_hash_at_revision(
-        self, experiment_id: UUID, owner_id: UUID, expected_revision: int
-    ) -> str | None:
-        with self._engine.connect() as connection:
-            row = self._draft_row(connection, experiment_id, owner_id)
-        if row is None or int(row["revision"]) != expected_revision:
-            return None
-        return snapshot_hash(editable_snapshot(self._draft_from_row(row)))
 
     @staticmethod
     def _update_values(request: ExperimentDraftUpdateRequest) -> dict[str, str]:

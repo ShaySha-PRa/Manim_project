@@ -3,9 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Barrier
-from uuid import UUID
+from types import MappingProxyType
+from uuid import UUID, uuid4
 
 import pytest
 from alembic import command
@@ -13,16 +15,23 @@ from alembic.config import Config
 from manim_workbench_api.database import configure_sqlite
 from manim_workbench_contracts import (
     AssumptionSource,
+    AssumptionStatus,
+    ExperimentAssumption,
+    ExperimentCodeFile,
     ExperimentCreateRequest,
     ExperimentDomainKind,
     ExperimentDraftUpdateRequest,
+    ExperimentObservable,
+    ExperimentParameter,
     ExperimentPatchOperation,
     ExperimentPatchOperationKind,
     ExperimentPatchProposalApplyRequest,
     ExperimentPatchProposalRejectRequest,
     ExperimentVersionCreateRequest,
+    ModelSpec,
 )
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.exc import IntegrityError
 
 try:
     from manim_workbench_api.experiments import errors as experiment_errors
@@ -309,6 +318,97 @@ def test_concurrent_same_snapshot_returns_one_new_version_and_one_idempotent_res
     assert len({item.id for item, _ in results}) == 1
 
 
+@pytest.mark.parametrize("limit", [0, -2, 101])
+def test_all_list_methods_reject_limits_outside_one_to_one_hundred(
+    tmp_path: Path, limit: int
+) -> None:
+    """Catches unbounded, zero, or negative list queries at every repository boundary."""
+    repository = make_repository(tmp_path)
+    experiment, _ = create_experiment(repository)
+    actions = (
+        lambda: repository.list_experiments(PROJECT_ID, OWNER_ID, cursor=None, limit=limit),
+        lambda: repository.list_versions(experiment.id, OWNER_ID, cursor=None, limit=limit),
+        lambda: repository.list_patch_proposals(
+            experiment.id, OWNER_ID, cursor=None, limit=limit
+        ),
+    )
+    for action in actions:
+        with pytest.raises(ValueError, match=r"^limit must be between 1 and 100$"):
+            action()
+
+
+def test_snapshot_collision_recovery_uses_original_hash_after_draft_advances(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Catches collision recovery that incorrectly re-hashes a newer draft."""
+    engine = migrated_engine(tmp_path)
+    repository = repository_type()(engine)
+    experiment, _ = create_experiment(repository)
+    original_insert = repository_type()._insert_version
+    attempted_hash: list[str] = []
+
+    def insert_then_advance_and_collide(connection, record, snapshot) -> None:  # type: ignore[no-untyped-def]
+        attempted_hash.append(record.content_hash)
+        original_insert(connection, record, snapshot)
+        connection.execute(
+            text(
+                "UPDATE experiment_drafts SET revision = revision + 1, "
+                "visualization_json = :visualization_json "
+                "WHERE experiment_id = :experiment_id"
+            ),
+            {
+                "experiment_id": str(experiment.id),
+                "visualization_json": '{"advanced":true}',
+            },
+        )
+        connection.commit()
+        raise IntegrityError("forced unique collision", {}, RuntimeError("collision"))
+
+    monkeypatch.setattr(repository, "_insert_version", insert_then_advance_and_collide)
+
+    recovered, created = repository.create_version(
+        experiment.id,
+        OWNER_ID,
+        ExperimentVersionCreateRequest(expected_revision=1),
+    )
+
+    assert created is False
+    assert recovered.content_hash == attempted_hash[0]
+    assert repository.get_draft(experiment.id, OWNER_ID).revision == 2
+
+
+def test_snapshot_collision_with_different_hash_is_revision_conflict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Catches treating a different-hash unique collision as idempotent success."""
+    engine = migrated_engine(tmp_path)
+    repository = repository_type()(engine)
+    experiment, _ = create_experiment(repository)
+    original_insert = repository_type()._insert_version
+    competing_hash = "f" * 64
+
+    def insert_different_and_collide(connection, record, snapshot) -> None:  # type: ignore[no-untyped-def]
+        competing = record.model_copy(update={"id": uuid4(), "content_hash": competing_hash})
+        original_insert(connection, competing, snapshot)
+        connection.commit()
+        raise IntegrityError("forced unique collision", {}, RuntimeError("collision"))
+
+    monkeypatch.setattr(repository, "_insert_version", insert_different_and_collide)
+
+    assert_error(
+        lambda: repository.create_version(
+            experiment.id,
+            OWNER_ID,
+            ExperimentVersionCreateRequest(expected_revision=1),
+        ),
+        "experiment_revision_conflict",
+    )
+    with engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT content_hash FROM experiment_versions")
+        ).scalar_one() == competing_hash
+
+
 def proposal(repository, experiment_id: UUID, revision: int, operations):  # type: ignore[no-untyped-def]
     return repository.create_patch_proposal(
         experiment_id,
@@ -327,6 +427,185 @@ def operation(kind: ExperimentPatchOperationKind, path: str, value=...):  # type
     return ExperimentPatchOperation(**values)
 
 
+def test_proposal_cursor_pagination_and_version_proposal_cross_owner_hiding(
+    tmp_path: Path,
+) -> None:
+    """Catches ignored proposal cursors or list APIs that reveal another owner's resources."""
+    repository = make_repository(tmp_path)
+    experiment, _ = create_experiment(repository)
+    repository.create_version(
+        experiment.id, OWNER_ID, ExperimentVersionCreateRequest(expected_revision=1)
+    )
+    created = [
+        proposal(
+            repository,
+            experiment.id,
+            1,
+            (operation(ExperimentPatchOperationKind.ADD, f"/visualization/value_{index}", index),),
+        )
+        for index in range(3)
+    ]
+    ordered = sorted(created, key=lambda item: str(item.id))
+
+    first = repository.list_patch_proposals(
+        experiment.id, OWNER_ID, cursor=None, limit=2
+    )
+    second = repository.list_patch_proposals(
+        experiment.id, OWNER_ID, cursor=first.next_cursor, limit=2
+    )
+
+    assert list(first.items) == ordered[:2]
+    assert first.next_cursor == ordered[1].id
+    assert list(second.items) == ordered[2:]
+    assert second.next_cursor is None
+    assert_error(
+        lambda: repository.list_versions(experiment.id, OTHER_OWNER_ID, cursor=None, limit=10),
+        "experiment_not_found",
+    )
+    assert_error(
+        lambda: repository.list_patch_proposals(
+            experiment.id, OTHER_OWNER_ID, cursor=None, limit=10
+        ),
+        "experiment_not_found",
+    )
+
+
+def test_complex_frozen_json_roundtrips_through_canonical_db_and_pydantic(
+    tmp_path: Path,
+) -> None:
+    """Catches lossy model_dump persistence or reconstruction without Task 1 validation."""
+    engine = migrated_engine(tmp_path)
+    repository = repository_type()(engine)
+    experiment, _ = create_experiment(repository)
+    assumption = ExperimentAssumption(
+        id=uuid4(),
+        statement="Boundary flux stays finite.",
+        source=AssumptionSource.USER,
+        status=AssumptionStatus.ACCEPTED,
+        created_at=datetime(2026, 8, 10, tzinfo=timezone.utc),
+    )
+    request = ExperimentDraftUpdateRequest(
+        expected_revision=1,
+        model_spec=ModelSpec(
+            schema_version="1.0",
+            domain_kind=ExperimentDomainKind.PDE,
+            plugin_id="solver.nested",
+            plugin_version="2.0",
+            payload={
+                "mesh": {"levels": [1, 2, {"enabled": True, "weight": 0.25}]},
+                "nullable": None,
+            },
+        ),
+        parameters=(
+            ExperimentParameter(
+                key="solver.step",
+                label="Step",
+                value={"schedule": [0.1, {"adaptive": False}]},
+                unit="s",
+            ),
+        ),
+        observables=(
+            ExperimentObservable(
+                key="field.energy",
+                label="Energy",
+                description="Nested roundtrip observable",
+                unit="J",
+            ),
+        ),
+        assumptions=(assumption,),
+        visualization={
+            "layers": [{"name": "surface", "visible": True, "points": [[0, 1], [2, 3]]}]
+        },
+        code_files=(
+            ExperimentCodeFile(path="nested/model.py", language="python", content="MODEL = True\n"),
+        ),
+    )
+    updated = repository.update_draft(experiment.id, OWNER_ID, request)
+    loaded = repository.get_draft(experiment.id, OWNER_ID)
+    version, created = repository.create_version(
+        experiment.id,
+        OWNER_ID,
+        ExperimentVersionCreateRequest(expected_revision=updated.revision),
+    )
+    listed = repository.list_versions(experiment.id, OWNER_ID, cursor=None, limit=10).items[0]
+    expected = updated.model_dump(mode="json")
+
+    assert created is True
+    assert loaded.model_dump(mode="json") == expected
+    for field in (
+        "model_spec",
+        "parameters",
+        "observables",
+        "assumptions",
+        "visualization",
+        "code_files",
+    ):
+        assert listed.model_dump(mode="json")[field] == expected[field]
+        assert version.model_dump(mode="json")[field] == expected[field]
+    assert isinstance(loaded.visualization, MappingProxyType)
+    assert isinstance(loaded.visualization["layers"], tuple)
+    assert isinstance(loaded.visualization["layers"][0], MappingProxyType)
+    with engine.connect() as connection:
+        row = connection.execute(
+            text(
+                "SELECT model_spec_json, parameters_json, observables_json, assumptions_json, "
+                "visualization_json, code_files_json FROM experiment_drafts "
+                "WHERE experiment_id = :experiment_id"
+            ),
+            {"experiment_id": str(experiment.id)},
+        ).one()
+    for index, field in enumerate(
+        (
+            "model_spec",
+            "parameters",
+            "observables",
+            "assumptions",
+            "visualization",
+            "code_files",
+        )
+    ):
+        assert json.loads(row[index]) == expected[field]
+
+
+def test_apply_rolls_back_draft_cas_when_proposal_transition_trigger_fails(
+    tmp_path: Path,
+) -> None:
+    """Catches a transaction boundary that commits the draft before proposal resolution."""
+    engine = migrated_engine(tmp_path)
+    repository = repository_type()(engine)
+    experiment, original = create_experiment(repository)
+    pending = proposal(
+        repository,
+        experiment.id,
+        original.revision,
+        (operation(ExperimentPatchOperationKind.ADD, "/visualization/should_rollback", True),),
+    )
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TRIGGER test_fail_proposal_transition "
+                "BEFORE UPDATE ON experiment_patch_proposals "
+                "BEGIN "
+                "SELECT RAISE(ABORT, 'forced proposal transition failure'); END"
+            )
+        )
+
+    with pytest.raises(IntegrityError, match="forced proposal transition failure"):
+        repository.apply_patch_proposal(
+            experiment.id,
+            pending.id,
+            OWNER_ID,
+            ExperimentPatchProposalApplyRequest(expected_revision=original.revision),
+        )
+
+    assert repository.get_draft(experiment.id, OWNER_ID) == original
+    stored = repository.list_patch_proposals(
+        experiment.id, OWNER_ID, cursor=None, limit=10
+    ).items[0]
+    assert stored.status.value == "pending"
+    assert stored.resolved_at is None
+
+
 def test_patch_proposals_apply_rfc6902_subset_and_preserve_rollback_on_invalid_patch(
     tmp_path: Path,
 ) -> None:
@@ -336,15 +615,21 @@ def test_patch_proposals_apply_rfc6902_subset_and_preserve_rollback_on_invalid_p
     draft = repository.update_draft(
         experiment.id,
         OWNER_ID,
-        ExperimentDraftUpdateRequest(expected_revision=1, visualization={"items": ["a"]}),
+        ExperimentDraftUpdateRequest(
+            expected_revision=1,
+            visualization={"items": ["a", "remove-me", "c"], "remove_me": True},
+        ),
     )
     valid = proposal(
         repository,
         experiment.id,
         draft.revision,
         (
+            operation(ExperimentPatchOperationKind.ADD, "/visualization/items/1", "inserted"),
+            operation(ExperimentPatchOperationKind.REMOVE, "/visualization/items/2"),
             operation(ExperimentPatchOperationKind.ADD, "/visualization/items/-", "b"),
             operation(ExperimentPatchOperationKind.REPLACE, "/visualization/items/0", "A"),
+            operation(ExperimentPatchOperationKind.REMOVE, "/visualization/remove_me"),
             operation(ExperimentPatchOperationKind.ADD, "/visualization/a~1b", True),
             operation(ExperimentPatchOperationKind.ADD, "/visualization/t~0key", 1),
         ),
@@ -358,7 +643,7 @@ def test_patch_proposals_apply_rfc6902_subset_and_preserve_rollback_on_invalid_p
 
     assert applied.revision == 3
     assert applied.model_dump(mode="json")["visualization"] == {
-        "items": ["A", "b"],
+        "items": ["A", "inserted", "c", "b"],
         "a/b": True,
         "t~key": 1,
     }
@@ -366,8 +651,15 @@ def test_patch_proposals_apply_rfc6902_subset_and_preserve_rollback_on_invalid_p
     assert proposals.items[0].status.value == "applied"
     for operations in (
         (operation(ExperimentPatchOperationKind.REPLACE, "/revision", 4),),
+        (operation(ExperimentPatchOperationKind.ADD, "/visualization/missing/child", True),),
+        (operation(ExperimentPatchOperationKind.REPLACE, "/visualization/missing", True),),
+        (operation(ExperimentPatchOperationKind.REMOVE, "/visualization/missing"),),
+        (operation(ExperimentPatchOperationKind.ADD, "/visualization/items/-1", True),),
+        (operation(ExperimentPatchOperationKind.ADD, "/visualization/items/1.0", True),),
+        (operation(ExperimentPatchOperationKind.ADD, "/visualization/items/99", True),),
         (operation(ExperimentPatchOperationKind.ADD, "/visualization/~2", True),),
         (operation(ExperimentPatchOperationKind.REPLACE, "/model_spec/plugin_id", "x"),),
+        (operation(ExperimentPatchOperationKind.REPLACE, "/visualization/items/-", True),),
         (operation(ExperimentPatchOperationKind.REMOVE, "/visualization/items/-"),),
     ):
         invalid = proposal(repository, experiment.id, applied.revision, operations)
