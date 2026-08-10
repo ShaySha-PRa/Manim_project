@@ -15,7 +15,7 @@ from pydantic import ValidationError
 
 
 def test_phase8_contract_schema_is_frozen_at_1_4() -> None:
-    assert CONTRACT_SCHEMA_VERSION == "1.5"
+    assert CONTRACT_SCHEMA_VERSION == "1.6"
 
 
 def test_browser_login_contract_does_not_accept_owner_or_session_token() -> None:

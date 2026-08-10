@@ -338,11 +338,9 @@ The exact local commands are:
     uv run python scripts/milestone1_acceptance.py --focused
     uv run python scripts/milestone1_acceptance.py --full
 
-The first two commands pass on the Task M1-5 worktree. The full command reaches its `pytest-full`
-gate and stops on two pre-existing Phase 5/8 parent assertions that still require the global
-contract schema to be `1.5`; they are outside this task's read-only boundary. The focused command
-uses explicit old-regression selectors so those stale assertions do not mask the M1 compatibility
-evidence.
+All three commands pass on the Task M1-5 worktree. The full command completes all twelve gates after
+the authorized compatibility exception synchronized the Phase 5/8 parent assertions with the
+frozen global contract schema `1.6`.
 
 Each subprocess receives an allow-listed environment with explicit lowercase feature flags and a
 SQLite URL under a newly created temporary directory. DeepSeek credentials, internal tokens, the
