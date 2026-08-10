@@ -1,18 +1,25 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
+from typing_extensions import TypeAliasType
 
-CONTRACT_SCHEMA_VERSION = "1.5"
+CONTRACT_SCHEMA_VERSION = "1.6"
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
 Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 RelativePath = Annotated[str, Field(min_length=1, max_length=500)]
+JsonValue = TypeAliasType(
+    "JsonValue",
+    str | bool | int | FiniteFloat | None | list["JsonValue"] | dict[str, "JsonValue"],
+)
+JsonObject = dict[str, JsonValue]
 
 
 class ContractModel(BaseModel):
@@ -192,6 +199,65 @@ class SessionState(str, Enum):
     EXPIRED = "expired"
 
 
+class ExperimentDomainKind(str, Enum):
+    GENERIC = "generic"
+    GEOMETRY = "geometry"
+    ODE = "ode"
+    PDE = "pde"
+    FEM = "fem"
+    STOCHASTIC = "stochastic"
+    OPTIMIZATION = "optimization"
+    NEURAL_NETWORK = "neural_network"
+    CUSTOM_PYTHON = "custom_python"
+
+
+class AssumptionSource(str, Enum):
+    USER = "user"
+    MODEL = "model"
+    IMPORT = "import"
+    SYSTEM = "system"
+
+
+class AssumptionStatus(str, Enum):
+    PROPOSED = "proposed"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+class ExperimentPatchProposalStatus(str, Enum):
+    PENDING = "pending"
+    APPLIED = "applied"
+    REJECTED = "rejected"
+
+
+class ExperimentPatchOperationKind(str, Enum):
+    ADD = "add"
+    REPLACE = "replace"
+    REMOVE = "remove"
+
+
+class ModelSpec(ContractModel):
+    schema_version: Literal["1.0"]
+    domain_kind: ExperimentDomainKind
+    plugin_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{2,99}$")]
+    plugin_version: Annotated[str, Field(min_length=1, max_length=50)]
+    payload: JsonObject
+
+    @field_validator("payload")
+    @classmethod
+    def validate_payload_size(cls, value: JsonObject) -> JsonObject:
+        canonical_payload = json.dumps(
+            value,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        if len(canonical_payload.encode("utf-8")) > 200_000:
+            raise ValueError("payload canonical JSON must be at most 200000 UTF-8 bytes")
+        return value
+
+
 class User(ContractModel):
     id: UUID
     email: Annotated[str, Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$")]
@@ -263,6 +329,117 @@ class ProjectPage(ContractModel):
     next_cursor: UUID | None = None
 
 
+class ExperimentParameter(ContractModel):
+    key: Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_.-]{0,99}$")]
+    label: ShortText
+    value: JsonValue
+    unit: Annotated[str | None, Field(max_length=100)] = None
+    editable: bool = True
+
+
+class ExperimentObservable(ContractModel):
+    key: Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_.-]{0,99}$")]
+    label: ShortText
+    description: Annotated[str | None, Field(max_length=2_000)] = None
+    unit: Annotated[str | None, Field(max_length=100)] = None
+
+
+class ExperimentAssumption(ContractModel):
+    id: UUID
+    statement: Annotated[str, Field(min_length=1, max_length=2_000)]
+    source: AssumptionSource
+    status: AssumptionStatus
+    created_at: datetime
+
+
+class ExperimentCodeFile(ContractModel):
+    path: RelativePath
+    language: Literal["python"]
+    content: Annotated[str, Field(max_length=200_000)]
+
+    @field_validator("path")
+    @classmethod
+    def validate_relative_path(cls, value: str) -> str:
+        normalized = value.replace("\\", "/")
+        if normalized.startswith("/") or ".." in normalized.split("/"):
+            raise ValueError("path must stay inside the artifact directory")
+        return value
+
+
+class Experiment(ContractModel):
+    id: UUID
+    project_id: UUID
+    owner_id: UUID
+    title: ShortText
+    created_at: datetime
+    archived_at: datetime | None = None
+
+
+class ExperimentCreateRequest(ContractModel):
+    title: ShortText
+    domain_kind: ExperimentDomainKind = ExperimentDomainKind.GENERIC
+
+
+class ExperimentPage(ContractModel):
+    items: Annotated[tuple[Experiment, ...], Field(max_length=100)]
+    next_cursor: UUID | None = None
+
+
+def _validate_unique_experiment_code_file_paths(
+    code_files: tuple[ExperimentCodeFile, ...],
+) -> None:
+    if len({code_file.path for code_file in code_files}) != len(code_files):
+        raise ValueError("code_files must not contain duplicate paths")
+
+
+class ExperimentDraft(ContractModel):
+    experiment_id: UUID
+    project_id: UUID
+    owner_id: UUID
+    revision: Annotated[int, Field(ge=1)]
+    model_spec: ModelSpec
+    parameters: Annotated[tuple[ExperimentParameter, ...], Field(max_length=200)]
+    observables: Annotated[tuple[ExperimentObservable, ...], Field(max_length=200)]
+    assumptions: Annotated[tuple[ExperimentAssumption, ...], Field(max_length=100)]
+    visualization: JsonObject = Field(default_factory=dict)
+    code_files: Annotated[tuple[ExperimentCodeFile, ...], Field(max_length=20)]
+    updated_at: datetime
+
+    @model_validator(mode="after")
+    def validate_unique_code_file_paths(self) -> ExperimentDraft:
+        _validate_unique_experiment_code_file_paths(self.code_files)
+        return self
+
+
+class ExperimentDraftUpdateRequest(ContractModel):
+    expected_revision: Annotated[int, Field(ge=1)]
+    model_spec: ModelSpec | None = None
+    parameters: Annotated[tuple[ExperimentParameter, ...], Field(max_length=200)] | None = None
+    observables: Annotated[tuple[ExperimentObservable, ...], Field(max_length=200)] | None = None
+    assumptions: Annotated[tuple[ExperimentAssumption, ...], Field(max_length=100)] | None = None
+    visualization: JsonObject | None = None
+    code_files: Annotated[tuple[ExperimentCodeFile, ...], Field(max_length=20)] | None = None
+
+    @model_validator(mode="after")
+    def validate_replacements(self) -> ExperimentDraftUpdateRequest:
+        replacement_fields = {
+            "model_spec",
+            "parameters",
+            "observables",
+            "assumptions",
+            "visualization",
+            "code_files",
+        }
+        provided_fields = replacement_fields & self.model_fields_set
+        if not provided_fields:
+            raise ValueError("at least one draft replacement field must be provided")
+        if any(getattr(self, field_name) is None for field_name in provided_fields):
+            raise ValueError("draft replacement fields must not be null")
+        if self.code_files is not None:
+            _validate_unique_experiment_code_file_paths(self.code_files)
+        return self
+
+
 class PromptVersionCreateRequest(ContractModel):
     prompt: LongText
 
@@ -282,6 +459,86 @@ class VersionedRecord(ContractModel):
         if self.version > 1 and self.parent_version_id is None:
             raise ValueError("later versions must have a parent_version_id")
         return self
+
+
+class ExperimentVersion(VersionedRecord):
+    experiment_id: UUID
+    draft_revision: Annotated[int, Field(ge=1)]
+    model_spec: ModelSpec
+    parameters: Annotated[tuple[ExperimentParameter, ...], Field(max_length=200)]
+    observables: Annotated[tuple[ExperimentObservable, ...], Field(max_length=200)]
+    assumptions: Annotated[tuple[ExperimentAssumption, ...], Field(max_length=100)]
+    visualization: JsonObject = Field(default_factory=dict)
+    code_files: Annotated[tuple[ExperimentCodeFile, ...], Field(max_length=20)]
+    content_hash: Sha256
+
+    @model_validator(mode="after")
+    def validate_unique_code_file_paths(self) -> ExperimentVersion:
+        _validate_unique_experiment_code_file_paths(self.code_files)
+        return self
+
+
+class ExperimentVersionCreateRequest(ContractModel):
+    expected_revision: Annotated[int, Field(ge=1)]
+
+
+class ExperimentVersionPage(ContractModel):
+    items: Annotated[tuple[ExperimentVersion, ...], Field(max_length=100)]
+    next_cursor: Annotated[int | None, Field(ge=1)] = None
+
+
+class ExperimentPatchOperation(ContractModel):
+    operation: ExperimentPatchOperationKind
+    path: Annotated[str, Field(min_length=1, max_length=500, pattern=r"^/")]
+    value: JsonValue = None
+
+    @model_validator(mode="after")
+    def validate_value_by_operation(self) -> ExperimentPatchOperation:
+        value_provided = "value" in self.model_fields_set
+        if self.operation in {
+            ExperimentPatchOperationKind.ADD,
+            ExperimentPatchOperationKind.REPLACE,
+        } and not value_provided:
+            raise ValueError("add and replace operations require a value")
+        if self.operation is ExperimentPatchOperationKind.REMOVE and value_provided:
+            raise ValueError("remove operations must not include a value")
+        return self
+
+
+class ExperimentPatchProposal(ContractModel):
+    id: UUID
+    experiment_id: UUID
+    project_id: UUID
+    owner_id: UUID
+    expected_revision: Annotated[int, Field(ge=1)]
+    status: ExperimentPatchProposalStatus
+    operations: Annotated[tuple[ExperimentPatchOperation, ...], Field(min_length=1, max_length=100)]
+    assumptions: Annotated[tuple[ExperimentAssumption, ...], Field(max_length=100)]
+    source: AssumptionSource
+    created_at: datetime
+    resolved_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_resolution_timestamp(self) -> ExperimentPatchProposal:
+        if self.status is ExperimentPatchProposalStatus.PENDING and self.resolved_at is not None:
+            raise ValueError("pending proposals must not have a resolved_at timestamp")
+        if self.status is not ExperimentPatchProposalStatus.PENDING and self.resolved_at is None:
+            raise ValueError("resolved proposals require a resolved_at timestamp")
+        return self
+
+
+class ExperimentPatchProposalPage(ContractModel):
+    items: Annotated[tuple[ExperimentPatchProposal, ...], Field(max_length=100)]
+    next_cursor: UUID | None = None
+
+
+class ExperimentPatchProposalApplyRequest(ContractModel):
+    expected_revision: Annotated[int, Field(ge=1)]
+
+
+class ExperimentPatchProposalRejectRequest(ContractModel):
+    expected_revision: Annotated[int, Field(ge=1)]
+    reason: Annotated[str | None, Field(max_length=2_000)] = None
 
 
 class PromptVersion(VersionedRecord):
@@ -692,6 +949,18 @@ CONTRACT_MODELS = (
     ProjectCreateRequest,
     ProjectUpdateRequest,
     ProjectPage,
+    Experiment,
+    ExperimentCreateRequest,
+    ExperimentPage,
+    ExperimentDraft,
+    ExperimentDraftUpdateRequest,
+    ExperimentVersion,
+    ExperimentVersionCreateRequest,
+    ExperimentVersionPage,
+    ExperimentPatchProposal,
+    ExperimentPatchProposalPage,
+    ExperimentPatchProposalApplyRequest,
+    ExperimentPatchProposalRejectRequest,
     PromptVersionCreateRequest,
     PromptVersion,
     PromptVersionPage,
@@ -759,6 +1028,11 @@ CONTRACT_ENUMS = (
     QualityStatus,
     QualitySeverity,
     QualityDiagnosticCode,
+    ExperimentDomainKind,
+    AssumptionSource,
+    AssumptionStatus,
+    ExperimentPatchProposalStatus,
+    ExperimentPatchOperationKind,
 )
 
 RENDER_JOB_TRANSITIONS: dict[RenderJobStatus, frozenset[RenderJobStatus]] = {

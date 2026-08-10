@@ -39,7 +39,8 @@ def _typescript_type(schema: dict[str, Any]) -> str:
     if "enum" in schema:
         return " | ".join(json.dumps(value, ensure_ascii=False) for value in schema["enum"])
     if "anyOf" in schema:
-        return " | ".join(_typescript_type(option) for option in schema["anyOf"])
+        option_types = dict.fromkeys(_typescript_type(option) for option in schema["anyOf"])
+        return " | ".join(option_types)
 
     schema_type = schema.get("type")
     if schema_type == "string":
@@ -52,6 +53,11 @@ def _typescript_type(schema: dict[str, Any]) -> str:
         return "null"
     if schema_type == "array":
         return f"ReadonlyArray<{_typescript_type(schema['items'])}>"
+    if schema_type == "object":
+        additional_properties = schema.get("additionalProperties")
+        if not isinstance(additional_properties, dict):
+            raise ValueError(f"Unsupported JSON object shape: {schema}")
+        return f"Readonly<Record<string, {_typescript_type(additional_properties)}>>"
 
     raise ValueError(f"Unsupported JSON Schema shape: {schema}")
 

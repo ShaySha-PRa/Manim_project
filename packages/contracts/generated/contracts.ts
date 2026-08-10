@@ -1,5 +1,5 @@
 // Generated from Pydantic contracts. Do not edit.
-export const CONTRACT_SCHEMA_VERSION = "1.5" as const;
+export const CONTRACT_SCHEMA_VERSION = "1.6" as const;
 
 export interface ApiErrorDetail {
   readonly code: string;
@@ -34,6 +34,10 @@ export interface ArtifactDescriptor {
 }
 
 export type ArtifactKind = "video" | "thumbnail" | "render_log" | "metadata";
+
+export type AssumptionSource = "user" | "model" | "import" | "system";
+
+export type AssumptionStatus = "proposed" | "accepted" | "rejected";
 
 export type Audience = "primary_school" | "middle_school" | "high_school" | "undergraduate" | "general_audience";
 
@@ -188,6 +192,145 @@ export interface ContentPlanVersionPage {
 
 export type DerivationStyle = "step_by_step" | "conceptual" | "proof_oriented" | "visual_intuition";
 
+export interface Experiment {
+  readonly id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly title: string;
+  readonly created_at: string;
+  readonly archived_at?: string | null;
+}
+
+export interface ExperimentAssumption {
+  readonly id: string;
+  readonly statement: string;
+  readonly source: AssumptionSource;
+  readonly status: AssumptionStatus;
+  readonly created_at: string;
+}
+
+export interface ExperimentCodeFile {
+  readonly path: string;
+  readonly language: "python";
+  readonly content: string;
+}
+
+export interface ExperimentCreateRequest {
+  readonly title: string;
+  readonly domain_kind?: ExperimentDomainKind;
+}
+
+export type ExperimentDomainKind = "generic" | "geometry" | "ode" | "pde" | "fem" | "stochastic" | "optimization" | "neural_network" | "custom_python";
+
+export interface ExperimentDraft {
+  readonly experiment_id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly revision: number;
+  readonly model_spec: ModelSpec;
+  readonly parameters: ReadonlyArray<ExperimentParameter>;
+  readonly observables: ReadonlyArray<ExperimentObservable>;
+  readonly assumptions: ReadonlyArray<ExperimentAssumption>;
+  readonly visualization?: Readonly<Record<string, JsonValue>>;
+  readonly code_files: ReadonlyArray<ExperimentCodeFile>;
+  readonly updated_at: string;
+}
+
+export interface ExperimentDraftUpdateRequest {
+  readonly expected_revision: number;
+  readonly model_spec?: ModelSpec | null;
+  readonly parameters?: ReadonlyArray<ExperimentParameter> | null;
+  readonly observables?: ReadonlyArray<ExperimentObservable> | null;
+  readonly assumptions?: ReadonlyArray<ExperimentAssumption> | null;
+  readonly visualization?: Readonly<Record<string, JsonValue>> | null;
+  readonly code_files?: ReadonlyArray<ExperimentCodeFile> | null;
+}
+
+export interface ExperimentObservable {
+  readonly key: string;
+  readonly label: string;
+  readonly description?: string | null;
+  readonly unit?: string | null;
+}
+
+export interface ExperimentPage {
+  readonly items: ReadonlyArray<Experiment>;
+  readonly next_cursor?: string | null;
+}
+
+export interface ExperimentParameter {
+  readonly key: string;
+  readonly label: string;
+  readonly value: JsonValue;
+  readonly unit?: string | null;
+  readonly editable?: boolean;
+}
+
+export interface ExperimentPatchOperation {
+  readonly operation: ExperimentPatchOperationKind;
+  readonly path: string;
+  readonly value?: JsonValue;
+}
+
+export type ExperimentPatchOperationKind = "add" | "replace" | "remove";
+
+export interface ExperimentPatchProposal {
+  readonly id: string;
+  readonly experiment_id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly expected_revision: number;
+  readonly status: ExperimentPatchProposalStatus;
+  readonly operations: ReadonlyArray<ExperimentPatchOperation>;
+  readonly assumptions: ReadonlyArray<ExperimentAssumption>;
+  readonly source: AssumptionSource;
+  readonly created_at: string;
+  readonly resolved_at?: string | null;
+}
+
+export interface ExperimentPatchProposalApplyRequest {
+  readonly expected_revision: number;
+}
+
+export interface ExperimentPatchProposalPage {
+  readonly items: ReadonlyArray<ExperimentPatchProposal>;
+  readonly next_cursor?: string | null;
+}
+
+export interface ExperimentPatchProposalRejectRequest {
+  readonly expected_revision: number;
+  readonly reason?: string | null;
+}
+
+export type ExperimentPatchProposalStatus = "pending" | "applied" | "rejected";
+
+export interface ExperimentVersion {
+  readonly id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly version: number;
+  readonly parent_version_id: string | null;
+  readonly created_at: string;
+  readonly experiment_id: string;
+  readonly draft_revision: number;
+  readonly model_spec: ModelSpec;
+  readonly parameters: ReadonlyArray<ExperimentParameter>;
+  readonly observables: ReadonlyArray<ExperimentObservable>;
+  readonly assumptions: ReadonlyArray<ExperimentAssumption>;
+  readonly visualization?: Readonly<Record<string, JsonValue>>;
+  readonly code_files: ReadonlyArray<ExperimentCodeFile>;
+  readonly content_hash: string;
+}
+
+export interface ExperimentVersionCreateRequest {
+  readonly expected_revision: number;
+}
+
+export interface ExperimentVersionPage {
+  readonly items: ReadonlyArray<ExperimentVersion>;
+  readonly next_cursor?: number | null;
+}
+
 export interface FormulaStep {
   readonly expression: string;
   readonly explanation: string;
@@ -226,6 +369,8 @@ export interface JobEvent {
   readonly created_at: string;
 }
 
+export type JsonValue = string | boolean | number | ReadonlyArray<JsonValue> | Readonly<Record<string, JsonValue>> | null;
+
 export type Language = "zh-CN" | "en-US";
 
 export interface LoginRequest {
@@ -241,6 +386,14 @@ export interface LoginResponse {
 
 export interface LogoutResponse {
   readonly ok: true;
+}
+
+export interface ModelSpec {
+  readonly schema_version: "1.0";
+  readonly domain_kind: ExperimentDomainKind;
+  readonly plugin_id: string;
+  readonly plugin_version: string;
+  readonly payload: Readonly<Record<string, JsonValue>>;
 }
 
 export interface PasswordChangeRequest {

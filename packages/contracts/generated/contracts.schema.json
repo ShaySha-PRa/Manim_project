@@ -169,6 +169,25 @@
       "title": "ArtifactKind",
       "type": "string"
     },
+    "AssumptionSource": {
+      "enum": [
+        "user",
+        "model",
+        "import",
+        "system"
+      ],
+      "title": "AssumptionSource",
+      "type": "string"
+    },
+    "AssumptionStatus": {
+      "enum": [
+        "proposed",
+        "accepted",
+        "rejected"
+      ],
+      "title": "AssumptionStatus",
+      "type": "string"
+    },
     "Audience": {
       "enum": [
         "primary_school",
@@ -1080,6 +1099,837 @@
       "title": "DerivationStyle",
       "type": "string"
     },
+    "Experiment": {
+      "additionalProperties": false,
+      "properties": {
+        "archived_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archived At"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "title",
+        "created_at"
+      ],
+      "title": "Experiment",
+      "type": "object"
+    },
+    "ExperimentAssumption": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/AssumptionSource"
+        },
+        "statement": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/AssumptionStatus"
+        }
+      },
+      "required": [
+        "id",
+        "statement",
+        "source",
+        "status",
+        "created_at"
+      ],
+      "title": "ExperimentAssumption",
+      "type": "object"
+    },
+    "ExperimentCodeFile": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "maxLength": 200000,
+          "title": "Content",
+          "type": "string"
+        },
+        "language": {
+          "const": "python",
+          "title": "Language",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "language",
+        "content"
+      ],
+      "title": "ExperimentCodeFile",
+      "type": "object"
+    },
+    "ExperimentCreateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "domain_kind": {
+          "$ref": "#/$defs/ExperimentDomainKind",
+          "default": "generic"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "ExperimentCreateRequest",
+      "type": "object"
+    },
+    "ExperimentDomainKind": {
+      "enum": [
+        "generic",
+        "geometry",
+        "ode",
+        "pde",
+        "fem",
+        "stochastic",
+        "optimization",
+        "neural_network",
+        "custom_python"
+      ],
+      "title": "ExperimentDomainKind",
+      "type": "string"
+    },
+    "ExperimentDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "assumptions": {
+          "items": {
+            "$ref": "#/$defs/ExperimentAssumption"
+          },
+          "maxItems": 100,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "code_files": {
+          "items": {
+            "$ref": "#/$defs/ExperimentCodeFile"
+          },
+          "maxItems": 20,
+          "title": "Code Files",
+          "type": "array"
+        },
+        "experiment_id": {
+          "format": "uuid",
+          "title": "Experiment Id",
+          "type": "string"
+        },
+        "model_spec": {
+          "$ref": "#/$defs/ModelSpec"
+        },
+        "observables": {
+          "items": {
+            "$ref": "#/$defs/ExperimentObservable"
+          },
+          "maxItems": 200,
+          "title": "Observables",
+          "type": "array"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "parameters": {
+          "items": {
+            "$ref": "#/$defs/ExperimentParameter"
+          },
+          "maxItems": 200,
+          "title": "Parameters",
+          "type": "array"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "visualization": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Visualization",
+          "type": "object"
+        }
+      },
+      "required": [
+        "experiment_id",
+        "project_id",
+        "owner_id",
+        "revision",
+        "model_spec",
+        "parameters",
+        "observables",
+        "assumptions",
+        "code_files",
+        "updated_at"
+      ],
+      "title": "ExperimentDraft",
+      "type": "object"
+    },
+    "ExperimentDraftUpdateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "assumptions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExperimentAssumption"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assumptions"
+        },
+        "code_files": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExperimentCodeFile"
+              },
+              "maxItems": 20,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code Files"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "model_spec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "observables": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExperimentObservable"
+              },
+              "maxItems": 200,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observables"
+        },
+        "parameters": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExperimentParameter"
+              },
+              "maxItems": 200,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parameters"
+        },
+        "visualization": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visualization"
+        }
+      },
+      "required": [
+        "expected_revision"
+      ],
+      "title": "ExperimentDraftUpdateRequest",
+      "type": "object"
+    },
+    "ExperimentObservable": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "key": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,99}$",
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "title": "ExperimentObservable",
+      "type": "object"
+    },
+    "ExperimentPage": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Experiment"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "ExperimentPage",
+      "type": "object"
+    },
+    "ExperimentParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "editable": {
+          "default": true,
+          "title": "Editable",
+          "type": "boolean"
+        },
+        "key": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,99}$",
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "value"
+      ],
+      "title": "ExperimentParameter",
+      "type": "object"
+    },
+    "ExperimentPatchOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/ExperimentPatchOperationKind"
+        },
+        "path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "pattern": "^/",
+          "title": "Path",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue",
+          "default": null
+        }
+      },
+      "required": [
+        "operation",
+        "path"
+      ],
+      "title": "ExperimentPatchOperation",
+      "type": "object"
+    },
+    "ExperimentPatchOperationKind": {
+      "enum": [
+        "add",
+        "replace",
+        "remove"
+      ],
+      "title": "ExperimentPatchOperationKind",
+      "type": "string"
+    },
+    "ExperimentPatchProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "assumptions": {
+          "items": {
+            "$ref": "#/$defs/ExperimentAssumption"
+          },
+          "maxItems": 100,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "experiment_id": {
+          "format": "uuid",
+          "title": "Experiment Id",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/ExperimentPatchOperation"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Operations",
+          "type": "array"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "resolved_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved At"
+        },
+        "source": {
+          "$ref": "#/$defs/AssumptionSource"
+        },
+        "status": {
+          "$ref": "#/$defs/ExperimentPatchProposalStatus"
+        }
+      },
+      "required": [
+        "id",
+        "experiment_id",
+        "project_id",
+        "owner_id",
+        "expected_revision",
+        "status",
+        "operations",
+        "assumptions",
+        "source",
+        "created_at"
+      ],
+      "title": "ExperimentPatchProposal",
+      "type": "object"
+    },
+    "ExperimentPatchProposalApplyRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "expected_revision"
+      ],
+      "title": "ExperimentPatchProposalApplyRequest",
+      "type": "object"
+    },
+    "ExperimentPatchProposalPage": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ExperimentPatchProposal"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "ExperimentPatchProposalPage",
+      "type": "object"
+    },
+    "ExperimentPatchProposalRejectRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "expected_revision"
+      ],
+      "title": "ExperimentPatchProposalRejectRequest",
+      "type": "object"
+    },
+    "ExperimentPatchProposalStatus": {
+      "enum": [
+        "pending",
+        "applied",
+        "rejected"
+      ],
+      "title": "ExperimentPatchProposalStatus",
+      "type": "string"
+    },
+    "ExperimentVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "assumptions": {
+          "items": {
+            "$ref": "#/$defs/ExperimentAssumption"
+          },
+          "maxItems": 100,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "code_files": {
+          "items": {
+            "$ref": "#/$defs/ExperimentCodeFile"
+          },
+          "maxItems": 20,
+          "title": "Code Files",
+          "type": "array"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "draft_revision": {
+          "minimum": 1,
+          "title": "Draft Revision",
+          "type": "integer"
+        },
+        "experiment_id": {
+          "format": "uuid",
+          "title": "Experiment Id",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "model_spec": {
+          "$ref": "#/$defs/ModelSpec"
+        },
+        "observables": {
+          "items": {
+            "$ref": "#/$defs/ExperimentObservable"
+          },
+          "maxItems": 200,
+          "title": "Observables",
+          "type": "array"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "parameters": {
+          "items": {
+            "$ref": "#/$defs/ExperimentParameter"
+          },
+          "maxItems": 200,
+          "title": "Parameters",
+          "type": "array"
+        },
+        "parent_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Version Id"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "visualization": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Visualization",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "version",
+        "parent_version_id",
+        "created_at",
+        "experiment_id",
+        "draft_revision",
+        "model_spec",
+        "parameters",
+        "observables",
+        "assumptions",
+        "code_files",
+        "content_hash"
+      ],
+      "title": "ExperimentVersion",
+      "type": "object"
+    },
+    "ExperimentVersionCreateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "expected_revision"
+      ],
+      "title": "ExperimentVersionCreateRequest",
+      "type": "object"
+    },
+    "ExperimentVersionPage": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ExperimentVersion"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "ExperimentVersionPage",
+      "type": "object"
+    },
     "FormulaStep": {
       "additionalProperties": false,
       "properties": {
@@ -1334,6 +2184,37 @@
       "title": "JobEvent",
       "type": "object"
     },
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "Language": {
       "enum": [
         "zh-CN",
@@ -1405,6 +2286,46 @@
         "ok"
       ],
       "title": "LogoutResponse",
+      "type": "object"
+    },
+    "ModelSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "domain_kind": {
+          "$ref": "#/$defs/ExperimentDomainKind"
+        },
+        "payload": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Payload",
+          "type": "object"
+        },
+        "plugin_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{2,99}$",
+          "title": "Plugin Id",
+          "type": "string"
+        },
+        "plugin_version": {
+          "maxLength": 50,
+          "minLength": 1,
+          "title": "Plugin Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "domain_kind",
+        "plugin_id",
+        "plugin_version",
+        "payload"
+      ],
+      "title": "ModelSpec",
       "type": "object"
     },
     "PasswordChangeRequest": {
@@ -2642,7 +3563,7 @@
       "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.5",
+  "$id": "https://manim-workbench.local/contracts/1.6",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
@@ -2664,6 +3585,18 @@
     "ContentPlanVersion",
     "ContentPlanVersionCreateRequest",
     "ContentPlanVersionPage",
+    "Experiment",
+    "ExperimentCreateRequest",
+    "ExperimentDraft",
+    "ExperimentDraftUpdateRequest",
+    "ExperimentPage",
+    "ExperimentPatchProposal",
+    "ExperimentPatchProposalApplyRequest",
+    "ExperimentPatchProposalPage",
+    "ExperimentPatchProposalRejectRequest",
+    "ExperimentVersion",
+    "ExperimentVersionCreateRequest",
+    "ExperimentVersionPage",
     "GenerationAttempt",
     "JobEvent",
     "LoginRequest",
@@ -2695,5 +3628,5 @@
     "WorkspaceContentPlanGenerationRequest",
     "WorkspaceRenderJobSubmission"
   ],
-  "x-contract-schema-version": "1.5"
+  "x-contract-schema-version": "1.6"
 }
