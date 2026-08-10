@@ -32,12 +32,14 @@ def build_json_schema() -> dict[str, Any]:
 
 
 def _typescript_type(schema: dict[str, Any]) -> str:
-    if "$ref" in schema:
-        return schema["$ref"].rsplit("/", 1)[-1]
     if "const" in schema:
         return json.dumps(schema["const"], ensure_ascii=False)
     if "enum" in schema:
         return " | ".join(json.dumps(value, ensure_ascii=False) for value in schema["enum"])
+    if "$ref" in schema:
+        return schema["$ref"].rsplit("/", 1)[-1]
+    if "oneOf" in schema:
+        return " | ".join(_typescript_type(option) for option in schema["oneOf"])
     if "anyOf" in schema:
         option_types = dict.fromkeys(_typescript_type(option) for option in schema["anyOf"])
         return " | ".join(option_types)
@@ -54,6 +56,15 @@ def _typescript_type(schema: dict[str, Any]) -> str:
     if schema_type == "array":
         return f"ReadonlyArray<{_typescript_type(schema['items'])}>"
     if schema_type == "object":
+        if "properties" in schema:
+            required = set(schema.get("required", []))
+            fields = []
+            for field_name, field_schema in schema["properties"].items():
+                optional = "" if field_name in required else "?"
+                fields.append(
+                    f"readonly {field_name}{optional}: {_typescript_type(field_schema)};"
+                )
+            return "{ " + " ".join(fields) + " }"
         additional_properties = schema.get("additionalProperties")
         if not isinstance(additional_properties, dict):
             raise ValueError(f"Unsupported JSON object shape: {schema}")
@@ -72,13 +83,28 @@ def build_typescript(schema: dict[str, Any]) -> str:
     for name, definition in schema["$defs"].items():
         if definition.get("type") == "object":
             required = set(definition.get("required", []))
-            lines.append(f"export interface {name} {{")
+            has_required_union = all(
+                set(option) == {"required"}
+                for option in definition.get("anyOf", [])
+            ) and bool(definition.get("anyOf"))
+            declaration = "type" if has_required_union else "interface"
+            equals = " =" if has_required_union else ""
+            lines.append(f"export {declaration} {name}{equals} {{")
             for field_name, field_schema in definition.get("properties", {}).items():
                 optional = "" if field_name in required else "?"
                 lines.append(
                     f"  readonly {field_name}{optional}: {_typescript_type(field_schema)};"
                 )
-            lines.append("}")
+            if has_required_union:
+                lines.append("} & (")
+                for index, option in enumerate(definition["anyOf"]):
+                    field_name = option["required"][0]
+                    prefix = "  " if index == 0 else "  | "
+                    field_type = _typescript_type(definition["properties"][field_name])
+                    lines.append(f"{prefix}{{ readonly {field_name}: {field_type}; }}")
+                lines.append(");")
+            else:
+                lines.append("}")
         else:
             lines.append(f"export type {name} = {_typescript_type(definition)};")
         lines.append("")

@@ -236,15 +236,22 @@ export interface ExperimentDraft {
   readonly updated_at: string;
 }
 
-export interface ExperimentDraftUpdateRequest {
+export type ExperimentDraftUpdateRequest = {
   readonly expected_revision: number;
-  readonly model_spec?: ModelSpec | null;
-  readonly parameters?: ReadonlyArray<ExperimentParameter> | null;
-  readonly observables?: ReadonlyArray<ExperimentObservable> | null;
-  readonly assumptions?: ReadonlyArray<ExperimentAssumption> | null;
-  readonly visualization?: Readonly<Record<string, JsonValue>> | null;
-  readonly code_files?: ReadonlyArray<ExperimentCodeFile> | null;
-}
+  readonly model_spec?: ModelSpec;
+  readonly parameters?: ReadonlyArray<ExperimentParameter>;
+  readonly observables?: ReadonlyArray<ExperimentObservable>;
+  readonly assumptions?: ReadonlyArray<ExperimentAssumption>;
+  readonly visualization?: Readonly<Record<string, JsonValue>>;
+  readonly code_files?: ReadonlyArray<ExperimentCodeFile>;
+} & (
+  { readonly model_spec: ModelSpec; }
+  | { readonly parameters: ReadonlyArray<ExperimentParameter>; }
+  | { readonly observables: ReadonlyArray<ExperimentObservable>; }
+  | { readonly assumptions: ReadonlyArray<ExperimentAssumption>; }
+  | { readonly visualization: Readonly<Record<string, JsonValue>>; }
+  | { readonly code_files: ReadonlyArray<ExperimentCodeFile>; }
+);
 
 export interface ExperimentObservable {
   readonly key: string;
@@ -266,11 +273,7 @@ export interface ExperimentParameter {
   readonly editable?: boolean;
 }
 
-export interface ExperimentPatchOperation {
-  readonly operation: ExperimentPatchOperationKind;
-  readonly path: string;
-  readonly value?: JsonValue;
-}
+export type ExperimentPatchOperation = { readonly operation: "add" | "replace"; readonly path: string; readonly value: JsonValue; } | { readonly operation: "remove"; readonly path: string; };
 
 export type ExperimentPatchOperationKind = "add" | "replace" | "remove";
 

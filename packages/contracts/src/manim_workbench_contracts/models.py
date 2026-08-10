@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Literal
+from types import MappingProxyType
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    FiniteFloat,
+    PlainSerializer,
+    field_validator,
+    model_validator,
+)
+from pydantic_core import MISSING
 from typing_extensions import TypeAliasType
 
 CONTRACT_SCHEMA_VERSION = "1.6"
@@ -15,11 +28,62 @@ ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
 Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 RelativePath = Annotated[str, Field(min_length=1, max_length=500)]
+
+
+def _freeze_json_value(value: Any) -> Any:
+    if isinstance(value, list):
+        return tuple(value)
+    if isinstance(value, dict):
+        return MappingProxyType(value)
+    return value
+
+
+def _json_value_to_wire(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _json_value_to_wire(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_json_value_to_wire(item) for item in value]
+    return value
+
+
+def _json_nesting_depth(value: Any) -> int:
+    if isinstance(value, Mapping):
+        return 1 + max((_json_nesting_depth(item) for item in value.values()), default=0)
+    if isinstance(value, list | tuple):
+        return 1 + max((_json_nesting_depth(item) for item in value), default=0)
+    return 0
+
+
+def _validate_json_value_bounds(value: Any) -> Any:
+    if _json_nesting_depth(value) > 32:
+        raise ValueError("JSON value maximum nesting depth is 32")
+    canonical = json.dumps(
+        _json_value_to_wire(value),
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    if len(canonical) > 200_000:
+        raise ValueError("JSON value canonical representation must be at most 200000 UTF-8 bytes")
+    return value
+
+
 JsonValue = TypeAliasType(
     "JsonValue",
-    str | bool | int | FiniteFloat | None | list["JsonValue"] | dict[str, "JsonValue"],
+    Annotated[
+        str | bool | int | FiniteFloat | None | list["JsonValue"] | dict[str, "JsonValue"],
+        AfterValidator(_freeze_json_value),
+        PlainSerializer(_json_value_to_wire),
+    ],
 )
-JsonObject = dict[str, JsonValue]
+BoundedJsonValue = Annotated[JsonValue, AfterValidator(_validate_json_value_bounds)]
+JsonObject = Annotated[
+    dict[str, JsonValue],
+    AfterValidator(_freeze_json_value),
+    AfterValidator(_validate_json_value_bounds),
+    PlainSerializer(_json_value_to_wire),
+]
 
 
 class ContractModel(BaseModel):
@@ -243,20 +307,6 @@ class ModelSpec(ContractModel):
     plugin_version: Annotated[str, Field(min_length=1, max_length=50)]
     payload: JsonObject
 
-    @field_validator("payload")
-    @classmethod
-    def validate_payload_size(cls, value: JsonObject) -> JsonObject:
-        canonical_payload = json.dumps(
-            value,
-            ensure_ascii=False,
-            allow_nan=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
-        if len(canonical_payload.encode("utf-8")) > 200_000:
-            raise ValueError("payload canonical JSON must be at most 200000 UTF-8 bytes")
-        return value
-
 
 class User(ContractModel):
     id: UUID
@@ -332,7 +382,7 @@ class ProjectPage(ContractModel):
 class ExperimentParameter(ContractModel):
     key: Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_.-]{0,99}$")]
     label: ShortText
-    value: JsonValue
+    value: BoundedJsonValue
     unit: Annotated[str | None, Field(max_length=100)] = None
     editable: bool = True
 
@@ -401,7 +451,7 @@ class ExperimentDraft(ContractModel):
     parameters: Annotated[tuple[ExperimentParameter, ...], Field(max_length=200)]
     observables: Annotated[tuple[ExperimentObservable, ...], Field(max_length=200)]
     assumptions: Annotated[tuple[ExperimentAssumption, ...], Field(max_length=100)]
-    visualization: JsonObject = Field(default_factory=dict)
+    visualization: JsonObject = Field(default_factory=dict, validate_default=True)
     code_files: Annotated[tuple[ExperimentCodeFile, ...], Field(max_length=20)]
     updated_at: datetime
 
@@ -412,13 +462,32 @@ class ExperimentDraft(ContractModel):
 
 
 class ExperimentDraftUpdateRequest(ContractModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "anyOf": [
+                {"required": ["model_spec"]},
+                {"required": ["parameters"]},
+                {"required": ["observables"]},
+                {"required": ["assumptions"]},
+                {"required": ["visualization"]},
+                {"required": ["code_files"]},
+            ]
+        }
+    )
+
     expected_revision: Annotated[int, Field(ge=1)]
-    model_spec: ModelSpec | None = None
-    parameters: Annotated[tuple[ExperimentParameter, ...], Field(max_length=200)] | None = None
-    observables: Annotated[tuple[ExperimentObservable, ...], Field(max_length=200)] | None = None
-    assumptions: Annotated[tuple[ExperimentAssumption, ...], Field(max_length=100)] | None = None
-    visualization: JsonObject | None = None
-    code_files: Annotated[tuple[ExperimentCodeFile, ...], Field(max_length=20)] | None = None
+    model_spec: ModelSpec | MISSING = MISSING
+    parameters: (
+        Annotated[tuple[ExperimentParameter, ...], Field(max_length=200)] | MISSING
+    ) = MISSING
+    observables: (
+        Annotated[tuple[ExperimentObservable, ...], Field(max_length=200)] | MISSING
+    ) = MISSING
+    assumptions: (
+        Annotated[tuple[ExperimentAssumption, ...], Field(max_length=100)] | MISSING
+    ) = MISSING
+    visualization: JsonObject | MISSING = MISSING
+    code_files: Annotated[tuple[ExperimentCodeFile, ...], Field(max_length=20)] | MISSING = MISSING
 
     @model_validator(mode="after")
     def validate_replacements(self) -> ExperimentDraftUpdateRequest:
@@ -435,7 +504,7 @@ class ExperimentDraftUpdateRequest(ContractModel):
             raise ValueError("at least one draft replacement field must be provided")
         if any(getattr(self, field_name) is None for field_name in provided_fields):
             raise ValueError("draft replacement fields must not be null")
-        if self.code_files is not None:
+        if "code_files" in provided_fields:
             _validate_unique_experiment_code_file_paths(self.code_files)
         return self
 
@@ -468,7 +537,7 @@ class ExperimentVersion(VersionedRecord):
     parameters: Annotated[tuple[ExperimentParameter, ...], Field(max_length=200)]
     observables: Annotated[tuple[ExperimentObservable, ...], Field(max_length=200)]
     assumptions: Annotated[tuple[ExperimentAssumption, ...], Field(max_length=100)]
-    visualization: JsonObject = Field(default_factory=dict)
+    visualization: JsonObject = Field(default_factory=dict, validate_default=True)
     code_files: Annotated[tuple[ExperimentCodeFile, ...], Field(max_length=20)]
     content_hash: Sha256
 
@@ -490,7 +559,49 @@ class ExperimentVersionPage(ContractModel):
 class ExperimentPatchOperation(ContractModel):
     operation: ExperimentPatchOperationKind
     path: Annotated[str, Field(min_length=1, max_length=500, pattern=r"^/")]
-    value: JsonValue = None
+    value: BoundedJsonValue | MISSING = MISSING
+
+    @staticmethod
+    def _json_schema(schema: dict[str, Any]) -> None:
+        properties = schema["properties"]
+        operation_schema = deepcopy(properties["operation"])
+        path_schema = deepcopy(properties["path"])
+        value_schema = deepcopy(properties["value"])
+        schema.clear()
+        schema.update(
+            {
+                "oneOf": [
+                    {
+                        "additionalProperties": False,
+                        "properties": {
+                            "operation": {
+                                **operation_schema,
+                                "enum": ["add", "replace"],
+                            },
+                            "path": path_schema,
+                            "value": value_schema,
+                        },
+                        "required": ["operation", "path", "value"],
+                        "type": "object",
+                    },
+                    {
+                        "additionalProperties": False,
+                        "properties": {
+                            "operation": {
+                                **operation_schema,
+                                "const": "remove",
+                            },
+                            "path": deepcopy(path_schema),
+                        },
+                        "required": ["operation", "path"],
+                        "type": "object",
+                    },
+                ],
+                "title": "ExperimentPatchOperation",
+            }
+        )
+
+    model_config = ConfigDict(json_schema_extra=_json_schema)
 
     @model_validator(mode="after")
     def validate_value_by_operation(self) -> ExperimentPatchOperation:

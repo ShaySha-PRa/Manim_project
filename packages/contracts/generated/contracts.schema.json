@@ -1339,38 +1339,54 @@
     },
     "ExperimentDraftUpdateRequest": {
       "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "model_spec"
+          ]
+        },
+        {
+          "required": [
+            "parameters"
+          ]
+        },
+        {
+          "required": [
+            "observables"
+          ]
+        },
+        {
+          "required": [
+            "assumptions"
+          ]
+        },
+        {
+          "required": [
+            "visualization"
+          ]
+        },
+        {
+          "required": [
+            "code_files"
+          ]
+        }
+      ],
       "properties": {
         "assumptions": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/ExperimentAssumption"
-              },
-              "maxItems": 100,
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Assumptions"
+          "items": {
+            "$ref": "#/$defs/ExperimentAssumption"
+          },
+          "maxItems": 100,
+          "title": "Assumptions",
+          "type": "array"
         },
         "code_files": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/ExperimentCodeFile"
-              },
-              "maxItems": 20,
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Code Files"
+          "items": {
+            "$ref": "#/$defs/ExperimentCodeFile"
+          },
+          "maxItems": 20,
+          "title": "Code Files",
+          "type": "array"
         },
         "expected_revision": {
           "minimum": 1,
@@ -1378,62 +1394,31 @@
           "type": "integer"
         },
         "model_spec": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "$ref": "#/$defs/ModelSpec",
+          "title": "Model Spec"
         },
         "observables": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/ExperimentObservable"
-              },
-              "maxItems": 200,
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Observables"
+          "items": {
+            "$ref": "#/$defs/ExperimentObservable"
+          },
+          "maxItems": 200,
+          "title": "Observables",
+          "type": "array"
         },
         "parameters": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/ExperimentParameter"
-              },
-              "maxItems": 200,
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Parameters"
+          "items": {
+            "$ref": "#/$defs/ExperimentParameter"
+          },
+          "maxItems": 200,
+          "title": "Parameters",
+          "type": "array"
         },
         "visualization": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/JsonValue"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Visualization"
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Visualization",
+          "type": "object"
         }
       },
       "required": [
@@ -1566,29 +1551,59 @@
       "type": "object"
     },
     "ExperimentPatchOperation": {
-      "additionalProperties": false,
-      "properties": {
-        "operation": {
-          "$ref": "#/$defs/ExperimentPatchOperationKind"
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "operation": {
+              "$ref": "#/$defs/ExperimentPatchOperationKind",
+              "enum": [
+                "add",
+                "replace"
+              ]
+            },
+            "path": {
+              "maxLength": 500,
+              "minLength": 1,
+              "pattern": "^/",
+              "title": "Path",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/JsonValue",
+              "title": "Value"
+            }
+          },
+          "required": [
+            "operation",
+            "path",
+            "value"
+          ],
+          "type": "object"
         },
-        "path": {
-          "maxLength": 500,
-          "minLength": 1,
-          "pattern": "^/",
-          "title": "Path",
-          "type": "string"
-        },
-        "value": {
-          "$ref": "#/$defs/JsonValue",
-          "default": null
+        {
+          "additionalProperties": false,
+          "properties": {
+            "operation": {
+              "$ref": "#/$defs/ExperimentPatchOperationKind",
+              "const": "remove"
+            },
+            "path": {
+              "maxLength": 500,
+              "minLength": 1,
+              "pattern": "^/",
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "path"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "operation",
-        "path"
       ],
-      "title": "ExperimentPatchOperation",
-      "type": "object"
+      "title": "ExperimentPatchOperation"
     },
     "ExperimentPatchOperationKind": {
       "enum": [

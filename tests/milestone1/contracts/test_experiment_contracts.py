@@ -78,7 +78,10 @@ def test_model_spec_accepts_nested_finite_json_values_without_coercing_booleans(
     )
 
     assert specification.payload["enabled"] is True
-    assert specification.payload["initial"] == [1, {"nested": [False, None]}]
+    assert specification.model_dump(mode="json")["payload"]["initial"] == [
+        1,
+        {"nested": [False, None]},
+    ]
 
 
 @pytest.mark.parametrize("invalid_number", [float("nan"), float("inf"), float("-inf")])
@@ -297,7 +300,7 @@ def test_patch_operations_require_values_by_operation_kind() -> None:
 
     assert add.value is True
     assert replace_with_null.value is None
-    assert remove.value is None
+    assert "value" not in remove.model_dump(mode="json")
     with pytest.raises(ValidationError):
         ExperimentPatchOperation(operation=ExperimentPatchOperationKind.ADD, path="/parameters/0")
     with pytest.raises(ValidationError):
