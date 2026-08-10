@@ -369,8 +369,9 @@ def test_generated_typescript_has_exact_json_union_and_no_escape_hatch_keywords(
 
     assert json_value_line == (
         "export type JsonValue = string | boolean | number | ReadonlyArray<JsonValue> | "
-        "Readonly<Record<string, JsonValue>> | null;"
+        "JsonObject | null;"
     )
+    assert typescript.count("readonly [key: `${string}`]: JsonValue;") == 1
     assert json_value_schema_types == [
         "string",
         "boolean",

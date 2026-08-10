@@ -372,7 +372,11 @@ export interface JobEvent {
   readonly created_at: string;
 }
 
-export type JsonValue = string | boolean | number | ReadonlyArray<JsonValue> | Readonly<Record<string, JsonValue>> | null;
+export interface JsonObject {
+  readonly [key: `${string}`]: JsonValue;
+}
+
+export type JsonValue = string | boolean | number | ReadonlyArray<JsonValue> | JsonObject | null;
 
 export type Language = "zh-CN" | "en-US";
 

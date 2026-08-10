@@ -31,7 +31,11 @@ def build_json_schema() -> dict[str, Any]:
     }
 
 
-def _typescript_type(schema: dict[str, Any]) -> str:
+def _typescript_type(
+    schema: dict[str, Any],
+    *,
+    recursive_object_type: str | None = None,
+) -> str:
     if "const" in schema:
         return json.dumps(schema["const"], ensure_ascii=False)
     if "enum" in schema:
@@ -39,9 +43,15 @@ def _typescript_type(schema: dict[str, Any]) -> str:
     if "$ref" in schema:
         return schema["$ref"].rsplit("/", 1)[-1]
     if "oneOf" in schema:
-        return " | ".join(_typescript_type(option) for option in schema["oneOf"])
+        return " | ".join(
+            _typescript_type(option, recursive_object_type=recursive_object_type)
+            for option in schema["oneOf"]
+        )
     if "anyOf" in schema:
-        option_types = dict.fromkeys(_typescript_type(option) for option in schema["anyOf"])
+        option_types = dict.fromkeys(
+            _typescript_type(option, recursive_object_type=recursive_object_type)
+            for option in schema["anyOf"]
+        )
         return " | ".join(option_types)
 
     schema_type = schema.get("type")
@@ -54,7 +64,10 @@ def _typescript_type(schema: dict[str, Any]) -> str:
     if schema_type == "null":
         return "null"
     if schema_type == "array":
-        return f"ReadonlyArray<{_typescript_type(schema['items'])}>"
+        item_type = _typescript_type(
+            schema["items"], recursive_object_type=recursive_object_type
+        )
+        return f"ReadonlyArray<{item_type}>"
     if schema_type == "object":
         if "properties" in schema:
             required = set(schema.get("required", []))
@@ -68,6 +81,11 @@ def _typescript_type(schema: dict[str, Any]) -> str:
         additional_properties = schema.get("additionalProperties")
         if not isinstance(additional_properties, dict):
             raise ValueError(f"Unsupported JSON object shape: {schema}")
+        if (
+            recursive_object_type is not None
+            and additional_properties.get("$ref") == "#/$defs/JsonValue"
+        ):
+            return recursive_object_type
         return f"Readonly<Record<string, {_typescript_type(additional_properties)}>>"
 
     raise ValueError(f"Unsupported JSON Schema shape: {schema}")
@@ -81,6 +99,15 @@ def build_typescript(schema: dict[str, Any]) -> str:
     ]
 
     for name, definition in schema["$defs"].items():
+        if name == "JsonValue":
+            lines.extend(
+                [
+                    "export interface JsonObject {",
+                    "  readonly [key: `${string}`]: JsonValue;",
+                    "}",
+                    "",
+                ]
+            )
         if definition.get("type") == "object":
             required = set(definition.get("required", []))
             has_required_union = all(
@@ -106,7 +133,12 @@ def build_typescript(schema: dict[str, Any]) -> str:
             else:
                 lines.append("}")
         else:
-            lines.append(f"export type {name} = {_typescript_type(definition)};")
+            recursive_object_type = "JsonObject" if name == "JsonValue" else None
+            typescript_type = _typescript_type(
+                definition,
+                recursive_object_type=recursive_object_type,
+            )
+            lines.append(f"export type {name} = {typescript_type};")
         lines.append("")
 
     return "\n".join(lines)

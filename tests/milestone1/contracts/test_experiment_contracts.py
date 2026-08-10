@@ -221,7 +221,9 @@ def test_generated_json_value_is_recursive_and_bounded_in_typescript_and_schema(
     object_branch = next(item for item in json_value["anyOf"] if item.get("type") == "object")
 
     assert object_branch["additionalProperties"] == {"$ref": "#/$defs/JsonValue"}
-    assert "Readonly<Record<string, JsonValue>>" in typescript
+    assert "export interface JsonObject {" in typescript
+    assert "readonly [key: `${string}`]: JsonValue;" in typescript
+    assert "ReadonlyArray<JsonValue> | JsonObject | null" in typescript
     assert ": any" not in typescript
     assert ": unknown" not in typescript
     assert "[key: string]" not in typescript
