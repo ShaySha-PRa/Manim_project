@@ -27,22 +27,11 @@ def _python(*arguments: str) -> tuple[str, ...]:
 
 
 def _isolated_pytest(*arguments: str) -> tuple[str, ...]:
-    source = (
-        "import os,sys,pytest;"
-        "os.environ.pop('MANIM_WORKBENCH_DATABASE_URL',None);"
-        "raise SystemExit(pytest.main(sys.argv[1:]))"
-    )
-    return (sys.executable, "-c", source, *arguments)
+    return (sys.executable, "-m", "pytest", *arguments)
 
 
 def _isolated_script(script: str, *arguments: str) -> tuple[str, ...]:
-    source = (
-        "import os,runpy,sys;"
-        "os.environ.pop('MANIM_WORKBENCH_DATABASE_URL',None);"
-        "sys.argv=sys.argv[1:];"
-        "runpy.run_path(sys.argv[0],run_name='__main__')"
-    )
-    return (sys.executable, "-c", source, script, *arguments)
+    return (sys.executable, script, *arguments)
 
 
 def build_gates(mode: Mode) -> tuple[Gate, ...]:
@@ -121,13 +110,14 @@ def _sanitized_environment(temp_dir: Path) -> dict[str, str]:
     }
     environment.update(
         {
-            "HOME": str(temp_dir),
             "TMPDIR": str(temp_dir),
             "TEMP": str(temp_dir),
             "TMP": str(temp_dir),
             "PYTHONUTF8": "1",
             "PYTHONUNBUFFERED": "1",
             "CI": "1",
+            "PYTEST_ADDOPTS": "-p tests.milestone1.acceptance.safe_database",
+            "MANIM_WORKBENCH_ACCEPTANCE_ROOT": str(temp_dir),
             "MANIM_WORKBENCH_DATABASE_URL": f"sqlite:///{temp_dir / 'database' / 'acceptance.db'}",
             "MANIM_WORKBENCH_REDIS_URL": "redis://127.0.0.1:6379/0",
             "MANIM_WORKBENCH_API_URL": "http://127.0.0.1:8000",

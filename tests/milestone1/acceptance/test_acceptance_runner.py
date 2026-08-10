@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
-from scripts.milestone1_acceptance import build_gates, execute
+from scripts.milestone1_acceptance import _sanitized_environment, build_gates, execute
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class _TemporaryDirectory:
@@ -43,7 +47,97 @@ def test_gate_definitions_are_bounded_data_without_recursive_acceptance_calls() 
     ]
     for gate in full:
         assert "milestone1_acceptance.py" not in gate.argv
+        assert "pop('MANIM_WORKBENCH_DATABASE_URL'" not in " ".join(gate.argv)
         assert gate.argv
+
+
+def test_real_child_resolves_database_inside_acceptance_temp_directory(tmp_path: Path) -> None:
+    temp_dir = tmp_path / "acceptance-private"
+    temp_dir.mkdir()
+    environment = _sanitized_environment(temp_dir)
+    expected_database = temp_dir / "database" / "acceptance.db"
+    repository_database = ROOT / "data" / "manim_workbench.db"
+    repository_state = (
+        repository_database.exists(),
+        repository_database.stat().st_size if repository_database.exists() else None,
+        repository_database.stat().st_mtime_ns if repository_database.exists() else None,
+    )
+    child = subprocess.run(
+        (
+            sys.executable,
+            "-c",
+            (
+                "import json;"
+                "from manim_workbench_api.database import create_database_engine,database_url;"
+                "engine=create_database_engine();"
+                "connection=engine.connect();connection.close();"
+                "print(json.dumps({'database_url':database_url(),"
+                "'engine_database':engine.url.database}));"
+                "engine.dispose()"
+            ),
+        ),
+        cwd=ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert child.returncode == 0, child.stderr
+    assert json.loads(child.stdout) == {
+        "database_url": f"sqlite:///{expected_database}",
+        "engine_database": str(expected_database),
+    }
+    assert expected_database.is_file()
+    assert (
+        repository_database.exists(),
+        repository_database.stat().st_size if repository_database.exists() else None,
+        repository_database.stat().st_mtime_ns if repository_database.exists() else None,
+    ) == repository_state
+
+
+def test_sanitized_environment_does_not_set_or_rewrite_home(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HOME", "/home/original-user")
+    temp_dir = tmp_path / "acceptance-private"
+    temp_dir.mkdir()
+
+    environment = _sanitized_environment(temp_dir)
+
+    assert "HOME" not in environment
+    assert os.environ["HOME"] == "/home/original-user"
+
+
+def test_sanitized_pytest_keeps_safe_url_and_explicit_temp_migration_isolation(
+    tmp_path: Path,
+) -> None:
+    temp_dir = tmp_path / "acceptance-private"
+    temp_dir.mkdir()
+    environment = _sanitized_environment(temp_dir)
+    child = subprocess.run(
+        (
+            sys.executable,
+            "-m",
+            "pytest",
+            "-s",
+            "-q",
+            (
+                "tests/milestone1/persistence/test_experiment_migration.py::"
+                "test_upgrade_creates_experiment_tables_constraints_and_indexes"
+            ),
+        ),
+        cwd=ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert child.returncode == 0, child.stdout[-4000:] + child.stderr[-4000:]
+    assert environment["MANIM_WORKBENCH_DATABASE_URL"].startswith(
+        f"sqlite:///{temp_dir}"
+    )
 
 
 def test_execute_sanitizes_subprocess_environment_and_cleans_temporary_directory(
