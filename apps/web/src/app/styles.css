@@ -352,6 +352,77 @@ a {
   line-height: 1.55;
 }
 
+.feature-page {
+  min-height: calc(100vh - 3.5rem);
+  padding: clamp(2rem, 6vw, 5rem) 1rem;
+  background-color: #0b1015;
+  background-image:
+    linear-gradient(#172129 1px, transparent 1px),
+    linear-gradient(90deg, #172129 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+}
+
+.feature-page__shell {
+  width: min(62rem, 100%);
+  margin: 0 auto;
+}
+
+.feature-page__state {
+  display: grid;
+  max-width: 36rem;
+  gap: 1rem;
+  margin: 0 auto;
+}
+
+.feature-page__panel {
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+.feature-page__panel h1 {
+  margin: 0;
+  color: #f7fbfd;
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.feature-page__introduction {
+  max-width: 42rem;
+  margin: 1.25rem 0 0;
+  color: #b7c5cc;
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.feature-page__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+
+.feature-page__detail {
+  min-width: 0;
+  border-top: 1px solid #3a4b55;
+  padding-top: 0.875rem;
+}
+
+.feature-page__detail p:last-child {
+  margin: 0.5rem 0 0;
+  color: #d8e1e5;
+  line-height: 1.65;
+}
+
+.feature-page__label {
+  margin: 0;
+  color: #78c8bb;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 @media (max-width: 64rem) {
   .auth-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -420,5 +491,18 @@ a {
 
   .auth-panel {
     padding: 1.25rem;
+  }
+
+  .feature-page {
+    padding-inline: 0.75rem;
+  }
+
+  .feature-page__panel {
+    padding: 1.25rem;
+  }
+
+  .feature-page__details {
+    grid-template-columns: 1fr;
+    margin-top: 2rem;
   }
 }
