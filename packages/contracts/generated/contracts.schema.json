@@ -1,5 +1,531 @@
 {
   "$defs": {
+    "AgentEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "stage": {
+          "pattern": "^[a-z][a-z0-9_]{1,63}$",
+          "title": "Stage",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "started",
+            "succeeded",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage",
+        "status",
+        "message"
+      ],
+      "title": "AgentEvent",
+      "type": "object"
+    },
+    "AgentRunOutcome": {
+      "enum": [
+        "ready",
+        "needs_confirmation",
+        "asset_required",
+        "unsupported",
+        "failed"
+      ],
+      "title": "AgentRunOutcome",
+      "type": "string"
+    },
+    "AgentRunRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "audience": {
+          "$ref": "#/$defs/Audience",
+          "default": "undergraduate"
+        },
+        "csv_text": {
+          "anyOf": [
+            {
+              "maxLength": 200000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Csv Text"
+        },
+        "language": {
+          "$ref": "#/$defs/Language",
+          "default": "zh-CN"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "target_duration_seconds": {
+          "default": 60,
+          "maximum": 180,
+          "minimum": 30,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prompt",
+        "project_id",
+        "owner_id"
+      ],
+      "title": "AgentRunRequest",
+      "type": "object"
+    },
+    "AgentRunResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "animation_ir": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnimationIR"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "code_version": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodeVersion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "content_plan_version": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentPlanVersion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "events": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AgentEvent"
+          },
+          "maxItems": 32,
+          "title": "Events",
+          "type": "array"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntentSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "outcome": {
+          "$ref": "#/$defs/AgentRunOutcome"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PromptVersion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tool_runs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ToolRun"
+          },
+          "maxItems": 8,
+          "title": "Tool Runs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "outcome"
+      ],
+      "title": "AgentRunResponse",
+      "type": "object"
+    },
+    "AnimAssertion": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Fields",
+          "type": "array"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "type": {
+          "$ref": "#/$defs/AssertionType"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "AnimAssertion",
+      "type": "object"
+    },
+    "AnimBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/BindingSource"
+        },
+        "target": {
+          "pattern": "^[a-z][a-z0-9_.]{0,80}$",
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "source"
+      ],
+      "title": "AnimBinding",
+      "type": "object"
+    },
+    "AnimCameraOp": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "$ref": "#/$defs/CameraOpKind",
+          "default": "static"
+        },
+        "phi_degrees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phi Degrees"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 2,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate"
+        },
+        "run_time": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 8,
+          "title": "Run Time",
+          "type": "number"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "theta_degrees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Theta Degrees"
+        }
+      },
+      "title": "AnimCameraOp",
+      "type": "object"
+    },
+    "AnimFallback": {
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "On",
+          "type": "string"
+        },
+        "strategy": {
+          "$ref": "#/$defs/FallbackStrategy"
+        }
+      },
+      "required": [
+        "on",
+        "strategy"
+      ],
+      "title": "AnimFallback",
+      "type": "object"
+    },
+    "AnimObject": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z][A-Z0-9_]{0,31}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "data_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Ref"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "type": {
+          "$ref": "#/$defs/ObjectType"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "AnimObject",
+      "type": "object"
+    },
+    "AnimationIR": {
+      "additionalProperties": false,
+      "properties": {
+        "assertions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AnimAssertion"
+          },
+          "maxItems": 12,
+          "title": "Assertions",
+          "type": "array"
+        },
+        "bindings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AnimBinding"
+          },
+          "maxItems": 24,
+          "title": "Bindings",
+          "type": "array"
+        },
+        "camera": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AnimCameraOp"
+          },
+          "maxItems": 8,
+          "title": "Camera",
+          "type": "array"
+        },
+        "data": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DataRef"
+          },
+          "maxItems": 12,
+          "title": "Data",
+          "type": "array"
+        },
+        "domain": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "fallbacks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AnimFallback"
+          },
+          "maxItems": 8,
+          "title": "Fallbacks",
+          "type": "array"
+        },
+        "goal": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Goal",
+          "type": "string"
+        },
+        "objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AnimObject"
+          },
+          "maxItems": 24,
+          "title": "Objects",
+          "type": "array"
+        },
+        "pattern": {
+          "$ref": "#/$defs/VisualPattern"
+        },
+        "scene": {
+          "$ref": "#/$defs/SceneHint",
+          "default": {
+            "dimension": "2d",
+            "renderer_hint": "manim"
+          }
+        },
+        "schema_version": {
+          "const": "2.0",
+          "default": "2.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "states": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StateSpec"
+          },
+          "maxItems": 8,
+          "title": "States",
+          "type": "array"
+        },
+        "timeline": {
+          "items": {
+            "$ref": "#/$defs/TimelineOp"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Timeline",
+          "type": "array"
+        }
+      },
+      "required": [
+        "domain",
+        "goal",
+        "pattern",
+        "timeline"
+      ],
+      "title": "AnimationIR",
+      "type": "object"
+    },
     "ApiErrorDetail": {
       "additionalProperties": false,
       "properties": {
@@ -169,6 +695,19 @@
       "title": "ArtifactKind",
       "type": "string"
     },
+    "AssertionType": {
+      "enum": [
+        "linear_superposition",
+        "harmonic_coefficients",
+        "gibbs_overshoot",
+        "trajectory_error",
+        "metric_match",
+        "data_fidelity",
+        "frenet_orthonormal"
+      ],
+      "title": "AssertionType",
+      "type": "string"
+    },
     "Audience": {
       "enum": [
         "primary_school",
@@ -212,6 +751,51 @@
         "created_at"
       ],
       "title": "AuthenticatedUser",
+      "type": "object"
+    },
+    "BindingOp": {
+      "enum": [
+        "sample",
+        "identity"
+      ],
+      "title": "BindingOp",
+      "type": "string"
+    },
+    "BindingSource": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data"
+        },
+        "op": {
+          "$ref": "#/$defs/BindingOp",
+          "default": "sample"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State"
+        }
+      },
+      "title": "BindingSource",
       "type": "object"
     },
     "BindingSpec": {
@@ -329,6 +913,17 @@
       ],
       "title": "CameraOp",
       "type": "object"
+    },
+    "CameraOpKind": {
+      "enum": [
+        "static",
+        "follow",
+        "zoom",
+        "ambient_rotate",
+        "set_orientation"
+      ],
+      "title": "CameraOpKind",
+      "type": "string"
     },
     "ClarificationField": {
       "enum": [
@@ -1227,6 +1822,56 @@
       "title": "ContentPlanVersionPage",
       "type": "object"
     },
+    "DataKind": {
+      "enum": [
+        "array",
+        "series",
+        "trajectory",
+        "trajectory_set",
+        "table"
+      ],
+      "title": "DataKind",
+      "type": "string"
+    },
+    "DataRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_ref": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Artifact Ref",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/DataKind"
+        },
+        "output_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Sha256"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "artifact_ref"
+      ],
+      "title": "DataRef",
+      "type": "object"
+    },
     "DerivationStyle": {
       "enum": [
         "step_by_step",
@@ -1235,6 +1880,16 @@
         "visual_intuition"
       ],
       "title": "DerivationStyle",
+      "type": "string"
+    },
+    "FallbackStrategy": {
+      "enum": [
+        "static_frame",
+        "discrete_samples",
+        "fixed_camera",
+        "precomputed_only"
+      ],
+      "title": "FallbackStrategy",
       "type": "string"
     },
     "FormulaStep": {
@@ -1516,6 +2171,108 @@
       "title": "GeometryProofRating",
       "type": "object"
     },
+    "IntentDomain": {
+      "enum": [
+        "physics.wave",
+        "math.signal",
+        "dynamical_systems",
+        "control",
+        "data_analysis",
+        "geometry.diff3d",
+        "teaching"
+      ],
+      "title": "IntentDomain",
+      "type": "string"
+    },
+    "IntentSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_kind": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Kind"
+        },
+        "asset_required": {
+          "default": false,
+          "title": "Asset Required",
+          "type": "boolean"
+        },
+        "assumptions": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "category_hint": {
+          "$ref": "#/$defs/CodeGenerationCategory",
+          "default": "function_visualization"
+        },
+        "dimension": {
+          "default": "2d",
+          "enum": [
+            "2d",
+            "3d"
+          ],
+          "title": "Dimension",
+          "type": "string"
+        },
+        "domain": {
+          "$ref": "#/$defs/IntentDomain"
+        },
+        "goal": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Goal",
+          "type": "string"
+        },
+        "needs_confirmation": {
+          "default": false,
+          "title": "Needs Confirmation",
+          "type": "boolean"
+        },
+        "output_duration_seconds": {
+          "default": 12.0,
+          "exclusiveMinimum": 0,
+          "maximum": 180,
+          "title": "Output Duration Seconds",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tools_needed": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ToolNeed"
+          },
+          "maxItems": 8,
+          "title": "Tools Needed",
+          "type": "array"
+        }
+      },
+      "required": [
+        "domain",
+        "goal"
+      ],
+      "title": "IntentSpec",
+      "type": "object"
+    },
     "IrCameraOpKind": {
       "enum": [
         "zoom_to",
@@ -1706,6 +2463,22 @@
       ],
       "title": "LogoutResponse",
       "type": "object"
+    },
+    "ObjectType": {
+      "enum": [
+        "title",
+        "scalar_field",
+        "graph",
+        "point",
+        "path",
+        "trajectory_set",
+        "timeseries",
+        "region",
+        "arrow_frame",
+        "numeric_panel"
+      ],
+      "title": "ObjectType",
+      "type": "string"
     },
     "PasswordChangeRequest": {
       "additionalProperties": false,
@@ -2850,6 +3623,28 @@
       "title": "RenderProfile",
       "type": "string"
     },
+    "SceneHint": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "default": "2d",
+          "enum": [
+            "2d",
+            "3d"
+          ],
+          "title": "Dimension",
+          "type": "string"
+        },
+        "renderer_hint": {
+          "const": "manim",
+          "default": "manim",
+          "title": "Renderer Hint",
+          "type": "string"
+        }
+      },
+      "title": "SceneHint",
+      "type": "object"
+    },
     "SceneObject": {
       "additionalProperties": false,
       "properties": {
@@ -3238,6 +4033,255 @@
       "title": "StateChange",
       "type": "object"
     },
+    "StateSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "initial": {
+          "default": 0.0,
+          "title": "Initial",
+          "type": "number"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Range"
+        },
+        "type": {
+          "$ref": "#/$defs/StateType",
+          "default": "scalar"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "StateSpec",
+      "type": "object"
+    },
+    "StateType": {
+      "enum": [
+        "scalar",
+        "integer"
+      ],
+      "title": "StateType",
+      "type": "string"
+    },
+    "TimelineOp": {
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 20,
+          "title": "Duration",
+          "type": "number"
+        },
+        "op": {
+          "$ref": "#/$defs/TimelineOpKind"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "targets": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Targets",
+          "type": "array"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To"
+        },
+        "wait_time": {
+          "default": 0.0,
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Wait Time",
+          "type": "number"
+        }
+      },
+      "required": [
+        "op"
+      ],
+      "title": "TimelineOp",
+      "type": "object"
+    },
+    "TimelineOpKind": {
+      "enum": [
+        "create",
+        "animate_state",
+        "trace",
+        "compare",
+        "highlight",
+        "reveal",
+        "wait"
+      ],
+      "title": "TimelineOpKind",
+      "type": "string"
+    },
+    "ToolNeed": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "$ref": "#/$defs/ToolOp"
+        },
+        "params": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "default": {},
+          "maxProperties": 32,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "op"
+      ],
+      "title": "ToolNeed",
+      "type": "object"
+    },
+    "ToolOp": {
+      "enum": [
+        "wave2d_superposition",
+        "fourier_square_wave",
+        "lorenz_ensemble",
+        "pid_step_response",
+        "csv_anomaly",
+        "frenet_frame"
+      ],
+      "title": "ToolOp",
+      "type": "string"
+    },
+    "ToolRun": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Artifact Path",
+          "type": "string"
+        },
+        "artifact_ref": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Artifact Ref",
+          "type": "string"
+        },
+        "assertions": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "default": {},
+          "maxProperties": 32,
+          "title": "Assertions",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "input_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Sha256",
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/$defs/ToolOp"
+        },
+        "output_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Sha256",
+          "type": "string"
+        },
+        "params_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Params Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "op",
+        "params_sha256",
+        "input_sha256",
+        "output_sha256",
+        "artifact_ref",
+        "artifact_path"
+      ],
+      "title": "ToolRun",
+      "type": "object"
+    },
     "TrackerSpec": {
       "additionalProperties": false,
       "properties": {
@@ -3387,6 +4431,62 @@
       "title": "VisualKind",
       "type": "string"
     },
+    "VisualPattern": {
+      "enum": [
+        "field_evolution",
+        "formula_morph",
+        "trajectory_trace",
+        "3d_orbit",
+        "comparison",
+        "data_anomaly"
+      ],
+      "title": "VisualPattern",
+      "type": "string"
+    },
+    "WorkspaceAgentRunRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "audience": {
+          "$ref": "#/$defs/Audience",
+          "default": "undergraduate"
+        },
+        "csv_text": {
+          "anyOf": [
+            {
+              "maxLength": 200000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Csv Text"
+        },
+        "language": {
+          "$ref": "#/$defs/Language",
+          "default": "zh-CN"
+        },
+        "prompt": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "target_duration_seconds": {
+          "default": 60,
+          "maximum": 180,
+          "minimum": 30,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "title": "WorkspaceAgentRunRequest",
+      "type": "object"
+    },
     "WorkspaceCodeGenerationRequest": {
       "additionalProperties": false,
       "properties": {
@@ -3510,15 +4610,25 @@
       "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.6",
+  "$id": "https://manim-workbench.local/contracts/1.7",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
+    "AgentEvent",
+    "AgentRunRequest",
+    "AgentRunResponse",
+    "AnimAssertion",
+    "AnimBinding",
+    "AnimCameraOp",
+    "AnimFallback",
+    "AnimObject",
+    "AnimationIR",
     "ApiErrorDetail",
     "ApiErrorResponse",
     "Artifact",
     "ArtifactDescriptor",
     "AuthenticatedUser",
+    "BindingSource",
     "BindingSpec",
     "CameraOp",
     "ClarificationQuestion",
@@ -3534,9 +4644,11 @@
     "ContentPlanVersion",
     "ContentPlanVersionCreateRequest",
     "ContentPlanVersionPage",
+    "DataRef",
     "GenerationAttempt",
     "GeometryConstruction",
     "GeometryProofRating",
+    "IntentSpec",
     "JobEvent",
     "LoginRequest",
     "LoginResponse",
@@ -3563,16 +4675,22 @@
     "RenderJobLease",
     "RenderJobLeaseRequest",
     "RenderJobSubmission",
+    "SceneHint",
     "SceneObject",
     "SceneStep",
     "SceneStoryboard",
     "StateChange",
+    "StateSpec",
+    "TimelineOp",
+    "ToolNeed",
+    "ToolRun",
     "TrackerSpec",
     "User",
     "UserAsset",
+    "WorkspaceAgentRunRequest",
     "WorkspaceCodeGenerationRequest",
     "WorkspaceContentPlanGenerationRequest",
     "WorkspaceRenderJobSubmission"
   ],
-  "x-contract-schema-version": "1.6"
+  "x-contract-schema-version": "1.7"
 }

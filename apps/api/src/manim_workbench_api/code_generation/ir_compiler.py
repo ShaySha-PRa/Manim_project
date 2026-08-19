@@ -1,4 +1,7 @@
-"""Deterministic ManimCE 0.21 compiler for Scene IR. Never emits lambda."""
+"""Deterministic ManimCE 0.21 compiler for Scene IR 1.6. Never emits lambda.
+
+AnimationIR 2.0 lowering lives in ``compiler.manim.compile_animation_ir``.
+"""
 
 from __future__ import annotations
 

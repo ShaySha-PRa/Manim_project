@@ -14,6 +14,7 @@ MAX_CONTAINER_ITEMS: Final = 2_000
 MAX_CONTAINER_DEPTH: Final = 80
 MAX_FINDINGS: Final = 32
 _IMAGE_ASSET_PATH = re.compile(r"^/input/assets/[0-9a-f]{64}\.png$")
+_ARRAY_ASSET_PATH = re.compile(r"^/input/assets/[0-9a-f]{64}\.(npz|npy)$")
 _ALLOWED_SCENE_BASES: Final = frozenset(
     {"manim:Scene", "manim:MovingCameraScene", "manim:ThreeDScene"}
 )
@@ -173,6 +174,7 @@ _NUMPY_SYMBOLS: Final = frozenset(
         "cos",
         "exp",
         "linspace",
+        "load",
         "maximum",
         "minimum",
         "pi",
@@ -223,10 +225,12 @@ _MANIM_MEMBER_NAMES: Final = frozenset(
         "set_camera_orientation",
         "set_color",
         "set_fill",
+        "set_height",
         "set_opacity",
         "set_stroke",
         "set_value",
         "shift",
+        "stop_ambient_camera_rotation",
         "to_edge",
         "to_corner",
         "wait",
@@ -745,17 +749,50 @@ class _SecurityVisitor(ast.NodeVisitor):
             isinstance(node.func, ast.Name)
             and self._aliases.get(node.func.id) == "manim:ImageMobject"
         ):
-            path = (
-                node.args[0].value
-                if node.args and isinstance(node.args[0], ast.Constant)
-                else None
-            )
-            if not isinstance(path, str) or not _IMAGE_ASSET_PATH.fullmatch(path):
+            first = node.args[0] if node.args else None
+            if isinstance(first, ast.Constant):
+                path = first.value
+                if not isinstance(path, str) or not _IMAGE_ASSET_PATH.fullmatch(path):
+                    self._finding(
+                        node,
+                        "forbidden_image_path",
+                        "ImageMobject path is not allowlisted",
+                    )
+            elif not isinstance(first, ast.Name | ast.Subscript):
                 self._finding(
                     node,
                     "forbidden_image_path",
                     "ImageMobject path is not allowlisted",
                 )
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "load":
+            root = _attribute_root_name(node.func)
+            if root is not None and self._aliases.get(root) == "numpy":
+                path = (
+                    node.args[0].value
+                    if node.args and isinstance(node.args[0], ast.Constant)
+                    else None
+                )
+                pickle_kw = next(
+                    (
+                        keyword.value
+                        for keyword in node.keywords
+                        if keyword.arg == "allow_pickle"
+                    ),
+                    None,
+                )
+                allowed_pickle = (
+                    isinstance(pickle_kw, ast.Constant) and pickle_kw.value is False
+                )
+                if (
+                    not isinstance(path, str)
+                    or not _ARRAY_ASSET_PATH.fullmatch(path)
+                    or not allowed_pickle
+                ):
+                    self._finding(
+                        node,
+                        "forbidden_numpy_load",
+                        "numpy.load must use an allowlisted array asset with allow_pickle=False",
+                    )
         self.visit(node.func)
         for argument in node.args:
             self.visit(argument)

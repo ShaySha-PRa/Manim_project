@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-CONTRACT_SCHEMA_VERSION = "1.6"
+CONTRACT_SCHEMA_VERSION = "1.7"
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
@@ -716,6 +716,31 @@ class GenerationAttempt(ContractModel):
     created_at: datetime
 
 
+from .animation_ir import (  # noqa: E402
+    AnimAssertion,
+    AnimationIR,
+    AnimBinding,
+    AnimCameraOp,
+    AnimFallback,
+    AnimObject,
+    BindingSource,
+    DataRef,
+    SceneHint,
+    StateSpec,
+    TimelineOp,
+)
+from .intent import (  # noqa: E402
+    AgentEvent,
+    AgentRunOutcome,
+    AgentRunRequest,
+    AgentRunResponse,
+    IntentDomain,
+    IntentSpec,
+    ToolNeed,
+    ToolOp,
+    ToolRun,
+    WorkspaceAgentRunRequest,
+)
 from .ir import (  # noqa: E402
     BindingSpec,
     CameraOp,
@@ -799,6 +824,24 @@ CONTRACT_MODELS = (
     GeometryConstruction,
     GeometryProofRating,
     UserAsset,
+    IntentSpec,
+    ToolNeed,
+    ToolRun,
+    AgentEvent,
+    WorkspaceAgentRunRequest,
+    AgentRunRequest,
+    AgentRunResponse,
+    AnimationIR,
+    SceneHint,
+    DataRef,
+    StateSpec,
+    AnimObject,
+    BindingSource,
+    AnimBinding,
+    TimelineOp,
+    AnimCameraOp,
+    AnimAssertion,
+    AnimFallback,
 )
 
 PROJECT_RECORD_MODELS = (
@@ -836,6 +879,9 @@ CONTRACT_ENUMS = (
     IrStateChangeKind,
     IrCameraOpKind,
     UserAssetKind,
+    AgentRunOutcome,
+    IntentDomain,
+    ToolOp,
 )
 
 RENDER_JOB_TRANSITIONS: dict[RenderJobStatus, frozenset[RenderJobStatus]] = {

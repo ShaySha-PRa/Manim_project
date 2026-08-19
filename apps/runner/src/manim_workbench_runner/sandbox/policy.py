@@ -95,6 +95,7 @@ class SandboxInvocation:
     scene_class: str
     profile: RenderProfile
     memory_tier: str = "standard"
+    assets_path: Path | None = None
 
 
 def memory_tier_for_source(source_code: str) -> str:
@@ -200,6 +201,22 @@ def build_sandbox_command(
         memory_limit = THREE_D_MEMORY_LIMIT
     elif invocation.profile is RenderProfile.FINAL:
         memory_limit = FINAL_MEMORY_LIMIT
+    volumes = [
+        "--volume",
+        f"{source}:/input/scene.py:ro",
+        "--volume",
+        f"{output}:/output:rw",
+        "--volume",
+        f"{font_root}:{SANDBOX_FONT_ROOT}:ro",
+    ]
+    if invocation.assets_path is not None:
+        assets = _resolve_existing(
+            invocation.assets_path,
+            field_name="assets_path",
+            expect_directory=True,
+        )
+        _validate_under_root(assets, limits.allowed_source_root, field_name="assets_path")
+        volumes.extend(("--volume", f"{assets}:/input/assets:ro"))
     return (
         *docker_command,
         "run",
@@ -243,12 +260,7 @@ def build_sandbox_command(
         "NUMEXPR_NUM_THREADS=1",
         "--env",
         "BLIS_NUM_THREADS=1",
-        "--volume",
-        f"{source}:/input/scene.py:ro",
-        "--volume",
-        f"{output}:/output:rw",
-        "--volume",
-        f"{font_root}:{SANDBOX_FONT_ROOT}:ro",
+        *volumes,
         "--workdir",
         "/input",
         "--entrypoint",

@@ -18,6 +18,7 @@ class AuthSettings:
     allowed_origins: frozenset[str]
     cookie_secure: bool
     session_max_age_seconds: int = DEFAULT_SESSION_MAX_AGE_SECONDS
+    auth_disabled: bool = False
 
     def __post_init__(self) -> None:
         if not self.allowed_origins or "*" in self.allowed_origins:
@@ -77,4 +78,6 @@ def settings_from_environment() -> AuthSettings:
         allowed_origins=allowed_origins,
         cookie_secure=cookie_secure,
         session_max_age_seconds=session_max_age_seconds,
+        auth_disabled=os.environ.get("MANIM_WORKBENCH_AUTH_DISABLED", "").lower()
+        in {"1", "true", "yes"},
     )

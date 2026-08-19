@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type {
+  AgentRunResponse,
   ArtifactDescriptor,
   Audience,
   CodeGenerationCategory,
@@ -50,7 +51,7 @@ const asEditor = (plan: ContentPlanVersion): PlanEditor => ({
   derivation_style: plan.derivation_style ?? "step_by_step",
   explicit_assumptions: [...plan.explicit_assumptions],
   ambiguities: [...(plan.ambiguities ?? [])],
-  scenes: plan.scenes.map((scene) => ({ ...scene, formula_steps: [...scene.formula_steps] })),
+  scenes: plan.scenes.map((scene) => ({ ...scene, formula_steps: [...(scene.formula_steps ?? [])] })),
 });
 
 const asDraft = (editor: PlanEditor): ContentPlanDraft => ({
@@ -93,6 +94,7 @@ export function useWorkbench() {
   const [planEditor, setPlanEditor] = useState<PlanEditor | null>(null);
   const [codeVersion, setCodeVersion] = useState<CodeVersion | null>(null);
   const [category, setCategory] = useState<CodeGenerationCategory>("formula_derivation");
+  const [agentRun, setAgentRun] = useState<AgentRunResponse | null>(null);
   const [job, setJob] = useState<RenderJob | null>(null);
   const [artifacts, setArtifacts] = useState<ReadonlyArray<ArtifactDescriptor>>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -200,6 +202,52 @@ export function useWorkbench() {
     }
   }, [loadProject]);
 
+  const generateAgent = useCallback(async (input: {
+    prompt: string;
+    audience: Audience;
+    duration: number;
+    csvText: string;
+  }) => {
+    if (!activeProject || !input.prompt.trim()) return setMessage("选择项目并填写一句话后才能生成。");
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await workbenchApi.runAgent(activeProject.id, {
+        prompt: input.prompt.trim(),
+        audience: input.audience,
+        language: "zh-CN",
+        target_duration_seconds: input.duration,
+        csv_text: input.csvText.trim() ? input.csvText : null,
+      });
+      setAgentRun(result);
+      if (result.prompt_version) setActivePrompt(result.prompt_version);
+      if (result.content_plan_version) {
+        setPlans((current) => [result.content_plan_version!, ...current]);
+        setActivePlan(result.content_plan_version);
+        setPlanEditor(asEditor(result.content_plan_version));
+      }
+      if (result.code_version) setCodeVersion(result.code_version);
+      if (result.intent?.category_hint) setCategory(result.intent.category_hint);
+      if (result.outcome === "asset_required") {
+        setMessage(result.message ?? "缺少 CSV 资产，拒绝伪造科研数据。");
+        return;
+      }
+      if (result.outcome === "needs_confirmation") {
+        setMessage("已推断出假设，请确认后再生成。");
+        return;
+      }
+      if (result.outcome !== "ready" || !result.code_version) {
+        setMessage(result.message ?? "Animation Agent 未完成。");
+        return;
+      }
+      setMessage("已生成 AnimationIR 并编译为 CodeVersion，可在右侧提交预览。");
+    } catch (cause) {
+      setMessage(messageFor(cause));
+    } finally {
+      setBusy(false);
+    }
+  }, [activeProject]);
+
   const generatePlan = useCallback(async (input: {
     prompt: string; audience: Audience; duration: number; style: DerivationStyle; assumptions: string[];
   }) => {
@@ -305,9 +353,9 @@ export function useWorkbench() {
   }, [job]);
 
   return {
-    projects, activeProject, prompts, plans, promptCursor, planCursor, activePrompt, activePlan, planEditor, codeVersion, category,
+    projects, activeProject, prompts, plans, promptCursor, planCursor, activePrompt, activePlan, planEditor, codeVersion, category, agentRun,
     job, artifacts, message, busy, setMessage, setPlanEditor, setActivePlan, setActivePrompt, setCategory,
-    loadProjects, loadProject, loadMorePrompts, loadMorePlans, recoverRenderJob, createProject, generatePlan, savePlan, selectPlan,
+    loadProjects, loadProject, loadMorePrompts, loadMorePlans, recoverRenderJob, createProject, generateAgent, generatePlan, savePlan, selectPlan,
     generateCode, submitRender, cancelRender, blankScene,
   };
 }

@@ -3,8 +3,8 @@ from manim_workbench_contracts.ir import GeometryProofRating, SceneStep
 from manim_workbench_contracts.ir import VisualKind as IrVisualKind
 
 
-def test_contract_schema_is_16() -> None:
-    assert CONTRACT_SCHEMA_VERSION == "1.6"
+def test_contract_schema_is_17() -> None:
+    assert CONTRACT_SCHEMA_VERSION == "1.7"
     assert CodeGenerationMode.COMPILED_IR.value == "compiled_ir"
     assert VisualKind.THREE_D.value == "three_d"
 
