@@ -19,6 +19,7 @@
 - 科研路径：P0 六切片 + Lotka–Volterra 论文/CSV 对比（目录命中才出片）
 - P1：`AssetVersion` 溯源表、表达式 critic、IR 级修复、`eval/agent_p1_gold.jsonl`
 - P2：simulator 插件、`renderer_hint=web` JSON backend、npz/IR 缓存、`eval/agent_p2_benchmark.jsonl` 与 `eval/p2_lab_trial.md`
+- 工作台 UI 采用 People's Platform 海报风：奶油纸底、钴蓝顶栏、琥珀主按钮；红只作偏移阴影
 - Scene IR 1.6 教学 gallery 与 AnimationIR 2.0 科研 compiler 共用 ManimCE 0.21 渲染沙箱
 - Preview 和 Final 渲染任务、Redis 队列、Runner 恢复和取消
 - 视频、缩略图、渲染日志等产物交付
@@ -31,9 +32,9 @@
 
 ### 工作台界面
 
-三栏工作台分别承载创作输入、ContentPlan 教学编排以及 CodeVersion 与渲染交付：
+三栏工作台分别承载一句话科研输入、ContentPlan 教学编排，以及 CodeVersion 与渲染交付。界面是奶油纸底海报风，不是深色控制台。
 
-![Manim 数学动画工作台桌面界面](docs/assets/workbench-demo.png)
+![Manim 科研动画工作台桌面界面](docs/assets/workbench-demo.png)
 
 ### 生成视频
 

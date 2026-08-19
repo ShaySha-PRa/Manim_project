@@ -23,8 +23,8 @@ export function AuthShell({
         <aside aria-label="产品说明" className="auth-aside">
           <p className="auth-aside__index">01 / 安全入口</p>
           <div>
-            <p className="eyebrow">MANIM WORKBENCH</p>
-            <h1>让推导过程，成为可审阅的动画。</h1>
+            <p className="eyebrow">ANIMATION AGENT</p>
+            <h1>让一句话，成为可审阅的科学动画。</h1>
             <p>
               从教学意图到预览与终渲，每一步都保留版本、状态和可追溯的渲染产物。
             </p>
