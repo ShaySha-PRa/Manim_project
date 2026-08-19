@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-CONTRACT_SCHEMA_VERSION = "1.7"
+CONTRACT_SCHEMA_VERSION = "1.9"
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
@@ -734,6 +734,15 @@ from .intent import (  # noqa: E402
     AgentRunOutcome,
     AgentRunRequest,
     AgentRunResponse,
+    AssetDType,
+    AssetField,
+    AssetMime,
+    AssetSource,
+    AssetVersion,
+    CriticAnswer,
+    CriticFinding,
+    CriticQuestionResult,
+    CriticReport,
     IntentDomain,
     IntentSpec,
     ToolNeed,
@@ -824,6 +833,11 @@ CONTRACT_MODELS = (
     GeometryConstruction,
     GeometryProofRating,
     UserAsset,
+    AssetField,
+    AssetVersion,
+    CriticFinding,
+    CriticQuestionResult,
+    CriticReport,
     IntentSpec,
     ToolNeed,
     ToolRun,
@@ -879,7 +893,11 @@ CONTRACT_ENUMS = (
     IrStateChangeKind,
     IrCameraOpKind,
     UserAssetKind,
+    AssetSource,
+    AssetMime,
+    AssetDType,
     AgentRunOutcome,
+    CriticAnswer,
     IntentDomain,
     ToolOp,
 )

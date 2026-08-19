@@ -12,6 +12,7 @@ _DEFAULTS: dict[ToolOp, dict[str, float | int | str | bool]] = {
     ToolOp.PID_STEP_RESPONSE: {"samples": 160, "t_end": 8.0},
     ToolOp.CSV_ANOMALY: {"center": 350.0, "width": 20.0},
     ToolOp.FRENET_FRAME: {"samples": 80},
+    ToolOp.ODE_COMPARE: {},
 }
 
 _DOMAIN_OPS = {
@@ -21,6 +22,7 @@ _DOMAIN_OPS = {
     IntentDomain.CONTROL: ToolOp.PID_STEP_RESPONSE,
     IntentDomain.DATA_ANALYSIS: ToolOp.CSV_ANOMALY,
     IntentDomain.GEOMETRY_DIFF3D: ToolOp.FRENET_FRAME,
+    IntentDomain.SCIENTIFIC_REPRODUCTION: ToolOp.ODE_COMPARE,
 }
 
 

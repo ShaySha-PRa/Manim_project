@@ -16,5 +16,6 @@ def test_phase10_migration_adds_assets_and_allows_021(tmp_path: Path) -> None:
         row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
     assert "user_assets" in tables
+    assert "asset_versions" in tables
     columns = {row[1] for row in connection.execute("PRAGMA table_info(render_jobs)")}
     assert {"concat_group_id", "segment_index"} <= columns

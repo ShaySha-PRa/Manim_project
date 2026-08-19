@@ -38,6 +38,7 @@ def direct_ir(intent: IntentSpec, tool_runs: tuple[ToolRun, ...]) -> AnimationIR
         ToolOp.PID_STEP_RESPONSE: _pid,
         ToolOp.CSV_ANOMALY: _csv,
         ToolOp.FRENET_FRAME: _frenet,
+        ToolOp.ODE_COMPARE: _ode,
     }
     builder = builders.get(primary.op)
     if builder is None:
@@ -264,4 +265,43 @@ def _frenet(intent: IntentSpec, run: ToolRun) -> AnimationIR:
         camera=(AnimCameraOp(op=CameraOpKind.SET_ORIENTATION, phi_degrees=65, theta_degrees=40),),
         assertions=(AnimAssertion(type=AssertionType.FRENET_ORTHONORMAL, target="frame"),),
         fallbacks=(AnimFallback(on="camera_unsupported", strategy=FallbackStrategy.FIXED_CAMERA),),
+    )
+
+
+def _ode(intent: IntentSpec, run: ToolRun) -> AnimationIR:
+    return AnimationIR(
+        domain=intent.domain.value,
+        goal=intent.goal,
+        pattern=VisualPattern.COMPARISON,
+        data=(
+            DataRef(
+                id="compare",
+                kind=DataKind.SERIES,
+                artifact_ref=run.artifact_ref,
+                output_sha256=run.output_sha256,
+            ),
+        ),
+        states=(StateSpec(id="t", type=StateType.SCALAR, initial=0, range=(0.0, 1.0)),),
+        objects=(
+            AnimObject(
+                id="title",
+                type=ObjectType.TITLE,
+                text="论文模型与实验对比",
+                color="YELLOW",
+            ),
+            AnimObject(id="observed", type=ObjectType.GRAPH, data_ref="compare", color="BLUE"),
+            AnimObject(id="predicted", type=ObjectType.GRAPH, data_ref="compare", color="ORANGE"),
+        ),
+        timeline=(
+            TimelineOp(
+                op=TimelineOpKind.CREATE,
+                targets=("title", "observed", "predicted"),
+                duration=0.6,
+            ),
+            TimelineOp(op=TimelineOpKind.COMPARE, target="compare", duration=8.0),
+        ),
+        assertions=(AnimAssertion(type=AssertionType.RESIDUAL_MATCHES_TOOL, target="predicted"),),
+        fallbacks=(
+            AnimFallback(on="low_equation_confidence", strategy=FallbackStrategy.STATIC_FRAME),
+        ),
     )

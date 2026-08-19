@@ -78,6 +78,7 @@ class AssertionType(str, Enum):
     METRIC_MATCH = "metric_match"
     DATA_FIDELITY = "data_fidelity"
     FRENET_ORTHONORMAL = "frenet_orthonormal"
+    RESIDUAL_MATCHES_TOOL = "residual_matches_tool"
 
 
 class FallbackStrategy(str, Enum):

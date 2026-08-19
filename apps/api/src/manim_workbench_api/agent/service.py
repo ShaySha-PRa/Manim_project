@@ -49,8 +49,12 @@ class AgentService:
         generated = run_agent(
             request.prompt,
             csv_text=request.csv_text,
+            paper_text=request.paper_text,
             output_root=self._compute_root,
             provider=_intent_provider(),
+            engine=self._projects._engine,
+            owner_id=request.owner_id,
+            project_id=request.project_id,
         )
         prompt = self._projects.append_prompt_version(
             request.project_id,

@@ -1,0 +1,7 @@
+"""Lotka-Volterra predator-prey model used as a cataloged paper fixture.
+
+dx/dt = alpha * x - beta * x * y
+dy/dt = delta * x * y - gamma * y
+alpha=1.0 beta=0.1 gamma=1.5 delta=0.075
+Observed series: Year, Hare, Lynx.
+"""

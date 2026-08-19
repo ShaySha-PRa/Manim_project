@@ -11,6 +11,7 @@ from manim_workbench_contracts.intent import IntentDomain
 from manim_workbench_contracts.models import CodeGenerationCategory
 from pydantic import ValidationError
 
+from manim_workbench_api.agent.paper_catalog import match_paper_catalog
 from manim_workbench_api.content_plans.models import ProviderMessage, ProviderResult
 
 _WAVE = re.compile(r"波包|干涉|wave.?packet|interfer", re.I)
@@ -18,8 +19,12 @@ _FOURIER = re.compile(r"傅里叶|傅立叶|gibbs|方波|fourier", re.I)
 _LORENZ = re.compile(r"lorenz|洛伦兹", re.I)
 _PID = re.compile(r"\bpid\b|阶跃响应|超调", re.I)
 _CSV = re.compile(r"csv|异常|temperature|pressure|时序", re.I)
-_FRENET = re.compile(r"frenet|切向量|法向量|副法|螺旋", re.I)
-_PAPER = re.compile(r"论文|\.pdf\b|paper model|实验 CSV|实验数据", re.I)
+_FRENET = re.compile(r"frenet|切向量|法向量|副法|螺旋|helix|tnb", re.I)
+_PAPER = re.compile(
+    r"论文|\.pdf\b|paper model|paper ode|scientific reproduction|"
+    r"实验 CSV|实验数据|lotka|volterra|洛特卡",
+    re.I,
+)
 
 INTENT_SYSTEM_PROMPT = (
     "You fill IntentSpec JSON for an Animation Agent. "
@@ -28,11 +33,13 @@ INTENT_SYSTEM_PROMPT = (
     "Allowed domains: physics.wave, math.signal, dynamical_systems, "
     "control, data_analysis, geometry.diff3d, scientific_reproduction, teaching. "
     "Allowed tools: wave2d_superposition, fourier_square_wave, lorenz_ensemble, "
-    "pid_step_response, csv_anomaly, frenet_frame. "
+    "pid_step_response, csv_anomaly, frenet_frame, ode_compare. "
     "If the prompt is not one of those compiled slices, set needs_confirmation "
     "true and tools_needed to []. "
-    "If the prompt needs a paper/PDF parser, use domain scientific_reproduction, "
-    "needs_confirmation true, and do not invent equations. "
+    "If the prompt needs a paper/PDF and PAPER_MATCHED=false, use domain "
+    "scientific_reproduction, needs_confirmation true, and do not invent equations. "
+    "If PAPER_MATCHED=true and CSV_PRESENT=true, use ode_compare and "
+    "needs_confirmation false. "
     "If the prompt needs CSV and none is provided, set asset_required true "
     "and asset_kind csv. schema_version must be 1.0."
 )
@@ -64,48 +71,51 @@ def fill_intent_from_provider(
     prompt: str,
     *,
     csv_text: str | None = None,
+    paper_text: str | None = None,
 ) -> IntentSpec:
+    matched = match_paper_catalog(paper_text or "", csv_text)
     user = prompt.strip()
-    if csv_text and csv_text.strip():
-        user = f"{user}\n\nCSV_PRESENT=true"
-    else:
-        user = f"{user}\n\nCSV_PRESENT=false"
+    user += f"\n\nCSV_PRESENT={'true' if csv_text and csv_text.strip() else 'false'}"
+    user += f"\nPAPER_MATCHED={'true' if matched is not None else 'false'}"
     result = provider.generate(
         (
             ProviderMessage(role="system", content=INTENT_SYSTEM_PROMPT),
             ProviderMessage(role="user", content=user[:20_000]),
         )
     )
-    return _post_validate(intent_from_llm_json(result.content), csv_text=csv_text)
+    return _post_validate(
+        intent_from_llm_json(result.content),
+        csv_text=csv_text,
+        paper_text=paper_text,
+    )
 
 
 def resolve_intent(
     prompt: str,
     *,
     csv_text: str | None = None,
+    paper_text: str | None = None,
     provider: IntentJsonProvider | None = None,
 ) -> IntentSpec:
     if provider is not None:
         try:
-            return fill_intent_from_provider(provider, prompt, csv_text=csv_text)
+            return fill_intent_from_provider(
+                provider, prompt, csv_text=csv_text, paper_text=paper_text
+            )
         except (ValueError, json.JSONDecodeError, TypeError):
             return _needs_confirmation(prompt, "IntentSpec JSON 无法校验")
-    return resolve_intent_catalog(prompt, csv_text=csv_text)
+    return resolve_intent_catalog(prompt, csv_text=csv_text, paper_text=paper_text)
 
 
-def resolve_intent_catalog(prompt: str, *, csv_text: str | None = None) -> IntentSpec:
+def resolve_intent_catalog(
+    prompt: str,
+    *,
+    csv_text: str | None = None,
+    paper_text: str | None = None,
+) -> IntentSpec:
     text = prompt.strip()
     if _PAPER.search(text):
-        return IntentSpec(
-            domain=IntentDomain.SCIENTIFIC_REPRODUCTION,
-            goal="compare paper model with experiment",
-            assumptions=("P0 没有 PDF 方程解析器，不能自行补公式",),
-            tools_needed=(),
-            needs_confirmation=True,
-            asset_required=True,
-            asset_kind="pdf",
-            category_hint=CodeGenerationCategory.FUNCTION_VISUALIZATION,
-        )
+        return _paper_intent(text, csv_text=csv_text, paper_text=paper_text)
     if _WAVE.search(text):
         return IntentSpec(
             domain=IntentDomain.PHYSICS_WAVE,
@@ -172,19 +182,75 @@ def resolve_intent_catalog(prompt: str, *, csv_text: str | None = None) -> Inten
             dimension="3d",
             category_hint=CodeGenerationCategory.THREE_D,
         )
-    return _needs_confirmation(text, "未匹配到 P0 科研切片，需要确认领域")
+    return _needs_confirmation(text, "未匹配到已编译科研切片，需要确认领域")
 
 
-def _post_validate(spec: IntentSpec, *, csv_text: str | None) -> IntentSpec:
-    if spec.domain is IntentDomain.SCIENTIFIC_REPRODUCTION:
-        return spec.model_copy(
-            update={
-                "needs_confirmation": True,
-                "asset_required": True,
-                "asset_kind": spec.asset_kind or "pdf",
-                "tools_needed": (),
-            }
+def _paper_intent(
+    prompt: str,
+    *,
+    csv_text: str | None,
+    paper_text: str | None,
+) -> IntentSpec:
+    matched = match_paper_catalog(paper_text or "", csv_text)
+    if matched is None:
+        missing_paper = not (paper_text and paper_text.strip())
+        return IntentSpec(
+            domain=IntentDomain.SCIENTIFIC_REPRODUCTION,
+            goal="compare paper model with experiment",
+            assumptions=("方程提取置信不足，不能自行补公式",),
+            tools_needed=(),
+            needs_confirmation=True,
+            asset_required=missing_paper,
+            asset_kind="pdf" if missing_paper else None,
+            category_hint=CodeGenerationCategory.FUNCTION_VISUALIZATION,
         )
+    if not (csv_text and csv_text.strip()):
+        return IntentSpec(
+            domain=IntentDomain.SCIENTIFIC_REPRODUCTION,
+            goal="compare paper model with experiment",
+            assumptions=("已匹配 Lotka-Volterra 目录，仍需实验 CSV",),
+            tools_needed=(),
+            asset_required=True,
+            asset_kind="csv",
+            category_hint=CodeGenerationCategory.FUNCTION_VISUALIZATION,
+        )
+    return IntentSpec(
+        domain=IntentDomain.SCIENTIFIC_REPRODUCTION,
+        goal="compare paper model with experiment",
+        assumptions=(
+            f"catalog:{matched.system}",
+            f"alpha={matched.alpha}, beta={matched.beta}, "
+            f"gamma={matched.gamma}, delta={matched.delta}",
+        ),
+        tools_needed=(
+            ToolNeed(
+                op=ToolOp.ODE_COMPARE,
+                params={
+                    "system": matched.system,
+                    "alpha": matched.alpha,
+                    "beta": matched.beta,
+                    "gamma": matched.gamma,
+                    "delta": matched.delta,
+                    "time_column": matched.time_column,
+                    "x_column": matched.x_column,
+                    "y_column": matched.y_column,
+                },
+            ),
+        ),
+        output_duration_seconds=12.0,
+        dimension="2d",
+        category_hint=CodeGenerationCategory.FUNCTION_VISUALIZATION,
+    )
+
+
+def _post_validate(
+    spec: IntentSpec,
+    *,
+    csv_text: str | None,
+    paper_text: str | None,
+) -> IntentSpec:
+    if spec.domain is IntentDomain.SCIENTIFIC_REPRODUCTION:
+        return _paper_intent(spec.goal, csv_text=csv_text, paper_text=paper_text)
     if spec.domain is IntentDomain.DATA_ANALYSIS and not (csv_text and csv_text.strip()):
         return spec.model_copy(update={"asset_required": True, "asset_kind": "csv"})
     if spec.domain is IntentDomain.TEACHING and not spec.tools_needed:

@@ -73,6 +73,19 @@
           "title": "Owner Id",
           "type": "string"
         },
+        "paper_text": {
+          "anyOf": [
+            {
+              "maxLength": 200000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Text"
+        },
         "project_id": {
           "format": "uuid",
           "title": "Project Id",
@@ -136,6 +149,17 @@
           ],
           "default": null
         },
+        "critic_report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CriticReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "error_code": {
           "anyOf": [
             {
@@ -154,7 +178,7 @@
           "items": {
             "$ref": "#/$defs/AgentEvent"
           },
-          "maxItems": 32,
+          "maxItems": 48,
           "title": "Events",
           "type": "array"
         },
@@ -195,6 +219,13 @@
             }
           ],
           "default": null
+        },
+        "repair_count": {
+          "default": 0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Repair Count",
+          "type": "integer"
         },
         "tool_runs": {
           "default": [],
@@ -703,10 +734,140 @@
         "trajectory_error",
         "metric_match",
         "data_fidelity",
-        "frenet_orthonormal"
+        "frenet_orthonormal",
+        "residual_matches_tool"
       ],
       "title": "AssertionType",
       "type": "string"
+    },
+    "AssetDType": {
+      "enum": [
+        "float32",
+        "float64",
+        "int32",
+        "int64",
+        "uint8",
+        "bool"
+      ],
+      "title": "AssetDType",
+      "type": "string"
+    },
+    "AssetField": {
+      "additionalProperties": false,
+      "properties": {
+        "dtype": {
+          "$ref": "#/$defs/AssetDType"
+        },
+        "name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "shape": {
+          "default": [],
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 8,
+          "title": "Shape",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "dtype"
+      ],
+      "title": "AssetField",
+      "type": "object"
+    },
+    "AssetMime": {
+      "enum": [
+        "text/csv",
+        "application/x-npy",
+        "application/x-npz",
+        "text/plain",
+        "application/pdf"
+      ],
+      "title": "AssetMime",
+      "type": "string"
+    },
+    "AssetSource": {
+      "enum": [
+        "upload",
+        "tool_output"
+      ],
+      "title": "AssetSource",
+      "type": "string"
+    },
+    "AssetVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "derived_from": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Derived From"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/AssetField"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Fields",
+          "type": "array"
+        },
+        "mime": {
+          "$ref": "#/$defs/AssetMime"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 64000000,
+          "minimum": 1,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/AssetSource"
+        }
+      },
+      "required": [
+        "sha256",
+        "mime",
+        "size_bytes",
+        "source",
+        "columns",
+        "fields"
+      ],
+      "title": "AssetVersion",
+      "type": "object"
     },
     "Audience": {
       "enum": [
@@ -1820,6 +1981,127 @@
         "items"
       ],
       "title": "ContentPlanVersionPage",
+      "type": "object"
+    },
+    "CriticAnswer": {
+      "enum": [
+        "yes",
+        "no"
+      ],
+      "title": "CriticAnswer",
+      "type": "string"
+    },
+    "CriticFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[a-z][a-z0-9_]{1,63}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "repairable": {
+          "default": false,
+          "title": "Repairable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "CriticFinding",
+      "type": "object"
+    },
+    "CriticQuestionResult": {
+      "additionalProperties": false,
+      "properties": {
+        "answer": {
+          "$ref": "#/$defs/CriticAnswer"
+        },
+        "evidence": {
+          "default": "ir",
+          "enum": [
+            "ir",
+            "source",
+            "tool",
+            "vlm"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "expected": {
+          "$ref": "#/$defs/CriticAnswer",
+          "default": "yes"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "question",
+        "answer"
+      ],
+      "title": "CriticQuestionResult",
+      "type": "object"
+    },
+    "CriticReport": {
+      "additionalProperties": false,
+      "properties": {
+        "expression_score": {
+          "maximum": 5.0,
+          "minimum": 1.0,
+          "title": "Expression Score",
+          "type": "number"
+        },
+        "findings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CriticFinding"
+          },
+          "maxItems": 16,
+          "title": "Findings",
+          "type": "array"
+        },
+        "questions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CriticQuestionResult"
+          },
+          "maxItems": 24,
+          "title": "Questions",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "vlm_used": {
+          "default": false,
+          "title": "Vlm Used",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "expression_score"
+      ],
+      "title": "CriticReport",
       "type": "object"
     },
     "DataKind": {
@@ -4205,7 +4487,8 @@
         "lorenz_ensemble",
         "pid_step_response",
         "csv_anomaly",
-        "frenet_frame"
+        "frenet_frame",
+        "ode_compare"
       ],
       "title": "ToolOp",
       "type": "string"
@@ -4247,10 +4530,32 @@
           "title": "Assertions",
           "type": "object"
         },
+        "asset_version": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssetVersion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "id": {
           "pattern": "^[a-z][a-z0-9_.]{0,63}$",
           "title": "Id",
           "type": "string"
+        },
+        "input_asset_version": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssetVersion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "input_sha256": {
           "pattern": "^[0-9a-f]{64}$",
@@ -4468,6 +4773,19 @@
           "$ref": "#/$defs/Language",
           "default": "zh-CN"
         },
+        "paper_text": {
+          "anyOf": [
+            {
+              "maxLength": 200000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Text"
+        },
         "prompt": {
           "maxLength": 20000,
           "minLength": 1,
@@ -4611,7 +4929,7 @@
       "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.7",
+  "$id": "https://manim-workbench.local/contracts/1.9",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
@@ -4628,6 +4946,8 @@
     "ApiErrorResponse",
     "Artifact",
     "ArtifactDescriptor",
+    "AssetField",
+    "AssetVersion",
     "AuthenticatedUser",
     "BindingSource",
     "BindingSpec",
@@ -4645,6 +4965,9 @@
     "ContentPlanVersion",
     "ContentPlanVersionCreateRequest",
     "ContentPlanVersionPage",
+    "CriticFinding",
+    "CriticQuestionResult",
+    "CriticReport",
     "DataRef",
     "GenerationAttempt",
     "GeometryConstruction",
@@ -4693,5 +5016,5 @@
     "WorkspaceContentPlanGenerationRequest",
     "WorkspaceRenderJobSubmission"
   ],
-  "x-contract-schema-version": "1.7"
+  "x-contract-schema-version": "1.9"
 }

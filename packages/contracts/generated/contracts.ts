@@ -1,5 +1,5 @@
 // Generated from Pydantic contracts. Do not edit.
-export const CONTRACT_SCHEMA_VERSION = "1.7" as const;
+export const CONTRACT_SCHEMA_VERSION = "1.9" as const;
 
 export interface AgentEvent {
   readonly stage: string;
@@ -15,6 +15,7 @@ export interface AgentRunRequest {
   readonly language?: Language;
   readonly target_duration_seconds?: number;
   readonly csv_text?: string | null;
+  readonly paper_text?: string | null;
   readonly project_id: string;
   readonly owner_id: string;
 }
@@ -30,6 +31,8 @@ export interface AgentRunResponse {
   readonly code_version?: CodeVersion | null;
   readonly error_code?: string | null;
   readonly message?: string | null;
+  readonly critic_report?: CriticReport | null;
+  readonly repair_count?: number;
 }
 
 export interface AnimAssertion {
@@ -115,7 +118,30 @@ export interface ArtifactDescriptor {
 
 export type ArtifactKind = "video" | "thumbnail" | "render_log" | "metadata";
 
-export type AssertionType = "linear_superposition" | "harmonic_coefficients" | "gibbs_overshoot" | "trajectory_error" | "metric_match" | "data_fidelity" | "frenet_orthonormal";
+export type AssertionType = "linear_superposition" | "harmonic_coefficients" | "gibbs_overshoot" | "trajectory_error" | "metric_match" | "data_fidelity" | "frenet_orthonormal" | "residual_matches_tool";
+
+export type AssetDType = "float32" | "float64" | "int32" | "int64" | "uint8" | "bool";
+
+export interface AssetField {
+  readonly name: string;
+  readonly dtype: AssetDType;
+  readonly shape?: ReadonlyArray<number>;
+}
+
+export type AssetMime = "text/csv" | "application/x-npy" | "application/x-npz" | "text/plain" | "application/pdf";
+
+export type AssetSource = "upload" | "tool_output";
+
+export interface AssetVersion {
+  readonly schema_version?: "1.0";
+  readonly sha256: string;
+  readonly mime: AssetMime;
+  readonly size_bytes: number;
+  readonly source: AssetSource;
+  readonly columns: ReadonlyArray<string>;
+  readonly fields: ReadonlyArray<AssetField>;
+  readonly derived_from?: string | null;
+}
 
 export type Audience = "primary_school" | "middle_school" | "high_school" | "undergraduate" | "general_audience";
 
@@ -296,6 +322,30 @@ export interface ContentPlanVersionCreateRequest {
 export interface ContentPlanVersionPage {
   readonly items: ReadonlyArray<ContentPlanVersion>;
   readonly next_cursor?: number | null;
+}
+
+export type CriticAnswer = "yes" | "no";
+
+export interface CriticFinding {
+  readonly code: string;
+  readonly message: string;
+  readonly repairable?: boolean;
+}
+
+export interface CriticQuestionResult {
+  readonly id: string;
+  readonly question: string;
+  readonly answer: CriticAnswer;
+  readonly expected?: CriticAnswer;
+  readonly evidence?: "ir" | "source" | "tool" | "vlm";
+}
+
+export interface CriticReport {
+  readonly schema_version?: "1.0";
+  readonly expression_score: number;
+  readonly vlm_used?: boolean;
+  readonly questions?: ReadonlyArray<CriticQuestionResult>;
+  readonly findings?: ReadonlyArray<CriticFinding>;
 }
 
 export type DataKind = "array" | "series" | "trajectory" | "trajectory_set" | "table";
@@ -668,7 +718,7 @@ export interface ToolNeed {
   readonly params?: Record<string, unknown>;
 }
 
-export type ToolOp = "wave2d_superposition" | "fourier_square_wave" | "lorenz_ensemble" | "pid_step_response" | "csv_anomaly" | "frenet_frame";
+export type ToolOp = "wave2d_superposition" | "fourier_square_wave" | "lorenz_ensemble" | "pid_step_response" | "csv_anomaly" | "frenet_frame" | "ode_compare";
 
 export interface ToolRun {
   readonly id: string;
@@ -679,6 +729,8 @@ export interface ToolRun {
   readonly artifact_ref: string;
   readonly artifact_path: string;
   readonly assertions?: Record<string, unknown>;
+  readonly asset_version?: AssetVersion | null;
+  readonly input_asset_version?: AssetVersion | null;
 }
 
 export interface TrackerSpec {
@@ -717,6 +769,7 @@ export interface WorkspaceAgentRunRequest {
   readonly language?: Language;
   readonly target_duration_seconds?: number;
   readonly csv_text?: string | null;
+  readonly paper_text?: string | null;
 }
 
 export interface WorkspaceCodeGenerationRequest {

@@ -9,14 +9,15 @@
 
 教学路径仍可能让模型写受 AST allowlist 约束的 Manim Scene。科研路径（Animation Agent V2）禁止模型写自由 Scene Python；数字来自 ToolRun 产物，编译器 lowering 预计算数组。
 
-当前一句话入口：有 `DEEPSEEK_API_KEY` 时 LLM 只填 `IntentSpec` JSON；否则回退关键词目录。匹配或推断到六个可编译切片才会出片；论文 PDF 切片在 P0 没有解析器，返回 `needs_confirmation`。未匹配返回 `needs_confirmation`。CSV 没有正文时返回 `asset_required`，拒绝伪造数据。P0 范围以 `docs/research/animation-agent-v2.md` 为准。
+当前一句话入口：有 `DEEPSEEK_API_KEY` 时 LLM 只填 `IntentSpec` JSON；否则回退关键词目录。六个 P0 切片可出片。论文+CSV 仅在文本命中封闭 Lotka–Volterra 目录且系数齐全时走 `ode_compare`；否则 `needs_confirmation`，绝不补公式。CSV 没有正文时返回 `asset_required`。P1 含 `AssetVersion` 表、TIFA/VLM JSON critic、最多一次 IR repair，以及 50–100 条 gold set。范围以 `docs/research/animation-agent-v2.md` 为准。
 
 ## 当前能力
 
 - 本地工作台自动建立会话（Cookie + CSRF 仍在）；不使用登录页
 - 项目、Prompt、ContentPlan、CodeVersion 的不可变版本链
 - 教学路径：公式推导、函数可视化、平面几何、几何证明、三维、混合
-- 科研路径：六个 P0 切片（波包干涉、Fourier/Gibbs、Lorenz、PID、CSV 异常、Frenet）
+- 科研路径：P0 六切片 + Lotka–Volterra 论文/CSV 对比（目录命中才出片）
+- P1：`AssetVersion` 溯源表、表达式 critic、IR 级修复、`eval/agent_p1_gold.jsonl`
 - Scene IR 1.6 教学 gallery 与 AnimationIR 2.0 科研 compiler 共用 ManimCE 0.21 渲染沙箱
 - Preview 和 Final 渲染任务、Redis 队列、Runner 恢复和取消
 - 视频、缩略图、渲染日志等产物交付
@@ -222,7 +223,7 @@ Runner 到 API 的内部调用必须保持本机地址；Runner 会拒绝外部�
 
 健康检查应返回：
 
-    {"status":"ok","service":"api","contract_schema_version":"1.7"}
+    {"status":"ok","service":"api","contract_schema_version":"1.9"}
 
 API 根路径 / 没有业务页面，返回 {"detail":"Not Found"} 是正常的；浏览器 UI 应访问 Web 的 :3000/workbench。`/login` 会跳转到工作台。
 

@@ -20,6 +20,7 @@ ALLOWED_OPS = frozenset(
         "pid_step_response",
         "csv_anomaly",
         "frenet_frame",
+        "ode_compare",
     }
 )
 
@@ -357,6 +358,61 @@ def frenet_frame(params: Mapping[str, Any], _input_text: str | None) -> KernelRe
     )
 
 
+def ode_compare(params: Mapping[str, Any], input_text: str | None) -> KernelResult:
+    import pandas as pd
+    from scipy.integrate import odeint
+
+    if str(params.get("system", "")) != "lotka_volterra":
+        raise ValueError("ode_compare only accepts cataloged lotka_volterra")
+    if not input_text or not input_text.strip():
+        raise ValueError("ode_compare requires csv_text")
+    frame = pd.read_csv(io.StringIO(input_text))
+    time_col = str(params.get("time_column", "Year"))
+    x_col = str(params.get("x_column", "Hare"))
+    y_col = str(params.get("y_column", "Lynx"))
+    missing = [name for name in (time_col, x_col, y_col) if name not in frame.columns]
+    if missing:
+        raise ValueError(f"csv missing columns: {missing}")
+    if len(frame) > 5_000:
+        raise ValueError("csv exceeds row limit")
+    time = frame[time_col].to_numpy(dtype=np.float64)
+    observed_x = frame[x_col].to_numpy(dtype=np.float64)
+    observed_y = frame[y_col].to_numpy(dtype=np.float64)
+    alpha = _as_float(params, "alpha", 1.0)
+    beta = _as_float(params, "beta", 0.1)
+    gamma = _as_float(params, "gamma", 1.5)
+    delta = _as_float(params, "delta", 0.075)
+    t_rel = time - time[0]
+
+    def rhs(state: np.ndarray, _t: float) -> list[float]:
+        prey, predator = state
+        return [
+            alpha * prey - beta * prey * predator,
+            delta * prey * predator - gamma * predator,
+        ]
+
+    predicted = odeint(rhs, [observed_x[0], observed_y[0]], t_rel)
+    residual = np.concatenate((predicted[:, 0] - observed_x, predicted[:, 1] - observed_y))
+    scale = float(np.std(np.concatenate((observed_x, observed_y))) + 1e-8)
+    rmse = float(np.sqrt(np.mean(residual * residual)))
+    matched = bool(rmse / scale < 0.35)
+    return KernelResult(
+        arrays={
+            "t": t_rel.astype(np.float32),
+            "observed": observed_x.astype(np.float32),
+            "predicted": predicted[:, 0].astype(np.float32),
+            "observed_y": observed_y.astype(np.float32),
+            "predicted_y": predicted[:, 1].astype(np.float32),
+        },
+        assertions={
+            "residual_matches_tool": matched,
+            "rmse": rmse,
+            "equation_provenance": True,
+            "row_count": int(len(frame)),
+        },
+    )
+
+
 KERNELS: dict[str, Callable[[Mapping[str, Any], str | None], KernelResult]] = {
     "wave2d_superposition": wave2d_superposition,
     "fourier_square_wave": fourier_square_wave,
@@ -364,6 +420,7 @@ KERNELS: dict[str, Callable[[Mapping[str, Any], str | None], KernelResult]] = {
     "pid_step_response": pid_step_response,
     "csv_anomaly": csv_anomaly,
     "frenet_frame": frenet_frame,
+    "ode_compare": ode_compare,
 }
 
 
