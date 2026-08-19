@@ -2,7 +2,18 @@
 
 ## Project Structure & Module Organization
 
-`apps/api` contains the FastAPI application; `apps/runner` owns queue coordination, Docker sandboxing, rendering, and visual diagnostics; `apps/web` is the Next.js interface. Shared Python and TypeScript contracts live in `packages/contracts`, with generated outputs under `packages/contracts/generated`. Database revisions are in `migrations/versions`. Put Manim examples in `reference_scenes/formula` or `reference_scenes/functions`. Tests are grouped by delivery phase under `tests/phase*`; browser and Web boundary tests live in `tests/phase8/browser` and `tests/web`. Evaluation data and evidence belong in `eval` and `benchmarks`; architecture and phase decisions belong in `docs`.
+`apps/api` contains the FastAPI application; `apps/runner` owns queue coordination, Docker sandboxing, rendering, and visual diagnostics; `apps/web` is the Next.js interface. Shared Python and TypeScript contracts live in `packages/contracts`, with generated outputs under `packages/contracts/generated`. Database revisions are in `migrations/versions`. Put Manim examples in `reference_scenes/formula` or `reference_scenes/functions`. Tests are grouped by delivery phase under `tests/phase*`; Agent/IR tests live in `tests/agent` and `tests/ir`; browser and Web boundary tests live in `tests/phase8/browser` and `tests/web`. Evaluation data and evidence belong in `eval` and `benchmarks`; architecture and phase decisions belong in `docs`.
+
+## Generation paths
+
+There are two product paths. Do not describe them as one live LLM Agent.
+
+1. Teaching: Prompt → ContentPlan → CodeVersion. The model may emit Manim Scene Python that still must pass the AST/API allowlist and Docker render sandbox.
+2. Animation Agent V2: one sentence → `IntentSpec` → allowlisted tools → AnimationIR 2.0 → deterministic compiler (`apps/api/.../compiler/manim.py`) → the same render sandbox. The model must not emit free Scene Python, lambdas, or live `np.exp` in the Scene.
+
+The current one-sentence Intent resolver is a **keyword catalog** in `resolve_intent` (`apps/api/.../agent/intent_resolver.py`), not a live LLM fill of `IntentSpec`. Unknown prompts return `needs_confirmation`. CSV without a body returns `asset_required`. `intent_from_llm_json` exists as a parser for future IntentSpec-only model output; P0 does not call a model there.
+
+The local workbench does not use a login page. `settings_from_environment` defaults `auth_disabled` to true and `GET /auth/session` issues a `dev@local.test` session so owner isolation, CSRF, and cookies still work. `/login` and `/change-password` redirect to `/workbench`. Set `MANIM_WORKBENCH_AUTH_DISABLED=false` only if you need the Phase 8 login API path. Local Web should leave `NEXT_PUBLIC_API_URL` unset so the browser uses same-origin `/api` rewrites from `apps/web/next.config.ts`.
 
 ## Build, Test, and Development Commands
 

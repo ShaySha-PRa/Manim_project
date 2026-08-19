@@ -139,7 +139,7 @@ class AuthService:
         return authenticated
 
     def ensure_local_dev_session(self, settings: AuthSettings) -> AuthenticatedSession:
-        """Issue a ready session for local UI testing when login is disabled."""
+        """Issue a ready session for the local workbench; login UI is not used."""
         now = self._now()
         with self._engine.begin() as connection:
             row = (

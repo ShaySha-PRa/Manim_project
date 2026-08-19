@@ -74,10 +74,10 @@ def settings_from_environment() -> AuthSettings:
     }
     raw_age = os.environ.get("MANIM_WORKBENCH_SESSION_MAX_AGE_SECONDS")
     session_max_age_seconds = int(raw_age) if raw_age else DEFAULT_SESSION_MAX_AGE_SECONDS
+    raw_auth = os.environ.get("MANIM_WORKBENCH_AUTH_DISABLED", "true").lower()
     return AuthSettings(
         allowed_origins=allowed_origins,
         cookie_secure=cookie_secure,
         session_max_age_seconds=session_max_age_seconds,
-        auth_disabled=os.environ.get("MANIM_WORKBENCH_AUTH_DISABLED", "").lower()
-        in {"1", "true", "yes"},
+        auth_disabled=raw_auth not in {"0", "false", "no"},
     )

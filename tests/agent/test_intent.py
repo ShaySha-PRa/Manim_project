@@ -18,6 +18,13 @@ def test_csv_without_asset_is_required() -> None:
     assert result.error_code == "asset_required"
 
 
+def test_unknown_prompt_needs_confirmation() -> None:
+    intent = resolve_intent("随便讲一个没见过的科研现象")
+    assert intent.needs_confirmation is True
+    result = run_agent("随便讲一个没见过的科研现象")
+    assert result.outcome is AgentRunOutcome.NEEDS_CONFIRMATION
+
+
 def test_llm_json_must_be_intent_spec_only() -> None:
     spec = intent_from_llm_json(
         IntentSpec(
