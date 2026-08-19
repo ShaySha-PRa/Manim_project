@@ -15,7 +15,7 @@ from manim_workbench_contracts import (
 
 from .dependencies import get_auth_service, get_auth_settings
 from .errors import AUTHORIZATION_FAILED, AuthError
-from .models import SESSION_COOKIE_NAME, AuthSettings
+from .models import SESSION_COOKIE_NAME, AuthSettings, AuthenticatedSession
 from .service import AuthService
 
 
@@ -111,12 +111,20 @@ def session(
     settings: SettingsDependency,
     session_token: SessionCookie = None,
 ) -> LoginResponse | JSONResponse:
-    if not session_token:
-        return _error_response(AuthError("authentication_failed", "Authentication failed.", 401))
-    try:
-        authenticated = service.get_session(session_token, settings)
-    except AuthError as error:
-        return _error_response(error)
+    authenticated: AuthenticatedSession | None = None
+    if session_token:
+        try:
+            authenticated = service.get_session(session_token, settings)
+        except AuthError:
+            authenticated = None
+    if authenticated is None:
+        if not settings.auth_disabled:
+            return _error_response(AuthError("authentication_failed", "Authentication failed.", 401))
+        authenticated = service.ensure_local_dev_session(settings)
+        _set_session_cookie(response, authenticated.token, settings)
+    elif settings.auth_disabled and authenticated.principal.must_change_password:
+        authenticated = service.ensure_local_dev_session(settings)
+        _set_session_cookie(response, authenticated.token, settings)
     response.headers["Cache-Control"] = "no-store"
     return LoginResponse(
         user=authenticated.principal.as_authenticated_user(),

@@ -13,7 +13,7 @@ class EnvironmentRunner:
         assert timeout_seconds == 30
         payload = {
             "python_version": "3.14.3",
-            "manim_version": "0.20.1",
+            "manim_version": "0.21.0",
             "pyav_version": "16.1.0",
             "ffmpeg_libraries": {"libavcodec": [62, 11, 100]},
             "latex_version": "pdfTeX 3.141592653",
@@ -25,7 +25,7 @@ class EnvironmentRunner:
 def test_environment_probe_adds_the_immutable_image_identity() -> None:
     result = probe_environment(EnvironmentRunner())
 
-    assert result["manim_version"] == "0.20.1"
+    assert result["manim_version"] == "0.21.0"
     assert result["pyav_version"] == "16.1.0"
     assert result["image_digest"] == MANIM_IMAGE_DIGEST
 

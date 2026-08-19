@@ -32,7 +32,7 @@ def code_version(*, mode: CodeGenerationMode = CodeGenerationMode.FULL) -> CodeV
         source_sha256="0" * 64,
         scene_class="GeneratedScene",
         engine="manimce",
-        engine_version="0.20.1",
+        engine_version="0.21.0",
         category=CodeGenerationCategory.FORMULA_DERIVATION,
         generation_mode=mode,
     )

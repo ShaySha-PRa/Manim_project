@@ -22,11 +22,11 @@ class ManimCEStaticContractTests(unittest.TestCase):
 
     def test_docker_image_is_pinned_to_required_version(self):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-        self.assertIn("FROM manimcommunity/manim:v0.20.1", dockerfile)
+        self.assertIn("FROM manimcommunity/manim:v0.21.0", dockerfile)
         self.assertNotIn(":latest", dockerfile)
         self.assertNotIn(":stable", dockerfile)
         runner = (ROOT / "run_benchmark.py").read_text(encoding="utf-8")
-        self.assertIn("manimcommunity/manim@sha256:f18f53f2", runner)
+        self.assertIn("manimcommunity/manim@sha256:89ab433ce", runner)
 
     def test_runner_uses_headless_low_quality_independent_runs(self):
         runner = (ROOT / "run_benchmark.py").read_text(encoding="utf-8")

@@ -1,5 +1,85 @@
 // Generated from Pydantic contracts. Do not edit.
-export const CONTRACT_SCHEMA_VERSION = "1.5" as const;
+export const CONTRACT_SCHEMA_VERSION = "1.7" as const;
+
+export interface AgentEvent {
+  readonly stage: string;
+  readonly status: "started" | "succeeded" | "failed" | "skipped";
+  readonly message: string;
+}
+
+export type AgentRunOutcome = "ready" | "needs_confirmation" | "asset_required" | "unsupported" | "failed";
+
+export interface AgentRunRequest {
+  readonly prompt: string;
+  readonly audience?: Audience;
+  readonly language?: Language;
+  readonly target_duration_seconds?: number;
+  readonly csv_text?: string | null;
+  readonly project_id: string;
+  readonly owner_id: string;
+}
+
+export interface AgentRunResponse {
+  readonly outcome: AgentRunOutcome;
+  readonly intent?: IntentSpec | null;
+  readonly tool_runs?: ReadonlyArray<ToolRun>;
+  readonly animation_ir?: AnimationIR | null;
+  readonly events?: ReadonlyArray<AgentEvent>;
+  readonly prompt_version?: PromptVersion | null;
+  readonly content_plan_version?: ContentPlanVersion | null;
+  readonly code_version?: CodeVersion | null;
+  readonly error_code?: string | null;
+  readonly message?: string | null;
+}
+
+export interface AnimAssertion {
+  readonly type: AssertionType;
+  readonly target?: string | null;
+  readonly fields?: ReadonlyArray<string>;
+}
+
+export interface AnimBinding {
+  readonly target: string;
+  readonly source: BindingSource;
+}
+
+export interface AnimCameraOp {
+  readonly op?: CameraOpKind;
+  readonly target?: string | null;
+  readonly rate?: number | null;
+  readonly phi_degrees?: number | null;
+  readonly theta_degrees?: number | null;
+  readonly run_time?: number;
+}
+
+export interface AnimFallback {
+  readonly on: string;
+  readonly strategy: FallbackStrategy;
+}
+
+export interface AnimObject {
+  readonly id: string;
+  readonly type: ObjectType;
+  readonly data_ref?: string | null;
+  readonly text?: string | null;
+  readonly color?: string | null;
+}
+
+export interface AnimationIR {
+  readonly schema_version?: "2.0";
+  readonly domain: string;
+  readonly goal: string;
+  readonly pattern: VisualPattern;
+  readonly scene?: SceneHint;
+  readonly data?: ReadonlyArray<DataRef>;
+  readonly states?: ReadonlyArray<StateSpec>;
+  readonly objects?: ReadonlyArray<AnimObject>;
+  readonly bindings?: ReadonlyArray<AnimBinding>;
+  readonly timeline: ReadonlyArray<TimelineOp>;
+  readonly camera?: ReadonlyArray<AnimCameraOp>;
+  readonly assertions?: ReadonlyArray<AnimAssertion>;
+  readonly fallbacks?: ReadonlyArray<AnimFallback>;
+}
 
 export interface ApiErrorDetail {
   readonly code: string;
@@ -35,6 +115,8 @@ export interface ArtifactDescriptor {
 
 export type ArtifactKind = "video" | "thumbnail" | "render_log" | "metadata";
 
+export type AssertionType = "linear_superposition" | "harmonic_coefficients" | "gibbs_overshoot" | "trajectory_error" | "metric_match" | "data_fidelity" | "frenet_orthonormal";
+
 export type Audience = "primary_school" | "middle_school" | "high_school" | "undergraduate" | "general_audience";
 
 export interface AuthenticatedUser {
@@ -44,6 +126,33 @@ export interface AuthenticatedUser {
   readonly created_at: string;
 }
 
+export type BindingOp = "sample" | "identity";
+
+export interface BindingSource {
+  readonly op?: BindingOp;
+  readonly data?: string | null;
+  readonly state?: string | null;
+}
+
+export interface BindingSpec {
+  readonly object_id: string;
+  readonly tracker_id: string;
+  readonly expr_id?: IrExprId;
+  readonly role?: string;
+}
+
+export interface CameraOp {
+  readonly kind: IrCameraOpKind;
+  readonly object_id?: string | null;
+  readonly scale?: number | null;
+  readonly phi_degrees?: number | null;
+  readonly theta_degrees?: number | null;
+  readonly rate?: number | null;
+  readonly run_time?: number;
+}
+
+export type CameraOpKind = "static" | "follow" | "zoom" | "ambient_rotate" | "set_orientation";
+
 export type ClarificationField = "audience" | "duration" | "derivation_style" | "assumptions" | "mathematical_intent";
 
 export interface ClarificationQuestion {
@@ -52,11 +161,11 @@ export interface ClarificationQuestion {
   readonly options?: ReadonlyArray<string>;
 }
 
-export type CodeGenerationCategory = "formula_derivation" | "function_visualization";
+export type CodeGenerationCategory = "formula_derivation" | "function_visualization" | "plane_geometry" | "geometry_proof" | "three_d" | "mixed";
 
 export type CodeGenerationErrorCode = "content_plan_not_found" | "provider_unavailable" | "provider_authentication" | "provider_configuration" | "provider_timeout" | "invalid_model_response" | "response_too_large" | "ast_parse_failed" | "static_policy_repairable" | "security_policy_violation" | "compile_failed" | "scene_structure_invalid" | "render_failed" | "sandbox_timeout" | "sandbox_resource_limit" | "attempt_budget_exhausted" | "category_degraded" | "generation_paused" | "internal_error";
 
-export type CodeGenerationMode = "full" | "deterministic_template";
+export type CodeGenerationMode = "full" | "deterministic_template" | "compiled_ir";
 
 export type CodeGenerationOutcome = "ready" | "degraded" | "failed" | "paused";
 
@@ -96,7 +205,7 @@ export interface CodeVersion {
   readonly source_sha256: string;
   readonly scene_class: string;
   readonly engine: "manimce";
-  readonly engine_version: "0.20.1";
+  readonly engine_version: "0.21.0";
   readonly category?: CodeGenerationCategory;
   readonly generation_mode?: CodeGenerationMode;
   readonly prompt_template_version?: string | null;
@@ -105,7 +214,7 @@ export interface CodeVersion {
 }
 
 export interface ContentPlanDraft {
-  readonly schema_version: "1.1";
+  readonly schema_version: "1.1" | "1.6";
   readonly title: string;
   readonly audience: Audience;
   readonly language: Language;
@@ -114,6 +223,7 @@ export interface ContentPlanDraft {
   readonly explicit_assumptions: ReadonlyArray<string>;
   readonly ambiguities: ReadonlyArray<string>;
   readonly scenes: ReadonlyArray<ContentPlanScene>;
+  readonly storyboard?: SceneStoryboard | null;
 }
 
 export interface ContentPlanGenerationRequest {
@@ -153,9 +263,10 @@ export type ContentPlanOutcome = "ready" | "needs_clarification" | "unsupported"
 export interface ContentPlanScene {
   readonly scene_number: number;
   readonly teaching_goal: string;
-  readonly formula_steps: ReadonlyArray<FormulaStep>;
+  readonly formula_steps?: ReadonlyArray<FormulaStep>;
   readonly visual_intent: string;
   readonly narration_placeholder: string;
+  readonly visual_kind?: VisualKind | null;
 }
 
 export interface ContentPlanVersion {
@@ -165,7 +276,7 @@ export interface ContentPlanVersion {
   readonly version: number;
   readonly parent_version_id: string | null;
   readonly created_at: string;
-  readonly schema_version: "1.0" | "1.1";
+  readonly schema_version: "1.0" | "1.1" | "1.6";
   readonly title: string;
   readonly audience: Audience;
   readonly language: Language;
@@ -174,6 +285,7 @@ export interface ContentPlanVersion {
   readonly explicit_assumptions: ReadonlyArray<string>;
   readonly ambiguities?: ReadonlyArray<string>;
   readonly scenes: ReadonlyArray<ContentPlanScene>;
+  readonly storyboard?: SceneStoryboard | null;
 }
 
 export interface ContentPlanVersionCreateRequest {
@@ -186,7 +298,18 @@ export interface ContentPlanVersionPage {
   readonly next_cursor?: number | null;
 }
 
+export type DataKind = "array" | "series" | "trajectory" | "trajectory_set" | "table";
+
+export interface DataRef {
+  readonly id: string;
+  readonly kind: DataKind;
+  readonly artifact_ref: string;
+  readonly output_sha256?: string | null;
+}
+
 export type DerivationStyle = "step_by_step" | "conceptual" | "proof_oriented" | "visual_intuition";
+
+export type FallbackStrategy = "static_frame" | "discrete_samples" | "fixed_camera" | "precomputed_only";
 
 export interface FormulaStep {
   readonly expression: string;
@@ -216,6 +339,44 @@ export type GenerationStage = "content_plan" | "code" | "repair";
 
 export type GenerationStatus = "started" | "succeeded" | "failed";
 
+export interface GeometryConstruction {
+  readonly object_id: string;
+  readonly kind: IrObjectType;
+  readonly label?: string | null;
+}
+
+export interface GeometryProofRating {
+  readonly given_complete: boolean;
+  readonly prove_matches: boolean;
+  readonly math_correct: number;
+  readonly visual_clear: number;
+  readonly notes?: string | null;
+}
+
+export type IntentDomain = "physics.wave" | "math.signal" | "dynamical_systems" | "control" | "data_analysis" | "geometry.diff3d" | "teaching";
+
+export interface IntentSpec {
+  readonly schema_version?: "1.0";
+  readonly domain: IntentDomain;
+  readonly goal: string;
+  readonly assumptions?: ReadonlyArray<string>;
+  readonly tools_needed?: ReadonlyArray<ToolNeed>;
+  readonly output_duration_seconds?: number;
+  readonly dimension?: "2d" | "3d";
+  readonly needs_confirmation?: boolean;
+  readonly asset_required?: boolean;
+  readonly asset_kind?: string | null;
+  readonly category_hint?: CodeGenerationCategory;
+}
+
+export type IrCameraOpKind = "zoom_to" | "restore_frame" | "set_orientation" | "ambient_rotate";
+
+export type IrExprId = "identity" | "pow2" | "pow3" | "cubic_slope" | "sine" | "linear" | "secant_slope";
+
+export type IrObjectType = "title" | "math_tex" | "text" | "axes" | "plot" | "dot" | "line" | "dashed_line" | "circle" | "polygon" | "angle" | "right_angle" | "label" | "decimal" | "surface" | "sphere" | "cube" | "image_ref" | "equation_panel" | "geometry_figure";
+
+export type IrStateChangeKind = "set_value" | "transform_matching_tex" | "lagged_start" | "succession" | "animation_group" | "fade_in" | "create" | "wait" | "write";
+
 export interface JobEvent {
   readonly event_id: number;
   readonly render_job_id: string;
@@ -242,6 +403,8 @@ export interface LoginResponse {
 export interface LogoutResponse {
   readonly ok: true;
 }
+
+export type ObjectType = "title" | "scalar_field" | "graph" | "point" | "path" | "trajectory_set" | "timeseries" | "region" | "arrow_frame" | "numeric_panel";
 
 export interface PasswordChangeRequest {
   readonly current_password: string;
@@ -289,6 +452,12 @@ export interface PromptVersionCreateRequest {
 export interface PromptVersionPage {
   readonly items: ReadonlyArray<PromptVersion>;
   readonly next_cursor?: number | null;
+}
+
+export interface ProofStep {
+  readonly statement: string;
+  readonly reason: string;
+  readonly object_ids?: ReadonlyArray<string>;
 }
 
 export interface QualityDiagnostic {
@@ -370,6 +539,8 @@ export interface RenderJob {
   readonly heartbeat_at?: string | null;
   readonly cancellation_requested_at?: string | null;
   readonly state_version?: number;
+  readonly concat_group_id?: string | null;
+  readonly segment_index?: number | null;
 }
 
 export interface RenderJobCompletion {
@@ -420,10 +591,132 @@ export interface RenderJobSubmission {
 
 export type RenderProfile = "preview" | "final";
 
+export interface SceneHint {
+  readonly dimension?: "2d" | "3d";
+  readonly renderer_hint?: "manim";
+}
+
+export interface SceneObject {
+  readonly id: string;
+  readonly type: IrObjectType;
+  readonly text?: string | null;
+  readonly color?: string | null;
+  readonly x?: number | null;
+  readonly y?: number | null;
+  readonly z?: number | null;
+  readonly radius?: number | null;
+  readonly vertices?: ReadonlyArray<readonly [number, number]>;
+  readonly asset_sha256?: string | null;
+  readonly parent_id?: string | null;
+  readonly formula?: string | null;
+}
+
+export interface SceneStep {
+  readonly goal: string;
+  readonly duration_seconds: number;
+  readonly visual_kind: VisualKind;
+  readonly objects?: ReadonlyArray<SceneObject>;
+  readonly trackers?: ReadonlyArray<TrackerSpec>;
+  readonly bindings?: ReadonlyArray<BindingSpec>;
+  readonly state_changes?: ReadonlyArray<StateChange>;
+  readonly camera?: ReadonlyArray<CameraOp>;
+  readonly given?: ReadonlyArray<string>;
+  readonly prove?: string | null;
+  readonly proof_steps?: ReadonlyArray<ProofStep>;
+  readonly constructions?: ReadonlyArray<GeometryConstruction>;
+}
+
+export interface SceneStoryboard {
+  readonly target_duration_seconds: number;
+  readonly steps: ReadonlyArray<SceneStep>;
+}
+
+export interface StateChange {
+  readonly kind: IrStateChangeKind;
+  readonly target_ids?: ReadonlyArray<string>;
+  readonly tracker_id?: string | null;
+  readonly value?: number | null;
+  readonly from_text?: string | null;
+  readonly to_text?: string | null;
+  readonly run_time?: number;
+  readonly lag_ratio?: number;
+  readonly wait_time?: number;
+}
+
+export interface StateSpec {
+  readonly id: string;
+  readonly type?: StateType;
+  readonly initial?: number;
+  readonly range?: readonly [number, number] | null;
+}
+
+export type StateType = "scalar" | "integer";
+
+export interface TimelineOp {
+  readonly op: TimelineOpKind;
+  readonly target?: string | null;
+  readonly targets?: ReadonlyArray<string>;
+  readonly duration?: number;
+  readonly to?: number | null;
+  readonly wait_time?: number;
+}
+
+export type TimelineOpKind = "create" | "animate_state" | "trace" | "compare" | "highlight" | "reveal" | "wait";
+
+export interface ToolNeed {
+  readonly op: ToolOp;
+  readonly params?: Record<string, unknown>;
+}
+
+export type ToolOp = "wave2d_superposition" | "fourier_square_wave" | "lorenz_ensemble" | "pid_step_response" | "csv_anomaly" | "frenet_frame";
+
+export interface ToolRun {
+  readonly id: string;
+  readonly op: ToolOp;
+  readonly params_sha256: string;
+  readonly input_sha256: string;
+  readonly output_sha256: string;
+  readonly artifact_ref: string;
+  readonly artifact_path: string;
+  readonly assertions?: Record<string, unknown>;
+}
+
+export interface TrackerSpec {
+  readonly id: string;
+  readonly initial: number;
+  readonly minimum?: number | null;
+  readonly maximum?: number | null;
+}
+
 export interface User {
   readonly id: string;
   readonly email: string;
   readonly created_at: string;
+}
+
+export interface UserAsset {
+  readonly id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly kind: UserAssetKind;
+  readonly sha256: string;
+  readonly byte_size: number;
+  readonly content_type: string;
+  readonly original_filename: string;
+}
+
+export type UserAssetKind = "image" | "construction_json";
+
+export type VisualKind = "formula" | "function" | "plane_geometry" | "geometry_proof" | "three_d";
+
+export type VisualPattern = "field_evolution" | "formula_morph" | "trajectory_trace" | "3d_orbit" | "comparison" | "data_anomaly";
+
+export interface WorkspaceAgentRunRequest {
+  readonly prompt: string;
+  readonly audience?: Audience;
+  readonly language?: Language;
+  readonly target_duration_seconds?: number;
+  readonly csv_text?: string | null;
 }
 
 export interface WorkspaceCodeGenerationRequest {

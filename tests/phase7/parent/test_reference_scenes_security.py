@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from manim_workbench_api.code_generation.prompts.builder import _reference_examples
+from manim_workbench_api.code_generation.prompts.builder import (
+    _REFERENCE_SCENES,
+    _reference_examples,
+)
 from manim_workbench_api.code_generation.security import validate_source_security
-from manim_workbench_contracts import CodeGenerationCategory
 
 
 def test_all_injected_reference_scenes_pass_the_production_ast_gate() -> None:
     examples = tuple(
         example
-        for category in CodeGenerationCategory
+        for category in _REFERENCE_SCENES
         for example in _reference_examples(category)
     )
 

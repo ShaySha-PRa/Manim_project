@@ -8,18 +8,22 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.routing import APIRoute
 from manim_workbench_contracts import (
+    AgentRunRequest,
+    AgentRunResponse,
     ArtifactDescriptor,
     CodeGenerationRequest,
     CodeGenerationResponse,
     ContentPlanGenerationRequest,
     ContentPlanGenerationResponse,
     RenderJobSubmission,
+    WorkspaceAgentRunRequest,
     WorkspaceCodeGenerationRequest,
     WorkspaceContentPlanGenerationRequest,
     WorkspaceRenderJobSubmission,
 )
 from sqlalchemy import text
 
+from manim_workbench_api.agent.service import AgentService
 from manim_workbench_api.auth.errors import AuthError
 from manim_workbench_api.code_generation.dependencies import (
     get_code_generation_provider,
@@ -157,6 +161,33 @@ def generate_code(
             "Code generation failed.",
             "code_generation",
         )
+
+
+@router.post(
+    "/workspace/projects/{project_id}/agent-runs",
+    response_model=AgentRunResponse,
+)
+def run_animation_agent(
+    project_id: UUID,
+    request: WorkspaceAgentRunRequest,
+    principal: MutatingPrincipal,
+    engine: WorkspaceEngine,
+) -> AgentRunResponse | JSONResponse:
+    if error := _require_project(engine, project_id, principal.user_id):
+        return error
+    internal = AgentRunRequest(
+        project_id=project_id,
+        owner_id=principal.user_id,
+        **request.model_dump(),
+    )
+    try:
+        return AgentService(
+            ProjectRepository(engine),
+            ContentPlanRepository(engine),
+            CodeGenerationRepository(engine),
+        ).run(internal)
+    except (ValueError, OSError, RuntimeError) as error:
+        return _error(500, "agent_run_failed", str(error)[:300], "agent")
 
 
 @router.post(

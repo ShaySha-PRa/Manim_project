@@ -45,7 +45,7 @@ class CodeGenerationRepository:
                     WHERE cp.id = :content_plan_version_id
                       AND cp.project_id = :project_id
                       AND cp.owner_id = :owner_id
-                      AND cp.schema_version = '1.1'
+                      AND cp.schema_version IN ('1.1', '1.6')
                       AND pv.project_id = cp.project_id
                       AND pv.owner_id = cp.owner_id
                     """
@@ -249,7 +249,7 @@ class CodeGenerationRepository:
                 source_sha256=source_sha256,
                 scene_class=response.scene_class,
                 engine="manimce",
-                engine_version="0.20.1",
+                engine_version="0.21.0",
                 category=request.category,
                 generation_mode=mode,
                 prompt_template_version=prompt_template_version,

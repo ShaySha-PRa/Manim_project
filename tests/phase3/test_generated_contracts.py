@@ -69,6 +69,17 @@ def test_generated_schema_forbids_unconstrained_escape_hatches() -> None:
         "WorkspaceCodeGenerationRequest",
         "WorkspaceContentPlanGenerationRequest",
         "WorkspaceRenderJobSubmission",
+        "BindingSpec",
+        "CameraOp",
+        "GeometryConstruction",
+        "GeometryProofRating",
+        "ProofStep",
+        "SceneObject",
+        "SceneStep",
+        "SceneStoryboard",
+        "StateChange",
+        "TrackerSpec",
+        "UserAsset",
     }
 
 

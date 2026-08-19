@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 
 def test_phase5_contract_version_and_state_machine_are_frozen() -> None:
-    assert CONTRACT_SCHEMA_VERSION == "1.5"
+    assert CONTRACT_SCHEMA_VERSION == "1.7"
     assert can_transition_render_job(RenderJobStatus.QUEUED, RenderJobStatus.CLAIMED)
     assert can_transition_render_job(RenderJobStatus.CLAIMED, RenderJobStatus.RUNNING)
     assert can_transition_render_job(RenderJobStatus.RUNNING, RenderJobStatus.SUCCEEDED)

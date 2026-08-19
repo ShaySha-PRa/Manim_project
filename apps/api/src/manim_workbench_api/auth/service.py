@@ -23,6 +23,7 @@ from .models import AuthenticatedSession, AuthSettings, SessionPrincipal
 
 LOGIN_WINDOW = timedelta(minutes=15)
 MAX_FAILED_LOGIN_ATTEMPTS = 5
+LOCAL_DEV_EMAIL = "dev@local.test"
 _DUMMY_PASSWORD_HASH = (
     "$argon2id$v=19$m=65536,t=3,p=4$61ighTfqZ2OWQFc9/AQzUQ$"
     "ePNxsLtrnD063WEzZFsj9tyzMVcgnEzqc1GJ5reAJDk"
@@ -136,6 +137,57 @@ class AuthService:
         if not authenticated:
             raise AUTHENTICATION_FAILED
         return authenticated
+
+    def ensure_local_dev_session(self, settings: AuthSettings) -> AuthenticatedSession:
+        """Issue a ready session for local UI testing when login is disabled."""
+        now = self._now()
+        with self._engine.begin() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT id, email, created_at, must_change_password, disabled_at "
+                        "FROM users WHERE email = :email"
+                    ),
+                    {"email": LOCAL_DEV_EMAIL},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                user_id = uuid4()
+                connection.execute(
+                    text(
+                        "INSERT INTO users "
+                        "(id, email, created_at, password_hash, must_change_password, "
+                        "password_changed_at) VALUES (:id, :email, :created_at, :password_hash, "
+                        ":must_change_password, :password_changed_at)"
+                    ),
+                    {
+                        "id": str(user_id),
+                        "email": LOCAL_DEV_EMAIL,
+                        "created_at": self._serialize(now),
+                        "password_hash": self._password_hasher.hash(secrets.token_urlsafe(24)),
+                        "must_change_password": False,
+                        "password_changed_at": self._serialize(now),
+                    },
+                )
+                row = {
+                    "id": str(user_id),
+                    "email": LOCAL_DEV_EMAIL,
+                    "created_at": self._serialize(now),
+                    "must_change_password": False,
+                }
+            else:
+                if row["disabled_at"] is not None:
+                    raise AUTHENTICATION_FAILED
+                connection.execute(
+                    text(
+                        "UPDATE users SET must_change_password = :required WHERE id = :id"
+                    ),
+                    {"required": False, "id": row["id"]},
+                )
+                row = {**dict(row), "must_change_password": False}
+            return self._create_session(connection, row, now, settings)
 
     def get_session(self, token: str, settings: AuthSettings) -> AuthenticatedSession:
         with self._engine.begin() as connection:

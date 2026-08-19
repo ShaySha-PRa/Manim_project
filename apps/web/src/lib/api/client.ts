@@ -1,4 +1,5 @@
 import type {
+  AgentRunResponse,
   ApiErrorResponse,
   ArtifactDescriptor,
   CodeGenerationResponse,
@@ -21,12 +22,13 @@ import type {
   QualityReport,
   QualityReportPage,
   RenderJob,
+  WorkspaceAgentRunRequest,
   WorkspaceCodeGenerationRequest,
   WorkspaceContentPlanGenerationRequest,
   WorkspaceRenderJobSubmission,
 } from "@manim-workbench/contracts";
 
-const DEFAULT_API_ORIGIN = "http://localhost:8000";
+const DEFAULT_API_ORIGIN = "";
 
 export function createIdempotencyKey(): string {
   const randomUUID = globalThis.crypto?.randomUUID;
@@ -52,7 +54,7 @@ export class WorkbenchApiClient {
   readonly baseUrl: string;
   #csrfToken: string | null = null;
 
-  constructor(baseUrl = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_ORIGIN) {
+  constructor(baseUrl = DEFAULT_API_ORIGIN) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
@@ -154,6 +156,14 @@ export class WorkbenchApiClient {
   ): Promise<CodeGenerationResponse> {
     return this.#jsonMutation(
       `/api/v1/workspace/projects/${projectId}/code-generations`,
+      "POST",
+      input,
+    );
+  }
+
+  runAgent(projectId: string, input: WorkspaceAgentRunRequest): Promise<AgentRunResponse> {
+    return this.#jsonMutation(
+      `/api/v1/workspace/projects/${projectId}/agent-runs`,
       "POST",
       input,
     );

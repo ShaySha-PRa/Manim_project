@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
@@ -33,12 +34,20 @@ from manim_workbench_runner.queue.types import (
     SandboxExecutionResult,
     SandboxWorkItem,
 )
-from manim_workbench_runner.sandbox import SandboxExecutor, SandboxInvocation, SandboxLimits
+from manim_workbench_runner.sandbox import (
+    SandboxExecutor,
+    SandboxInvocation,
+    SandboxLimits,
+    memory_tier_for_source,
+)
 from manim_workbench_runner.sandbox.executor import (
     SandboxExecutionCancelled,
     SandboxExecutionFailure,
     SandboxExecutionSuccess,
 )
+
+_ASSET_REF = re.compile(r"/input/assets/([0-9a-f]{64})\.(npz|npy|png)")
+
 
 
 class JsonTransport(Protocol):
@@ -259,12 +268,20 @@ class Phase5SandboxAdapter:
             if staging_created:
                 shutil.rmtree(staging, ignore_errors=True)
             raise SandboxExecutionError(RenderJobFailureCode.SANDBOX_SECURITY_VIOLATION) from error
+        try:
+            assets_path = _stage_compute_assets(lease.source_code, source_directory)
+        except OSError as error:
+            shutil.rmtree(source_directory, ignore_errors=True)
+            shutil.rmtree(staging, ignore_errors=True)
+            raise SandboxExecutionError(RenderJobFailureCode.SANDBOX_SECURITY_VIOLATION) from error
         invocation = SandboxInvocation(
             job_id=lease.job_id,
             source_path=source_path,
             output_path=staging,
             scene_class=lease.scene_class,
             profile=lease.profile,
+            memory_tier=memory_tier_for_source(lease.source_code),
+            assets_path=assets_path,
         )
         with self._active_lock:
             self._active[lease.job_id] = invocation
@@ -309,6 +326,34 @@ class Phase5SandboxAdapter:
 def _probe_active(probe: SandboxControlProbe) -> bool:
     control = probe()
     return control.active and not control.cancellation_requested
+
+
+def _stage_compute_assets(source_code: str, source_directory: Path) -> Path | None:
+    needed = list(dict.fromkeys(_ASSET_REF.findall(source_code)))
+    if not needed:
+        return None
+    assets_dir = source_directory / "assets"
+    assets_dir.mkdir(mode=0o700)
+    search_roots = [
+        Path("runtime/compute-artifacts"),
+        Path(os.environ.get("MANIM_WORKBENCH_COMPUTE_ROOT", "runtime/compute-artifacts")),
+    ]
+    catalog: dict[str, Path] = {}
+    for root in search_roots:
+        if not root.is_dir():
+            continue
+        for path in root.glob("*.npz"):
+            catalog[sha256(path.read_bytes()).hexdigest()] = path
+        for path in root.glob("*.npy"):
+            catalog[sha256(path.read_bytes()).hexdigest()] = path
+        for path in root.glob("*.png"):
+            catalog[sha256(path.read_bytes()).hexdigest()] = path
+    for digest, suffix in needed:
+        source = catalog.get(digest)
+        if source is None:
+            raise SandboxExecutionError(RenderJobFailureCode.SANDBOX_SECURITY_VIOLATION)
+        shutil.copyfile(source, assets_dir / f"{digest}.{suffix}")
+    return assets_dir
 
 
 def build_runtime_components() -> tuple[HttpJobLifecycle, Phase5SandboxAdapter]:

@@ -33,13 +33,13 @@ def test_schema_15_quality_report_is_frozen_and_owner_scoped() -> None:
         provider_model="offline",
         prompt_template_version="phase9-v1",
         content_plan_schema_version="1.1",
-        manim_version="0.20.1",
+        manim_version="0.21.0",
         image_digest="sha256:" + "b" * 64,
         ast_policy_version="phase7-v1",
         diagnostic_policy_version="phase9-v1",
         created_at=now,
     )
-    assert CONTRACT_SCHEMA_VERSION == "1.5"
+    assert CONTRACT_SCHEMA_VERSION == "1.7"
     assert report.owner_id != report.project_id
     assert report.score == 100
 

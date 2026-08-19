@@ -12,7 +12,8 @@ import styles from "../../app/workbench/workbench.module.css";
 const terminal = new Set(["succeeded", "failed", "cancelled"]);
 
 function absoluteUrl(relative: string) {
-  return new URL(relative, workbenchApi.baseUrl).toString();
+  const base = workbenchApi.baseUrl || (typeof window === "undefined" ? "http://127.0.0.1:3010" : window.location.origin);
+  return new URL(relative, base).toString();
 }
 
 function Artifacts({ artifacts }: { artifacts: ReadonlyArray<ArtifactDescriptor> }) {
@@ -37,7 +38,7 @@ export function RenderPanel({ model }: { model: WorkbenchModel }) {
   return (
     <section className={styles.column} aria-labelledby="render-heading">
       <div className={styles.sectionHeading}><p>03 · 生成与交付</p><h2 id="render-heading">CodeVersion 与渲染</h2></div>
-      <p className={styles.muted}>确认 ContentPlan 后生成受控 Manim 代码，再选择预览或终渲。</p>
+      <p className={styles.muted}>一句话生成会编译 AnimationIR；确认后提交预览即可播放。</p>
       <button className={styles.primaryButton} type="button" disabled={model.busy || !model.activePlan || !model.activePrompt} onClick={() => void model.generateCode(model.category)}>生成 CodeVersion</button>
       <div className={styles.actionRow}>
         <button type="button" disabled={model.busy || !model.codeVersion} onClick={() => void model.submitRender("preview")}>提交预览</button>

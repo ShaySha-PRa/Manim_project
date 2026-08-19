@@ -1,5 +1,5 @@
 # Official Manim Community image, pinned to the contract's exact release.
-FROM manimcommunity/manim:v0.20.1
+FROM manimcommunity/manim:v0.21.0
 
 WORKDIR /work
 COPY scenes.py /work/scenes.py

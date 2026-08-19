@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 
 from manim_workbench_contracts import (
+    CodeGenerationCategory,
     CodeGenerationErrorCode,
     CodeGenerationMode,
     CodeGenerationOutcome,
@@ -15,6 +16,7 @@ from manim_workbench_api.content_plans.errors import ContentPlanError, ContentPl
 from manim_workbench_api.content_plans.models import ProviderMessage, ProviderResult
 
 from .errors import CodeGenerationError
+from .ir_compiler import IrCompileError, compile_storyboard, synthesize_storyboard
 from .models import CandidateRenderer, CodeGenerationProvider
 from .prompts import (
     PROMPT_TEMPLATE_VERSION,
@@ -44,6 +46,12 @@ _TRANSIENT_PROVIDER_ERRORS = {
     ContentPlanErrorCode.PROVIDER_UNAVAILABLE,
 }
 
+_IR_CATEGORIES = {
+    CodeGenerationCategory.PLANE_GEOMETRY,
+    CodeGenerationCategory.GEOMETRY_PROOF,
+    CodeGenerationCategory.THREE_D,
+    CodeGenerationCategory.MIXED,
+}
 _REPAIRABLE_STATIC_FINDINGS = {
     "forbidden_lambda",
     "invalid_assignment",
@@ -83,6 +91,8 @@ class CodeGenerationService:
             )
         if initial.action is RepairAction.DETERMINISTIC_TEMPLATE:
             return self._generate_degraded(request, plan)
+        if plan.storyboard is not None or request.category in _IR_CATEGORIES:
+            return self._generate_compiled_ir(request, plan)
 
         messages = build_code_generation_messages(plan, request.category)
         attempt_number = 1
@@ -310,6 +320,65 @@ class CodeGenerationService:
                 mode=CodeGenerationMode.FULL,
             )
         raise AssertionError("three-attempt loop must return or raise")
+
+    def _generate_compiled_ir(self, request, plan):  # type: ignore[no-untyped-def]
+        expressions = tuple(
+            step.expression for scene in plan.scenes for step in scene.formula_steps
+        )
+        explanations = tuple(
+            step.explanation for scene in plan.scenes for step in scene.formula_steps
+        )
+        try:
+            storyboard = plan.storyboard or synthesize_storyboard(
+                title=plan.title,
+                target_duration_seconds=plan.target_duration_seconds,
+                category=request.category.value,
+                expressions=expressions,
+                explanations=explanations,
+            )
+            program = compile_storyboard(storyboard)
+        except (IrCompileError, ValueError) as error:
+            raise CodeGenerationError(
+                CodeGenerationErrorCode.INVALID_MODEL_RESPONSE,
+                f"Scene IR could not be compiled: {error}",
+            ) from error
+        candidate = program.segments[0].as_response()
+        security = validate_source_security(candidate.code)
+        normalized = complete_allowlisted_manim_imports(candidate.code, security)
+        if normalized != candidate.code:
+            candidate = candidate.model_copy(update={"code": normalized})
+            security = validate_source_security(candidate.code)
+        if not security.allowed:
+            raise CodeGenerationError(
+                CodeGenerationErrorCode.SECURITY_POLICY_VIOLATION,
+                "Compiled IR did not satisfy the security policy.",
+            )
+        preflight = preflight_source(candidate.code)
+        if not preflight.ok:
+            raise CodeGenerationError(
+                CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
+                "Compiled IR failed scene preflight.",
+            )
+        render = self._renderer.render(candidate.code, candidate.scene_class)
+        if not render.succeeded:
+            raise CodeGenerationError(
+                _render_error_code(render.error_code),
+                "Compiled IR render failed.",
+            )
+        version = self._repository.save_success(
+            request,
+            response=candidate,
+            attempt_number=1,
+            mode=CodeGenerationMode.COMPILED_IR,
+            prompt_template_version="phase10-compiled-ir-v1",
+            provider_model="compiled-ir",
+        )
+        return CodeGenerationResponse(
+            outcome=CodeGenerationOutcome.READY,
+            code_version=version,
+            attempts_used=1,
+            mode=CodeGenerationMode.COMPILED_IR,
+        )
 
     def _try_latex_text_degraded(
         self,

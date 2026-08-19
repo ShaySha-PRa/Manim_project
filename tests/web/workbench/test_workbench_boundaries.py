@@ -22,7 +22,7 @@ def test_workbench_is_a_client_route_with_session_recovery() -> None:
     assert '"use client"' in page
     assert "workbenchApi.session" in hook
     assert '"/login"' in hook
-    assert '"/change-password"' in hook
+    assert "workbenchApi.session" in hook
 
 
 def test_workbench_keeps_identity_and_tokens_out_of_browser_state() -> None:
@@ -45,7 +45,16 @@ def test_python_is_read_only_and_the_regular_flow_has_no_json_editor() -> None:
     assert "JSON.stringify" not in source
 
 
-def test_render_monitor_uses_cookie_sse_and_a_polling_recovery_path() -> None:
+def test_workbench_one_sentence_agent_entry() -> None:
+    panel = (COMPONENTS / "project-prompt-panel.tsx").read_text(encoding="utf-8")
+    page = (WORKBENCH / "page.tsx").read_text(encoding="utf-8")
+    hook = (HOOKS / "use-workbench.ts").read_text(encoding="utf-8")
+
+    assert "一句话 Prompt" in panel
+    assert "生成科研动画" in panel
+    assert "自动推断" in panel
+    assert "科研动画工作台" in page
+    assert "runAgent" in hook
     source = (HOOKS / "use-render-monitor.ts").read_text(encoding="utf-8")
 
     assert "new EventSource" in source

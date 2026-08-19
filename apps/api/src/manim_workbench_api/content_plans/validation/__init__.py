@@ -14,9 +14,8 @@ from manim_workbench_contracts import (
 from manim_workbench_api.content_plans.errors import ContentPlanSemanticError
 
 _UNSUPPORTED_SCOPE = re.compile(
-    r"几何证明|几何.*证明|线性代数|语音|用户素材|用户.*(?:上传|图片|音频|视频)|"
-    r"任意.*(?:代码|python).*编辑|geometric?\s+proof|linear\s+algebra|voice|"
-    r"user\s+(?:asset|material)|arbitrary\s+(?:code|python).*edit",
+    r"线性代数|语音|任意.*(?:代码|python).*编辑|linear\s+algebra|voice|"
+    r"arbitrary\s+(?:code|python).*edit",
     re.IGNORECASE,
 )
 _DERIVATION_PROMPT = re.compile(r"推导|求导过程|derive|derivation", re.IGNORECASE)

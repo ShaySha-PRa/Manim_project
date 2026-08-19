@@ -284,7 +284,7 @@ def build_repair_messages(
         "Do not use Markdown fences or text outside JSON. scene_class must be GeneratedScene; "
         "code must be complete replacement Python source containing exactly one GeneratedScene "
         "class inheriting Scene; assumptions must be an array of at most 20 short strings. "
-        "Stay within the supplied ContentPlan and Manim 0.20.1 contract. "
+        "Stay within the supplied ContentPlan and Manim 0.21.0 contract. "
         "Explicitly import every Manim symbol used with one `from manim import ...` statement; "
         "do not use any other imports. Allowed Manim symbols are Scene, Text, MathTex, VGroup, "
         "Axes, NumberPlane, NumberLine, Dot, Line, Arrow, DashedLine, Rectangle, "

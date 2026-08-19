@@ -9,10 +9,10 @@ from typing import Literal
 from manim_workbench_contracts import RenderProfile
 
 RENDER_CONTRACT_VERSION = "phase4-render-v1"
-MANIM_VERSION = "0.20.1"
+MANIM_VERSION = "0.21.0"
 MANIM_IMAGE = (
     "manimcommunity/manim@"
-    "sha256:f18f53f2e4eaf2ea41713437d34363fb3f5cc6008b03fd798676ac0359396c3b"
+    "sha256:89ab433ce59134a4dcf351deb2511e067ab354393c0bb7d1859f3e8f0b2406a3"
 )
 MANIM_IMAGE_DIGEST = MANIM_IMAGE.split("@", 1)[1]
 

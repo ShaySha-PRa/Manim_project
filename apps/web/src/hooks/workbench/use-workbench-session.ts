@@ -20,10 +20,6 @@ export function useWorkbenchSession() {
     setError(null);
     try {
       const session = await workbenchApi.session();
-      if (session.user.must_change_password) {
-        router.replace("/change-password");
-        return;
-      }
       setUser(session.user);
       setState("ready");
     } catch (cause) {

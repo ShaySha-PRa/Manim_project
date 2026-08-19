@@ -16,6 +16,7 @@ from manim_workbench_runner.sandbox.executor import (
     SandboxExecutionFailure,
     SandboxExecutionSuccess,
 )
+from manim_workbench_runner.sandbox.policy import memory_tier_for_source
 
 from manim_workbench_api.code_generation.models import CandidateRenderResult
 from manim_workbench_api.code_generation.validation import sanitize_diagnostic
@@ -66,6 +67,7 @@ class Phase7SandboxRenderer:
             output_path=output_directory,
             scene_class=scene_class,
             profile=RenderProfile.PREVIEW,
+            memory_tier=memory_tier_for_source(source_code),
         )
         try:
             result = self._executor.execute(invocation)

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-CONTRACT_SCHEMA_VERSION = "1.5"
+CONTRACT_SCHEMA_VERSION = "1.7"
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
@@ -48,11 +48,24 @@ class ContentPlanOutcome(str, Enum):
 class CodeGenerationCategory(str, Enum):
     FORMULA_DERIVATION = "formula_derivation"
     FUNCTION_VISUALIZATION = "function_visualization"
+    PLANE_GEOMETRY = "plane_geometry"
+    GEOMETRY_PROOF = "geometry_proof"
+    THREE_D = "three_d"
+    MIXED = "mixed"
+
+
+class VisualKind(str, Enum):
+    FORMULA = "formula"
+    FUNCTION = "function"
+    PLANE_GEOMETRY = "plane_geometry"
+    GEOMETRY_PROOF = "geometry_proof"
+    THREE_D = "three_d"
 
 
 class CodeGenerationMode(str, Enum):
     FULL = "full"
     DETERMINISTIC_TEMPLATE = "deterministic_template"
+    COMPILED_IR = "compiled_ir"
 
 
 class CodeGenerationOutcome(str, Enum):
@@ -301,13 +314,21 @@ class FormulaStep(ContractModel):
 class ContentPlanScene(ContractModel):
     scene_number: Annotated[int, Field(ge=1, le=24)]
     teaching_goal: Annotated[str, Field(min_length=1, max_length=1_000)]
-    formula_steps: Annotated[tuple[FormulaStep, ...], Field(min_length=1, max_length=24)]
+    formula_steps: Annotated[tuple[FormulaStep, ...], Field(max_length=24)] = ()
     visual_intent: Annotated[str, Field(min_length=1, max_length=2_000)]
     narration_placeholder: Annotated[str, Field(min_length=1, max_length=4_000)]
+    visual_kind: VisualKind | None = None
+
+    @model_validator(mode="after")
+    def require_formula_steps_for_algebra_scenes(self) -> ContentPlanScene:
+        algebraic = self.visual_kind in {None, VisualKind.FORMULA, VisualKind.FUNCTION}
+        if algebraic and not self.formula_steps:
+            raise ValueError("formula_steps required for formula and function scenes")
+        return self
 
 
 class ContentPlanVersion(VersionedRecord):
-    schema_version: Literal["1.0", "1.1"]
+    schema_version: Literal["1.0", "1.1", "1.6"]
     title: ShortText
     audience: Audience
     language: Language
@@ -316,14 +337,18 @@ class ContentPlanVersion(VersionedRecord):
     explicit_assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)]
     ambiguities: Annotated[tuple[ShortText, ...], Field(max_length=20)] = ()
     scenes: Annotated[tuple[ContentPlanScene, ...], Field(min_length=1, max_length=24)]
+    storyboard: SceneStoryboard | None = None
 
     @model_validator(mode="before")
     @classmethod
     def require_phase6_fields(cls, value: object) -> object:
-        if isinstance(value, dict) and value.get("schema_version") == "1.1":
+        if isinstance(value, dict) and value.get("schema_version") in {"1.1", "1.6"}:
             missing = {"derivation_style", "ambiguities"} - set(value)
             if missing:
                 raise ValueError(f"ContentPlan 1.1 missing explicit fields: {sorted(missing)}")
+        if isinstance(value, dict) and value.get("schema_version") == "1.6":
+            if not value.get("storyboard"):
+                raise ValueError("ContentPlan 1.6 missing storyboard")
         return value
 
 
@@ -365,7 +390,7 @@ class ContentPlanLimitation(ContractModel):
 
 
 class ContentPlanDraft(ContractModel):
-    schema_version: Literal["1.1"]
+    schema_version: Literal["1.1", "1.6"]
     title: ShortText
     audience: Audience
     language: Language
@@ -374,6 +399,13 @@ class ContentPlanDraft(ContractModel):
     explicit_assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)]
     ambiguities: Annotated[tuple[ShortText, ...], Field(max_length=20)]
     scenes: Annotated[tuple[ContentPlanScene, ...], Field(min_length=1, max_length=24)]
+    storyboard: SceneStoryboard | None = None
+
+    @model_validator(mode="after")
+    def require_storyboard_for_v16(self) -> ContentPlanDraft:
+        if self.schema_version == "1.6" and self.storyboard is None:
+            raise ValueError("ContentPlan 1.6 missing storyboard")
+        return self
 
 
 class ContentPlanVersionCreateRequest(ContractModel):
@@ -444,7 +476,7 @@ class CodeVersion(VersionedRecord):
     source_sha256: Sha256
     scene_class: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{1,99}$")]
     engine: Literal["manimce"]
-    engine_version: Literal["0.20.1"]
+    engine_version: Literal["0.21.0"]
     category: CodeGenerationCategory = CodeGenerationCategory.FORMULA_DERIVATION
     generation_mode: CodeGenerationMode = CodeGenerationMode.FULL
     prompt_template_version: Annotated[str | None, Field(max_length=100)] = None
@@ -469,13 +501,16 @@ class CodeGenerationResponse(ContractModel):
             raise ValueError("ready/degraded requires only code_version")
         if not successful and (self.code_version is not None or self.error_code is None):
             raise ValueError("failed/paused requires only error_code")
-        if self.outcome is CodeGenerationOutcome.READY and self.mode is not CodeGenerationMode.FULL:
-            raise ValueError("ready requires full generation mode")
-        if (
-            self.outcome is CodeGenerationOutcome.DEGRADED
-            and self.mode is not CodeGenerationMode.DETERMINISTIC_TEMPLATE
-        ):
-            raise ValueError("degraded requires deterministic template mode")
+        if self.outcome is CodeGenerationOutcome.READY and self.mode not in {
+            CodeGenerationMode.FULL,
+            CodeGenerationMode.COMPILED_IR,
+        }:
+            raise ValueError("ready requires full or compiled_ir generation mode")
+        if self.outcome is CodeGenerationOutcome.DEGRADED and self.mode not in {
+            CodeGenerationMode.DETERMINISTIC_TEMPLATE,
+            CodeGenerationMode.COMPILED_IR,
+        }:
+            raise ValueError("degraded requires deterministic template or compiled_ir mode")
         return self
 
 
@@ -498,6 +533,8 @@ class RenderJob(ContractModel):
     heartbeat_at: datetime | None = None
     cancellation_requested_at: datetime | None = None
     state_version: Annotated[int, Field(ge=0)] = 0
+    concat_group_id: UUID | None = None
+    segment_index: Annotated[int | None, Field(ge=0, le=24)] = None
 
 
 class RenderJobSubmission(ContractModel):
@@ -679,6 +716,54 @@ class GenerationAttempt(ContractModel):
     created_at: datetime
 
 
+from .animation_ir import (  # noqa: E402
+    AnimAssertion,
+    AnimationIR,
+    AnimBinding,
+    AnimCameraOp,
+    AnimFallback,
+    AnimObject,
+    BindingSource,
+    DataRef,
+    SceneHint,
+    StateSpec,
+    TimelineOp,
+)
+from .intent import (  # noqa: E402
+    AgentEvent,
+    AgentRunOutcome,
+    AgentRunRequest,
+    AgentRunResponse,
+    IntentDomain,
+    IntentSpec,
+    ToolNeed,
+    ToolOp,
+    ToolRun,
+    WorkspaceAgentRunRequest,
+)
+from .ir import (  # noqa: E402
+    BindingSpec,
+    CameraOp,
+    GeometryConstruction,
+    GeometryProofRating,
+    IrCameraOpKind,
+    IrExprId,
+    IrObjectType,
+    IrStateChangeKind,
+    ProofStep,
+    SceneObject,
+    SceneStep,
+    SceneStoryboard,
+    StateChange,
+    TrackerSpec,
+    UserAsset,
+    UserAssetKind,
+)
+
+ContentPlanVersion.model_rebuild()
+ContentPlanDraft.model_rebuild()
+
+
 CONTRACT_MODELS = (
     User,
     AuthenticatedUser,
@@ -728,6 +813,35 @@ CONTRACT_MODELS = (
     JobEvent,
     GenerationAttempt,
     QualityReport,
+    SceneStoryboard,
+    SceneStep,
+    SceneObject,
+    TrackerSpec,
+    BindingSpec,
+    StateChange,
+    CameraOp,
+    ProofStep,
+    GeometryConstruction,
+    GeometryProofRating,
+    UserAsset,
+    IntentSpec,
+    ToolNeed,
+    ToolRun,
+    AgentEvent,
+    WorkspaceAgentRunRequest,
+    AgentRunRequest,
+    AgentRunResponse,
+    AnimationIR,
+    SceneHint,
+    DataRef,
+    StateSpec,
+    AnimObject,
+    BindingSource,
+    AnimBinding,
+    TimelineOp,
+    AnimCameraOp,
+    AnimAssertion,
+    AnimFallback,
 )
 
 PROJECT_RECORD_MODELS = (
@@ -746,6 +860,7 @@ CONTRACT_ENUMS = (
     DerivationStyle,
     ContentPlanOutcome,
     CodeGenerationCategory,
+    VisualKind,
     CodeGenerationMode,
     CodeGenerationOutcome,
     CodeGenerationErrorCode,
@@ -759,6 +874,14 @@ CONTRACT_ENUMS = (
     QualityStatus,
     QualitySeverity,
     QualityDiagnosticCode,
+    IrObjectType,
+    IrExprId,
+    IrStateChangeKind,
+    IrCameraOpKind,
+    UserAssetKind,
+    AgentRunOutcome,
+    IntentDomain,
+    ToolOp,
 )
 
 RENDER_JOB_TRANSITIONS: dict[RenderJobStatus, frozenset[RenderJobStatus]] = {
