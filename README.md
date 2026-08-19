@@ -213,7 +213,7 @@ Runner 到 API 的内部调用必须保持本机地址；Runner 会拒绝外部�
 
 健康检查应返回：
 
-    {"status":"ok","service":"api","contract_schema_version":"1.5"}
+    {"status":"ok","service":"api","contract_schema_version":"1.6"}
 
 API 根路径 / 没有业务页面，返回 {"detail":"Not Found"} 是正常的；浏览器 UI 应访问 Web 的 :3000/login 或 :3000/workbench。
 

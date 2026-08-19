@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import re
 from dataclasses import dataclass
 from typing import Final
 
@@ -12,6 +13,10 @@ MAX_AST_NODES: Final = 12_000
 MAX_CONTAINER_ITEMS: Final = 2_000
 MAX_CONTAINER_DEPTH: Final = 80
 MAX_FINDINGS: Final = 32
+_IMAGE_ASSET_PATH = re.compile(r"^/input/assets/[0-9a-f]{64}\.png$")
+_ALLOWED_SCENE_BASES: Final = frozenset(
+    {"manim:Scene", "manim:MovingCameraScene", "manim:ThreeDScene"}
+)
 
 _FORBIDDEN_MODULES: Final = frozenset(
     {
@@ -69,15 +74,22 @@ _REFLECTION_NAMES: Final = frozenset(
 _MANIM_SYMBOLS: Final = frozenset(
     {
         "AnimationGroup",
+        "Angle",
+        "Arc",
         "Arrow",
         "Axes",
         "BLUE",
+        "Brace",
+        "Circle",
         "Create",
+        "Cube",
         "DARK_BLUE",
         "DARK_GRAY",
         "DARK_GREEN",
         "DARK_RED",
+        "DEGREES",
         "DashedLine",
+        "DashedVMobject",
         "DecimalNumber",
         "Dot",
         "DOWN",
@@ -88,31 +100,45 @@ _MANIM_SYMBOLS: Final = frozenset(
         "GRAY_B",
         "GREEN",
         "GrowArrow",
-        "Indicate",
         "IN",
+        "ImageMobject",
+        "Indicate",
         "LEFT",
         "LaggedStart",
         "Line",
         "MathTex",
-        "NumberPlane",
+        "MovingCameraScene",
         "NumberLine",
+        "NumberPlane",
         "ORANGE",
+        "ORIGIN",
         "OUT",
         "PI",
         "PURPLE",
+        "Polygon",
         "Rectangle",
+        "RIGHT",
         "RED",
         "ReplacementTransform",
-        "RIGHT",
+        "Restore",
+        "RightAngle",
         "Scene",
+        "Sphere",
+        "Square",
+        "Succession",
+        "Surface",
         "SurroundingRectangle",
         "TAU",
         "Text",
+        "ThreeDAxes",
+        "ThreeDScene",
         "Transform",
         "TransformMatchingTex",
+        "Triangle",
+        "UL",
         "UP",
-        "ValueTracker",
         "VGroup",
+        "ValueTracker",
         "WHITE",
         "Write",
         "YELLOW",
@@ -162,12 +188,16 @@ _MANIM_MEMBER_NAMES: Final = frozenset(
     {
         "add",
         "add_coordinates",
+        "add_fixed_in_frame_mobjects",
         "align_to",
         "animate",
         "append",
         "arrange",
+        "begin_ambient_camera_rotation",
         "c2p",
+        "camera",
         "copy",
+        "frame",
         "get_bottom",
         "get_center",
         "get_end",
@@ -188,7 +218,9 @@ _MANIM_MEMBER_NAMES: Final = frozenset(
         "remove",
         "reverse",
         "rotate",
+        "save_state",
         "scale",
+        "set_camera_orientation",
         "set_color",
         "set_fill",
         "set_opacity",
@@ -457,7 +489,7 @@ class _SecurityVisitor(ast.NodeVisitor):
                 )
         if self._class_count != 1 or self._generated_scene_count != 1:
             self._finding(
-                node, "invalid_scene_class", "exactly one GeneratedScene(Scene) is required"
+                node, "invalid_scene_class", "exactly one GeneratedScene is required"
             )
 
     def visit_Import(self, node: ast.Import) -> None:  # noqa: N802
@@ -512,7 +544,11 @@ class _SecurityVisitor(ast.NodeVisitor):
     def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
         self._class_count += 1
         if node.name != "GeneratedScene" or not self._has_scene_base(node):
-            self._finding(node, "invalid_scene_class", "class must be GeneratedScene(Scene)")
+            self._finding(
+                node,
+                "invalid_scene_class",
+                "class must be GeneratedScene with an allowed Scene base",
+            )
         else:
             self._generated_scene_count += 1
         if node.decorator_list:
@@ -545,7 +581,7 @@ class _SecurityVisitor(ast.NodeVisitor):
     def _has_scene_base(self, node: ast.ClassDef) -> bool:
         if len(node.bases) != 1 or not isinstance(node.bases[0], ast.Name):
             return False
-        return self._aliases.get(node.bases[0].id) == "manim:Scene"
+        return self._aliases.get(node.bases[0].id) in _ALLOWED_SCENE_BASES
 
     def _visit_function(self, node: ast.FunctionDef, *, require_self: bool) -> None:
         if node.decorator_list:
@@ -704,6 +740,21 @@ class _SecurityVisitor(ast.NodeVisitor):
                     "unknown_call",
                     "call target is not allowlisted",
                     symbol=node.func.id,
+                )
+        if (
+            isinstance(node.func, ast.Name)
+            and self._aliases.get(node.func.id) == "manim:ImageMobject"
+        ):
+            path = (
+                node.args[0].value
+                if node.args and isinstance(node.args[0], ast.Constant)
+                else None
+            )
+            if not isinstance(path, str) or not _IMAGE_ASSET_PATH.fullmatch(path):
+                self._finding(
+                    node,
+                    "forbidden_image_path",
+                    "ImageMobject path is not allowlisted",
                 )
         self.visit(node.func)
         for argument in node.args:

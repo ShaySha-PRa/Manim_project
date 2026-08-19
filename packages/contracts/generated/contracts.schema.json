@@ -214,6 +214,122 @@
       "title": "AuthenticatedUser",
       "type": "object"
     },
+    "BindingSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "expr_id": {
+          "$ref": "#/$defs/IrExprId",
+          "default": "identity"
+        },
+        "object_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Object Id",
+          "type": "string"
+        },
+        "role": {
+          "default": "position",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "title": "Role",
+          "type": "string"
+        },
+        "tracker_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Tracker Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_id",
+        "tracker_id"
+      ],
+      "title": "BindingSpec",
+      "type": "object"
+    },
+    "CameraOp": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/IrCameraOpKind"
+        },
+        "object_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Id"
+        },
+        "phi_degrees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phi Degrees"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 2,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate"
+        },
+        "run_time": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 4,
+          "title": "Run Time",
+          "type": "number"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 8,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale"
+        },
+        "theta_degrees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Theta Degrees"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "CameraOp",
+      "type": "object"
+    },
     "ClarificationField": {
       "enum": [
         "audience",
@@ -259,7 +375,11 @@
     "CodeGenerationCategory": {
       "enum": [
         "formula_derivation",
-        "function_visualization"
+        "function_visualization",
+        "plane_geometry",
+        "geometry_proof",
+        "three_d",
+        "mixed"
       ],
       "title": "CodeGenerationCategory",
       "type": "string"
@@ -292,7 +412,8 @@
     "CodeGenerationMode": {
       "enum": [
         "full",
-        "deterministic_template"
+        "deterministic_template",
+        "compiled_ir"
       ],
       "title": "CodeGenerationMode",
       "type": "string"
@@ -462,7 +583,7 @@
           "type": "string"
         },
         "engine_version": {
-          "const": "0.20.1",
+          "const": "0.21.0",
           "title": "Engine Version",
           "type": "string"
         },
@@ -610,9 +731,23 @@
           "type": "array"
         },
         "schema_version": {
-          "const": "1.1",
+          "enum": [
+            "1.1",
+            "1.6"
+          ],
           "title": "Schema Version",
           "type": "string"
+        },
+        "storyboard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SceneStoryboard"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "target_duration_seconds": {
           "maximum": 180,
@@ -858,11 +993,11 @@
       "additionalProperties": false,
       "properties": {
         "formula_steps": {
+          "default": [],
           "items": {
             "$ref": "#/$defs/FormulaStep"
           },
           "maxItems": 24,
-          "minItems": 1,
           "title": "Formula Steps",
           "type": "array"
         },
@@ -889,12 +1024,22 @@
           "minLength": 1,
           "title": "Visual Intent",
           "type": "string"
+        },
+        "visual_kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VisualKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "scene_number",
         "teaching_goal",
-        "formula_steps",
         "visual_intent",
         "narration_placeholder"
       ],
@@ -979,10 +1124,22 @@
         "schema_version": {
           "enum": [
             "1.0",
-            "1.1"
+            "1.1",
+            "1.6"
           ],
           "title": "Schema Version",
           "type": "string"
+        },
+        "storyboard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SceneStoryboard"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "target_duration_seconds": {
           "maximum": 600,
@@ -1278,6 +1435,149 @@
         "failed"
       ],
       "title": "GenerationStatus",
+      "type": "string"
+    },
+    "GeometryConstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/IrObjectType"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "object_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Object Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_id",
+        "kind"
+      ],
+      "title": "GeometryConstruction",
+      "type": "object"
+    },
+    "GeometryProofRating": {
+      "additionalProperties": false,
+      "properties": {
+        "given_complete": {
+          "title": "Given Complete",
+          "type": "boolean"
+        },
+        "math_correct": {
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Math Correct",
+          "type": "integer"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "prove_matches": {
+          "title": "Prove Matches",
+          "type": "boolean"
+        },
+        "visual_clear": {
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Visual Clear",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "given_complete",
+        "prove_matches",
+        "math_correct",
+        "visual_clear"
+      ],
+      "title": "GeometryProofRating",
+      "type": "object"
+    },
+    "IrCameraOpKind": {
+      "enum": [
+        "zoom_to",
+        "restore_frame",
+        "set_orientation",
+        "ambient_rotate"
+      ],
+      "title": "IrCameraOpKind",
+      "type": "string"
+    },
+    "IrExprId": {
+      "enum": [
+        "identity",
+        "pow2",
+        "pow3",
+        "cubic_slope",
+        "sine",
+        "linear",
+        "secant_slope"
+      ],
+      "title": "IrExprId",
+      "type": "string"
+    },
+    "IrObjectType": {
+      "enum": [
+        "title",
+        "math_tex",
+        "text",
+        "axes",
+        "plot",
+        "dot",
+        "line",
+        "dashed_line",
+        "circle",
+        "polygon",
+        "angle",
+        "right_angle",
+        "label",
+        "decimal",
+        "surface",
+        "sphere",
+        "cube",
+        "image_ref",
+        "equation_panel",
+        "geometry_figure"
+      ],
+      "title": "IrObjectType",
+      "type": "string"
+    },
+    "IrStateChangeKind": {
+      "enum": [
+        "set_value",
+        "transform_matching_tex",
+        "lagged_start",
+        "succession",
+        "animation_group",
+        "fade_in",
+        "create",
+        "wait",
+        "write"
+      ],
+      "title": "IrStateChangeKind",
       "type": "string"
     },
     "JobEvent": {
@@ -1675,6 +1975,39 @@
         "items"
       ],
       "title": "PromptVersionPage",
+      "type": "object"
+    },
+    "ProofStep": {
+      "additionalProperties": false,
+      "properties": {
+        "object_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Object Ids",
+          "type": "array"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "statement": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "statement",
+        "reason"
+      ],
+      "title": "ProofStep",
       "type": "object"
     },
     "QualityDiagnostic": {
@@ -2108,6 +2441,19 @@
           "title": "Code Version Id",
           "type": "string"
         },
+        "concat_group_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Concat Group Id"
+        },
         "created_at": {
           "format": "date-time",
           "title": "Created At",
@@ -2216,6 +2562,20 @@
           "format": "uuid",
           "title": "Project Id",
           "type": "string"
+        },
+        "segment_index": {
+          "anyOf": [
+            {
+              "maximum": 24,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Segment Index"
         },
         "started_at": {
           "anyOf": [
@@ -2490,6 +2850,438 @@
       "title": "RenderProfile",
       "type": "string"
     },
+    "SceneObject": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Sha256"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z][A-Z0-9_]{0,31}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "formula": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Formula"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "radius": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Radius"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "type": {
+          "$ref": "#/$defs/IrObjectType"
+        },
+        "vertices": {
+          "default": [],
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 16,
+          "title": "Vertices",
+          "type": "array"
+        },
+        "x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y"
+        },
+        "z": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Z"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "SceneObject",
+      "type": "object"
+    },
+    "SceneStep": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/BindingSpec"
+          },
+          "maxItems": 24,
+          "title": "Bindings",
+          "type": "array"
+        },
+        "camera": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CameraOp"
+          },
+          "maxItems": 12,
+          "title": "Camera",
+          "type": "array"
+        },
+        "constructions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GeometryConstruction"
+          },
+          "maxItems": 24,
+          "title": "Constructions",
+          "type": "array"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 180,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "given": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Given",
+          "type": "array"
+        },
+        "goal": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Goal",
+          "type": "string"
+        },
+        "objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SceneObject"
+          },
+          "maxItems": 48,
+          "title": "Objects",
+          "type": "array"
+        },
+        "proof_steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProofStep"
+          },
+          "maxItems": 24,
+          "title": "Proof Steps",
+          "type": "array"
+        },
+        "prove": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prove"
+        },
+        "state_changes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StateChange"
+          },
+          "maxItems": 48,
+          "title": "State Changes",
+          "type": "array"
+        },
+        "trackers": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TrackerSpec"
+          },
+          "maxItems": 12,
+          "title": "Trackers",
+          "type": "array"
+        },
+        "visual_kind": {
+          "$ref": "#/$defs/VisualKind"
+        }
+      },
+      "required": [
+        "goal",
+        "duration_seconds",
+        "visual_kind"
+      ],
+      "title": "SceneStep",
+      "type": "object"
+    },
+    "SceneStoryboard": {
+      "additionalProperties": false,
+      "properties": {
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SceneStep"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "target_duration_seconds": {
+          "maximum": 600,
+          "minimum": 15,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "target_duration_seconds",
+        "steps"
+      ],
+      "title": "SceneStoryboard",
+      "type": "object"
+    },
+    "StateChange": {
+      "additionalProperties": false,
+      "properties": {
+        "from_text": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From Text"
+        },
+        "kind": {
+          "$ref": "#/$defs/IrStateChangeKind"
+        },
+        "lag_ratio": {
+          "default": 0.25,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Lag Ratio",
+          "type": "number"
+        },
+        "run_time": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 4,
+          "title": "Run Time",
+          "type": "number"
+        },
+        "target_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 24,
+          "title": "Target Ids",
+          "type": "array"
+        },
+        "to_text": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Text"
+        },
+        "tracker_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tracker Id"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "wait_time": {
+          "default": 0.0,
+          "maximum": 4,
+          "minimum": 0,
+          "title": "Wait Time",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "StateChange",
+      "type": "object"
+    },
+    "TrackerSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "initial": {
+          "title": "Initial",
+          "type": "number"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        }
+      },
+      "required": [
+        "id",
+        "initial"
+      ],
+      "title": "TrackerSpec",
+      "type": "object"
+    },
     "User": {
       "additionalProperties": false,
       "properties": {
@@ -2518,6 +3310,82 @@
       ],
       "title": "User",
       "type": "object"
+    },
+    "UserAsset": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_size": {
+          "maximum": 8000000,
+          "minimum": 1,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "content_type": {
+          "pattern": "^image/(png|jpeg)$|^application/json$",
+          "title": "Content Type",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/UserAssetKind"
+        },
+        "original_filename": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Original Filename",
+          "type": "string"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "kind",
+        "sha256",
+        "byte_size",
+        "content_type",
+        "original_filename"
+      ],
+      "title": "UserAsset",
+      "type": "object"
+    },
+    "UserAssetKind": {
+      "enum": [
+        "image",
+        "construction_json"
+      ],
+      "title": "UserAssetKind",
+      "type": "string"
+    },
+    "VisualKind": {
+      "enum": [
+        "formula",
+        "function",
+        "plane_geometry",
+        "geometry_proof",
+        "three_d"
+      ],
+      "title": "VisualKind",
+      "type": "string"
     },
     "WorkspaceCodeGenerationRequest": {
       "additionalProperties": false,
@@ -2642,7 +3510,7 @@
       "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.5",
+  "$id": "https://manim-workbench.local/contracts/1.6",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
@@ -2651,6 +3519,8 @@
     "Artifact",
     "ArtifactDescriptor",
     "AuthenticatedUser",
+    "BindingSpec",
+    "CameraOp",
     "ClarificationQuestion",
     "CodeGenerationRequest",
     "CodeGenerationResponse",
@@ -2665,6 +3535,8 @@
     "ContentPlanVersionCreateRequest",
     "ContentPlanVersionPage",
     "GenerationAttempt",
+    "GeometryConstruction",
+    "GeometryProofRating",
     "JobEvent",
     "LoginRequest",
     "LoginResponse",
@@ -2677,6 +3549,7 @@
     "PromptVersion",
     "PromptVersionCreateRequest",
     "PromptVersionPage",
+    "ProofStep",
     "QualityDiagnostic",
     "QualityHumanRatingRequest",
     "QualityReport",
@@ -2690,10 +3563,16 @@
     "RenderJobLease",
     "RenderJobLeaseRequest",
     "RenderJobSubmission",
+    "SceneObject",
+    "SceneStep",
+    "SceneStoryboard",
+    "StateChange",
+    "TrackerSpec",
     "User",
+    "UserAsset",
     "WorkspaceCodeGenerationRequest",
     "WorkspaceContentPlanGenerationRequest",
     "WorkspaceRenderJobSubmission"
   ],
-  "x-contract-schema-version": "1.5"
+  "x-contract-schema-version": "1.6"
 }

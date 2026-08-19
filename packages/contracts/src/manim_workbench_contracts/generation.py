@@ -40,8 +40,16 @@ def _typescript_type(schema: dict[str, Any]) -> str:
         return " | ".join(json.dumps(value, ensure_ascii=False) for value in schema["enum"])
     if "anyOf" in schema:
         return " | ".join(_typescript_type(option) for option in schema["anyOf"])
+    if "oneOf" in schema:
+        return " | ".join(_typescript_type(option) for option in schema["oneOf"])
+    if "allOf" in schema:
+        return " & ".join(_typescript_type(option) for option in schema["allOf"] if option)
 
     schema_type = schema.get("type")
+    if isinstance(schema_type, list):
+        return " | ".join(
+            _typescript_type({**schema, "type": item}) for item in schema_type
+        )
     if schema_type == "string":
         return "string"
     if schema_type in {"integer", "number"}:
@@ -51,7 +59,17 @@ def _typescript_type(schema: dict[str, Any]) -> str:
     if schema_type == "null":
         return "null"
     if schema_type == "array":
-        return f"ReadonlyArray<{_typescript_type(schema['items'])}>"
+        if "prefixItems" in schema:
+            parts = ", ".join(_typescript_type(item) for item in schema["prefixItems"])
+            return f"readonly [{parts}]"
+        items = schema.get("items", True)
+        if items is True:
+            return "ReadonlyArray<unknown>"
+        return f"ReadonlyArray<{_typescript_type(items)}>"
+    if schema_type == "object" or schema.get("properties") or schema.get("additionalProperties"):
+        return "Record<string, unknown>"
+    if not schema:
+        return "unknown"
 
     raise ValueError(f"Unsupported JSON Schema shape: {schema}")
 

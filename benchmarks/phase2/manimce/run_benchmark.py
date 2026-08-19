@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the ManimCE Phase 2 contract without inventing benchmark evidence.
 
-The official Manim image remains pinned to v0.20.1. Every scene/iteration is a
+The official Manim image remains pinned to v0.21.0. Every scene/iteration is a
 fresh, headless Docker invocation. A result.json is written only after the
 environment probe succeeds and all 12 attempts have actually been invoked.
 """
@@ -22,8 +22,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 ARTIFACTS = ROOT / "artifacts"
 IMAGE = (
-    "manimcommunity/manim@sha256:f18f53f2"
-    "e4eaf2ea41713437d34363fb3f5cc6008b03fd798676ac0359396c3b"
+    "manimcommunity/manim@sha256:89ab433ce"
+    "59134a4dcf351deb2511e067ab354393c0bb7d1859f3e8f0b2406a3"
 )
 DOCKER = shlex.split(os.environ.get("MANIMCE_DOCKER", "docker"))
 SCENES = {
@@ -135,7 +135,7 @@ def environment_fields(probe: dict[str, Any]) -> dict[str, Any]:
         line.removeprefix("FONT: ") for line in lines if line.startswith("FONT: ")
     ] or ["fc-match returned no fonts"]
     return {
-        "engine_version": "0.20.1",
+        "engine_version": "0.21.0",
         "python_version": python_version,
         "ffmpeg_version": ffmpeg_version,
         "latex_version": latex_version,
@@ -198,7 +198,7 @@ def main() -> int:
             "deployment_score": {
                 "score": 95,
                 "evidence": (
-                    "All 12 runs used the official v0.20.1 image at a captured immutable digest "
+                    "All 12 runs used the official v0.21.0 image at a captured immutable digest "
                     "without a custom build."
                 ),
             },

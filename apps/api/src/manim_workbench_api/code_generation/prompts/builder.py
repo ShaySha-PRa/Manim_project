@@ -54,7 +54,7 @@ _REFERENCE_SCENES: dict[CodeGenerationCategory, tuple[tuple[str, str], ...]] = {
 }
 
 _SYSTEM_PROMPT = (
-    "You generate exactly one complete Manim Community 0.20.1 Python scene. "
+    "You generate exactly one complete Manim Community 0.21.0 Python scene. "
     "Return only one JSON object, with no Markdown fence, explanation, or text outside JSON.\n\n"
     "The JSON object must have exactly these fields and no others: "
     '{"scene_class":"GeneratedScene","code":"...","assumptions":[]}. '

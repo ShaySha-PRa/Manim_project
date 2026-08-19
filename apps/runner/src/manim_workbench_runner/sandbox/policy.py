@@ -15,7 +15,9 @@ SANDBOX_USER = "1000:1000"
 HOST_FONT_ROOT = Path("/usr/share/fonts")
 SANDBOX_FONT_ROOT = "/usr/share/fonts/host"
 FINAL_MEMORY_LIMIT = "2g"
+THREE_D_MEMORY_LIMIT = "4g"
 _SCENE_CLASS_PATTERN = re.compile(r"[A-Z][A-Za-z0-9]{1,99}")
+_THREE_D_SCENE = "class GeneratedScene(ThreeDScene)"
 
 FIXED_WRAPPER = r"""
 import json
@@ -92,6 +94,11 @@ class SandboxInvocation:
     output_path: Path
     scene_class: str
     profile: RenderProfile
+    memory_tier: str = "standard"
+
+
+def memory_tier_for_source(source_code: str) -> str:
+    return "three_d" if _THREE_D_SCENE in source_code else "standard"
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,9 +195,11 @@ def build_sandbox_command(
         expect_directory=True,
     )
     profile = PROFILE_CONFIGS[invocation.profile]
-    memory_limit = (
-        FINAL_MEMORY_LIMIT if invocation.profile is RenderProfile.FINAL else limits.memory
-    )
+    memory_limit = limits.memory
+    if invocation.memory_tier == "three_d":
+        memory_limit = THREE_D_MEMORY_LIMIT
+    elif invocation.profile is RenderProfile.FINAL:
+        memory_limit = FINAL_MEMORY_LIMIT
     return (
         *docker_command,
         "run",

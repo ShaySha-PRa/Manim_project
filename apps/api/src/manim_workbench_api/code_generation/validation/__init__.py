@@ -164,9 +164,9 @@ def _scene_structure_error(tree: ast.Module) -> str | None:
     if scene.decorator_list:
         return "GeneratedScene must not use decorators"
     if len(scene.bases) != 1 or not isinstance(scene.bases[0], ast.Name):
-        return "GeneratedScene must directly inherit Scene"
-    if scene.bases[0].id != "Scene":
-        return "GeneratedScene must directly inherit Scene"
+        return "GeneratedScene must directly inherit Scene, MovingCameraScene, or ThreeDScene"
+    if scene.bases[0].id not in {"Scene", "MovingCameraScene", "ThreeDScene"}:
+        return "GeneratedScene must directly inherit Scene, MovingCameraScene, or ThreeDScene"
     if scene.keywords:
         return "GeneratedScene may not use class keywords"
     return None

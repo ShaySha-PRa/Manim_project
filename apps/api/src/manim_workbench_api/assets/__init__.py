@@ -1,0 +1,1 @@
+"""User-uploaded teaching assets."""

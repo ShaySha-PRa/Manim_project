@@ -138,7 +138,7 @@ def test_builder_instructs_the_exact_json_contract_without_execution_context() -
     assert "transform both on every step" in static_content
     assert '"code"' in static_content
     assert '"assumptions"' in static_content
-    assert "Manim Community 0.20.1" in static_content
+    assert "Manim Community 0.21.0" in static_content
     for prohibited in ("DEEPSEEK_API_KEY", "Authorization", "API Key", "/home/"):
         assert prohibited not in static_content
 

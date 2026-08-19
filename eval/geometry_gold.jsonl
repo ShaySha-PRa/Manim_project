@@ -1,0 +1,15 @@
+{"id":"G01","category":"plane_geometry","prompt":"动画演示全等三角形SAS判定"}
+{"id":"G02","category":"plane_geometry","prompt":"画出圆与切线垂直于半径"}
+{"id":"G03","category":"plane_geometry","prompt":"演示三角形内角和为180度"}
+{"id":"G04","category":"plane_geometry","prompt":"相似三角形对应边成比例"}
+{"id":"G05","category":"plane_geometry","prompt":"垂直平分线上的点到端点距离相等"}
+{"id":"G06","category":"plane_geometry","prompt":"平行四边形对角线互相平分"}
+{"id":"G07","category":"plane_geometry","prompt":"圆内接四边形对角互补"}
+{"id":"G08","category":"plane_geometry","prompt":"等腰三角形两底角相等"}
+{"id":"G09","category":"plane_geometry","prompt":"直角三角形斜边中线等于斜边一半"}
+{"id":"G10","category":"plane_geometry","prompt":"角平分线分对边成比例"}
+{"id":"G11","category":"plane_geometry","prompt":"圆周角等于同弧圆心角的一半"}
+{"id":"G12","category":"plane_geometry","prompt":"矩形对角线相等"}
+{"id":"G13","category":"plane_geometry","prompt":"菱形对角线互相垂直"}
+{"id":"G14","category":"plane_geometry","prompt":"两点确定一条直线"}
+{"id":"G15","category":"plane_geometry","prompt":"三角形三条中线交于重心"}

@@ -1,0 +1,66 @@
+{
+  "status": "qualified",
+  "engine": "manimce",
+  "engine_version": "0.21.0",
+  "image": "manimcommunity/manim:v0.21.0",
+  "image_digest": "manimcommunity/manim@sha256:89ab433ce59134a4dcf351deb2511e067ab354393c0bb7d1859f3e8f0b2406a3",
+  "python_version": "3.14.7",
+  "ffmpeg_runtime": "PyAV 18.0.0",
+  "latex_version": "pdfTeX 3.141592653-2.6-1.40.29 (TeX Live 2026)",
+  "fonts": [
+    "Noto Sans Regular",
+    "Noto Serif Regular",
+    "Noto Mono Regular"
+  ],
+  "successful_runs": 12,
+  "required_runs": 12,
+  "first_attempt_scenes": 6,
+  "mean_duration_seconds": 4.282874,
+  "min_duration_seconds": 3.560142,
+  "max_duration_seconds": 5.480816,
+  "scene_evidence": {
+    "formula_transform": {
+      "durations": [
+        4.212503,
+        3.792062
+      ],
+      "sha256": "a7963d37894ca635918bca84fce428e623ee74f256f43ac4a4cbe5e12aeb5f3c"
+    },
+    "derivative": {
+      "durations": [
+        3.61928,
+        3.560142
+      ],
+      "sha256": "f7ffcde7426bf991c29dd71001d2e2c711684e3944f88fdd3ca96a2316762782"
+    },
+    "function_plot": {
+      "durations": [
+        3.916017,
+        3.792351
+      ],
+      "sha256": "55775ec9137979e45855b54dc24782300cbd570e5b81d479620508b64b80ea46"
+    },
+    "parameter_sweep": {
+      "durations": [
+        5.291348,
+        5.480816
+      ],
+      "sha256": "bb89bd3d5ec1852d20f562441078ff2d541e2c5eb14a75dbabb7e69ee241f638"
+    },
+    "tangent": {
+      "durations": [
+        5.276994,
+        4.646782
+      ],
+      "sha256": "1edeb79dbb7b7419c5766f1522ca692c339ca2b24d40520672bb216151ef9e90"
+    },
+    "area": {
+      "durations": [
+        3.697134,
+        4.109055
+      ],
+      "sha256": "ad3871a5699877ccc5e23d2cd30435ebcea4aa323ea767a19dbcf1c0fb0f9e36"
+    }
+  },
+  "visual_review": "Headless 6x2 gate only. Frame-level visual scoring from the 0.20.1 ADR-001 review was not repeated."
+}

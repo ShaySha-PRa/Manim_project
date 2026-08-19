@@ -1,5 +1,5 @@
 // Generated from Pydantic contracts. Do not edit.
-export const CONTRACT_SCHEMA_VERSION = "1.5" as const;
+export const CONTRACT_SCHEMA_VERSION = "1.6" as const;
 
 export interface ApiErrorDetail {
   readonly code: string;
@@ -44,6 +44,23 @@ export interface AuthenticatedUser {
   readonly created_at: string;
 }
 
+export interface BindingSpec {
+  readonly object_id: string;
+  readonly tracker_id: string;
+  readonly expr_id?: IrExprId;
+  readonly role?: string;
+}
+
+export interface CameraOp {
+  readonly kind: IrCameraOpKind;
+  readonly object_id?: string | null;
+  readonly scale?: number | null;
+  readonly phi_degrees?: number | null;
+  readonly theta_degrees?: number | null;
+  readonly rate?: number | null;
+  readonly run_time?: number;
+}
+
 export type ClarificationField = "audience" | "duration" | "derivation_style" | "assumptions" | "mathematical_intent";
 
 export interface ClarificationQuestion {
@@ -52,11 +69,11 @@ export interface ClarificationQuestion {
   readonly options?: ReadonlyArray<string>;
 }
 
-export type CodeGenerationCategory = "formula_derivation" | "function_visualization";
+export type CodeGenerationCategory = "formula_derivation" | "function_visualization" | "plane_geometry" | "geometry_proof" | "three_d" | "mixed";
 
 export type CodeGenerationErrorCode = "content_plan_not_found" | "provider_unavailable" | "provider_authentication" | "provider_configuration" | "provider_timeout" | "invalid_model_response" | "response_too_large" | "ast_parse_failed" | "static_policy_repairable" | "security_policy_violation" | "compile_failed" | "scene_structure_invalid" | "render_failed" | "sandbox_timeout" | "sandbox_resource_limit" | "attempt_budget_exhausted" | "category_degraded" | "generation_paused" | "internal_error";
 
-export type CodeGenerationMode = "full" | "deterministic_template";
+export type CodeGenerationMode = "full" | "deterministic_template" | "compiled_ir";
 
 export type CodeGenerationOutcome = "ready" | "degraded" | "failed" | "paused";
 
@@ -96,7 +113,7 @@ export interface CodeVersion {
   readonly source_sha256: string;
   readonly scene_class: string;
   readonly engine: "manimce";
-  readonly engine_version: "0.20.1";
+  readonly engine_version: "0.21.0";
   readonly category?: CodeGenerationCategory;
   readonly generation_mode?: CodeGenerationMode;
   readonly prompt_template_version?: string | null;
@@ -105,7 +122,7 @@ export interface CodeVersion {
 }
 
 export interface ContentPlanDraft {
-  readonly schema_version: "1.1";
+  readonly schema_version: "1.1" | "1.6";
   readonly title: string;
   readonly audience: Audience;
   readonly language: Language;
@@ -114,6 +131,7 @@ export interface ContentPlanDraft {
   readonly explicit_assumptions: ReadonlyArray<string>;
   readonly ambiguities: ReadonlyArray<string>;
   readonly scenes: ReadonlyArray<ContentPlanScene>;
+  readonly storyboard?: SceneStoryboard | null;
 }
 
 export interface ContentPlanGenerationRequest {
@@ -153,9 +171,10 @@ export type ContentPlanOutcome = "ready" | "needs_clarification" | "unsupported"
 export interface ContentPlanScene {
   readonly scene_number: number;
   readonly teaching_goal: string;
-  readonly formula_steps: ReadonlyArray<FormulaStep>;
+  readonly formula_steps?: ReadonlyArray<FormulaStep>;
   readonly visual_intent: string;
   readonly narration_placeholder: string;
+  readonly visual_kind?: VisualKind | null;
 }
 
 export interface ContentPlanVersion {
@@ -165,7 +184,7 @@ export interface ContentPlanVersion {
   readonly version: number;
   readonly parent_version_id: string | null;
   readonly created_at: string;
-  readonly schema_version: "1.0" | "1.1";
+  readonly schema_version: "1.0" | "1.1" | "1.6";
   readonly title: string;
   readonly audience: Audience;
   readonly language: Language;
@@ -174,6 +193,7 @@ export interface ContentPlanVersion {
   readonly explicit_assumptions: ReadonlyArray<string>;
   readonly ambiguities?: ReadonlyArray<string>;
   readonly scenes: ReadonlyArray<ContentPlanScene>;
+  readonly storyboard?: SceneStoryboard | null;
 }
 
 export interface ContentPlanVersionCreateRequest {
@@ -215,6 +235,28 @@ export interface GenerationAttempt {
 export type GenerationStage = "content_plan" | "code" | "repair";
 
 export type GenerationStatus = "started" | "succeeded" | "failed";
+
+export interface GeometryConstruction {
+  readonly object_id: string;
+  readonly kind: IrObjectType;
+  readonly label?: string | null;
+}
+
+export interface GeometryProofRating {
+  readonly given_complete: boolean;
+  readonly prove_matches: boolean;
+  readonly math_correct: number;
+  readonly visual_clear: number;
+  readonly notes?: string | null;
+}
+
+export type IrCameraOpKind = "zoom_to" | "restore_frame" | "set_orientation" | "ambient_rotate";
+
+export type IrExprId = "identity" | "pow2" | "pow3" | "cubic_slope" | "sine" | "linear" | "secant_slope";
+
+export type IrObjectType = "title" | "math_tex" | "text" | "axes" | "plot" | "dot" | "line" | "dashed_line" | "circle" | "polygon" | "angle" | "right_angle" | "label" | "decimal" | "surface" | "sphere" | "cube" | "image_ref" | "equation_panel" | "geometry_figure";
+
+export type IrStateChangeKind = "set_value" | "transform_matching_tex" | "lagged_start" | "succession" | "animation_group" | "fade_in" | "create" | "wait" | "write";
 
 export interface JobEvent {
   readonly event_id: number;
@@ -289,6 +331,12 @@ export interface PromptVersionCreateRequest {
 export interface PromptVersionPage {
   readonly items: ReadonlyArray<PromptVersion>;
   readonly next_cursor?: number | null;
+}
+
+export interface ProofStep {
+  readonly statement: string;
+  readonly reason: string;
+  readonly object_ids?: ReadonlyArray<string>;
 }
 
 export interface QualityDiagnostic {
@@ -370,6 +418,8 @@ export interface RenderJob {
   readonly heartbeat_at?: string | null;
   readonly cancellation_requested_at?: string | null;
   readonly state_version?: number;
+  readonly concat_group_id?: string | null;
+  readonly segment_index?: number | null;
 }
 
 export interface RenderJobCompletion {
@@ -420,11 +470,80 @@ export interface RenderJobSubmission {
 
 export type RenderProfile = "preview" | "final";
 
+export interface SceneObject {
+  readonly id: string;
+  readonly type: IrObjectType;
+  readonly text?: string | null;
+  readonly color?: string | null;
+  readonly x?: number | null;
+  readonly y?: number | null;
+  readonly z?: number | null;
+  readonly radius?: number | null;
+  readonly vertices?: ReadonlyArray<readonly [number, number]>;
+  readonly asset_sha256?: string | null;
+  readonly parent_id?: string | null;
+  readonly formula?: string | null;
+}
+
+export interface SceneStep {
+  readonly goal: string;
+  readonly duration_seconds: number;
+  readonly visual_kind: VisualKind;
+  readonly objects?: ReadonlyArray<SceneObject>;
+  readonly trackers?: ReadonlyArray<TrackerSpec>;
+  readonly bindings?: ReadonlyArray<BindingSpec>;
+  readonly state_changes?: ReadonlyArray<StateChange>;
+  readonly camera?: ReadonlyArray<CameraOp>;
+  readonly given?: ReadonlyArray<string>;
+  readonly prove?: string | null;
+  readonly proof_steps?: ReadonlyArray<ProofStep>;
+  readonly constructions?: ReadonlyArray<GeometryConstruction>;
+}
+
+export interface SceneStoryboard {
+  readonly target_duration_seconds: number;
+  readonly steps: ReadonlyArray<SceneStep>;
+}
+
+export interface StateChange {
+  readonly kind: IrStateChangeKind;
+  readonly target_ids?: ReadonlyArray<string>;
+  readonly tracker_id?: string | null;
+  readonly value?: number | null;
+  readonly from_text?: string | null;
+  readonly to_text?: string | null;
+  readonly run_time?: number;
+  readonly lag_ratio?: number;
+  readonly wait_time?: number;
+}
+
+export interface TrackerSpec {
+  readonly id: string;
+  readonly initial: number;
+  readonly minimum?: number | null;
+  readonly maximum?: number | null;
+}
+
 export interface User {
   readonly id: string;
   readonly email: string;
   readonly created_at: string;
 }
+
+export interface UserAsset {
+  readonly id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly kind: UserAssetKind;
+  readonly sha256: string;
+  readonly byte_size: number;
+  readonly content_type: string;
+  readonly original_filename: string;
+}
+
+export type UserAssetKind = "image" | "construction_json";
+
+export type VisualKind = "formula" | "function" | "plane_geometry" | "geometry_proof" | "three_d";
 
 export interface WorkspaceCodeGenerationRequest {
   readonly prompt_version_id: string;

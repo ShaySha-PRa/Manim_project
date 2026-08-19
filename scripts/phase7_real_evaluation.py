@@ -99,7 +99,7 @@ class EvaluationRepository:
             source_sha256=hashlib.sha256(response.code.encode("utf-8")).hexdigest(),
             scene_class=response.scene_class,
             engine="manimce",
-            engine_version="0.20.1",
+            engine_version="0.21.0",
             category=request.category,
             generation_mode=mode,
             prompt_template_version=prompt_template_version,

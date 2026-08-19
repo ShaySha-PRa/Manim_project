@@ -183,3 +183,31 @@ def test_command_rejects_symlink_source_and_invalid_scene_class(tmp_path: Path) 
 
     with pytest.raises(ValueError, match="symlink|scene_class"):
         build_sandbox_command(invocation, SandboxLimits())
+
+
+def test_three_d_memory_tier_uses_4g(tmp_path: Path) -> None:
+    from manim_workbench_runner.sandbox.policy import (
+        SandboxInvocation,
+        SandboxLimits,
+        build_sandbox_command,
+        memory_tier_for_source,
+    )
+
+    invocation = _invocation(tmp_path)
+    three_d = SandboxInvocation(
+        invocation.job_id,
+        invocation.source_path,
+        invocation.output_path,
+        invocation.scene_class,
+        invocation.profile,
+        memory_tier="three_d",
+    )
+    command = build_sandbox_command(three_d, SandboxLimits())
+    assert command[command.index("--memory") + 1] == "4g"
+    assert command[command.index("--memory-swap") + 1] == "4g"
+    three_d_source = (
+        "class GeneratedScene(ThreeDScene):\n    def construct(self):\n        pass\n"
+    )
+    two_d_source = "class GeneratedScene(Scene):\n    def construct(self):\n        pass\n"
+    assert memory_tier_for_source(three_d_source) == "three_d"
+    assert memory_tier_for_source(two_d_source) == "standard"

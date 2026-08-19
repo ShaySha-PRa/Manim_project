@@ -6,7 +6,12 @@ from .executor import (
     SandboxExecutor,
     SubprocessControlledProcessRunner,
 )
-from .policy import SandboxInvocation, SandboxLimits, build_sandbox_command
+from .policy import (
+    SandboxInvocation,
+    SandboxLimits,
+    build_sandbox_command,
+    memory_tier_for_source,
+)
 
 __all__ = [
     "ControlledProcessRunner",
@@ -16,4 +21,5 @@ __all__ = [
     "SandboxLimits",
     "SubprocessControlledProcessRunner",
     "build_sandbox_command",
+    "memory_tier_for_source",
 ]

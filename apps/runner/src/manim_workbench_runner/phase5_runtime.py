@@ -33,7 +33,12 @@ from manim_workbench_runner.queue.types import (
     SandboxExecutionResult,
     SandboxWorkItem,
 )
-from manim_workbench_runner.sandbox import SandboxExecutor, SandboxInvocation, SandboxLimits
+from manim_workbench_runner.sandbox import (
+    SandboxExecutor,
+    SandboxInvocation,
+    SandboxLimits,
+    memory_tier_for_source,
+)
 from manim_workbench_runner.sandbox.executor import (
     SandboxExecutionCancelled,
     SandboxExecutionFailure,
@@ -265,6 +270,7 @@ class Phase5SandboxAdapter:
             output_path=staging,
             scene_class=lease.scene_class,
             profile=lease.profile,
+            memory_tier=memory_tier_for_source(lease.source_code),
         )
         with self._active_lock:
             self._active[lease.job_id] = invocation

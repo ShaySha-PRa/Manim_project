@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from manim_workbench_contracts import CONTRACT_SCHEMA_VERSION
 from pydantic import BaseModel, ConfigDict
 
+from manim_workbench_api.assets.router import router as assets_router
 from manim_workbench_api.auth.router import router as auth_router
 from manim_workbench_api.code_generation.router import router as code_generation_router
 from manim_workbench_api.content_plans.router import router as content_plans_router
@@ -20,13 +21,14 @@ class HealthResponse(BaseModel):
 
     status: Literal["ok"]
     service: Literal["api"]
-    contract_schema_version: Literal["1.5"]
+    contract_schema_version: Literal["1.6"]
 
 
 app = FastAPI(title="Manim Workbench API", version="0.1.0")
 configure_web_security(app)
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(projects_router, prefix="/api/v1")
+app.include_router(assets_router, prefix="/api/v1")
 app.include_router(delivery_router, prefix="/api/v1")
 app.include_router(workspace_router, prefix="/api/v1")
 app.include_router(jobs_router, prefix="/api/v1")

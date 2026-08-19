@@ -148,7 +148,7 @@ class FakeRepository:
             source_sha256="a" * 64,
             scene_class=response.scene_class,
             engine="manimce",
-            engine_version="0.20.1",
+            engine_version="0.21.0",
             category=request.category,
             generation_mode=mode,
         )

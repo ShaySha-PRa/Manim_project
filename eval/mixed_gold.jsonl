@@ -1,0 +1,8 @@
+{"id":"M01","prompt":"先推导勾股定理公式，再画出直角三角形","kinds":["formula","plane_geometry"]}
+{"id":"M02","prompt":"正弦函数图像，然后放大观察一个零点","kinds":["function"]}
+{"id":"M03","prompt":"公式推导后用三维曲面展示","kinds":["formula","three_d"]}
+{"id":"M04","prompt":"圆的方程与几何圆对照","kinds":["function","plane_geometry"]}
+{"id":"M05","prompt":"导数定义公式加割线趋近切线","kinds":["formula","function"]}
+{"id":"M06","prompt":"平面几何作图后给三维旋转对照","kinds":["plane_geometry","three_d"]}
+{"id":"M07","prompt":"完成平方公式、抛物线、再给旋转抛物面","kinds":["formula","function","three_d"]}
+{"id":"M08","prompt":"OpeningManim 式公式变换接几何图","kinds":["formula","plane_geometry"]}
