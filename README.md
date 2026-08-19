@@ -9,7 +9,7 @@
 
 教学路径仍可能让模型写受 AST allowlist 约束的 Manim Scene。科研路径（Animation Agent V2）禁止模型写自由 Scene Python；数字来自 ToolRun 产物，编译器 lowering 预计算数组。
 
-当前一句话入口的 Intent 解析是关键词目录（`intent_resolver.resolve_intent`），不是 live LLM 填 `IntentSpec`。匹配六个 P0 切片才会直接出片；未匹配返回 `needs_confirmation`。CSV 切片没有正文时返回 `asset_required`，拒绝伪造数据。
+当前一句话入口：有 `DEEPSEEK_API_KEY` 时 LLM 只填 `IntentSpec` JSON；否则回退关键词目录。匹配或推断到六个可编译切片才会出片；论文 PDF 切片在 P0 没有解析器，返回 `needs_confirmation`。未匹配返回 `needs_confirmation`。CSV 没有正文时返回 `asset_required`，拒绝伪造数据。P0 范围以 `docs/research/animation-agent-v2.md` 为准。
 
 ## 当前能力
 

@@ -353,7 +353,7 @@ export interface GeometryProofRating {
   readonly notes?: string | null;
 }
 
-export type IntentDomain = "physics.wave" | "math.signal" | "dynamical_systems" | "control" | "data_analysis" | "geometry.diff3d" | "teaching";
+export type IntentDomain = "physics.wave" | "math.signal" | "dynamical_systems" | "control" | "data_analysis" | "geometry.diff3d" | "scientific_reproduction" | "teaching";
 
 export interface IntentSpec {
   readonly schema_version?: "1.0";

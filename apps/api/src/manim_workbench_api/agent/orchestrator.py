@@ -12,7 +12,7 @@ from manim_workbench_contracts import (
     ToolRun,
 )
 
-from manim_workbench_api.agent.intent_resolver import resolve_intent
+from manim_workbench_api.agent.intent_resolver import IntentJsonProvider, resolve_intent
 from manim_workbench_api.agent.ir_validator import IrValidationError, validate_animation_ir
 from manim_workbench_api.agent.scientific_planner import plan_tools
 from manim_workbench_api.agent.visual_director import direct_ir
@@ -25,11 +25,12 @@ def run_agent(
     *,
     csv_text: str | None = None,
     output_root: Path | None = None,
+    provider: IntentJsonProvider | None = None,
 ) -> AgentRunResponse:
     events: list[AgentEvent] = [
         AgentEvent(stage="intent_resolver", status="started", message="解析一句话意图")
     ]
-    intent = resolve_intent(prompt, csv_text=csv_text)
+    intent = resolve_intent(prompt, csv_text=csv_text, provider=provider)
     events.append(
         AgentEvent(stage="intent_resolver", status="succeeded", message=intent.domain.value)
     )
@@ -41,12 +42,13 @@ def run_agent(
             message="科学意图存在歧义，请确认领域后再生成。",
         )
     if intent.asset_required:
+        kind = intent.asset_kind or "csv"
         return AgentRunResponse(
             outcome=AgentRunOutcome.ASSET_REQUIRED,
             intent=intent,
             events=tuple(events),
             error_code="asset_required",
-            message="缺少 CSV 资产，拒绝伪造科研数据。",
+            message=f"缺少 {kind} 资产，拒绝伪造科研数据。",
         )
     needs = plan_tools(intent)
     events.append(

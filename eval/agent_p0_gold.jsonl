@@ -1,0 +1,7 @@
+{"id":"wave-packet","prompt":"展示二维波动方程中两个波包碰撞后的干涉过程。","expect":"ready","science_keys":["linear_superposition"],"source":"docs/research/animation-agent-v2.md"}
+{"id":"fourier-gibbs","prompt":"展示傅里叶级数逐渐逼近方波，并放大 Gibbs 现象。","expect":"ready","science_keys":["harmonic_coefficients","gibbs_overshoot"],"source":"docs/research/animation-agent-v2.md"}
+{"id":"lorenz","prompt":"展示三个初值只差 1e-5 的 Lorenz 系统轨迹逐渐分离。","expect":"ready","science_keys":["trajectory_error","diverged"],"source":"docs/research/animation-agent-v2.md"}
+{"id":"pid","prompt":"展示 PID 参数改变时二阶系统阶跃响应、超调和控制量如何变化。","expect":"ready","science_keys":["metric_match","reached_setpoint"],"source":"docs/research/animation-agent-v2.md"}
+{"id":"csv-anomaly","prompt":"从上传 CSV 展示 temperature/pressure 演化，并突出 350 秒附近异常。","expect":"ready","asset":"csv","science_keys":["data_fidelity"],"source":"docs/research/animation-agent-v2.md"}
+{"id":"frenet","prompt":"展示三维螺旋线上的切向量、法向量和副法向量随参数移动。","expect":"ready","science_keys":["frenet_orthonormal"],"source":"docs/research/animation-agent-v2.md"}
+{"id":"paper-csv","prompt":"根据上传论文中的动力学方程和实验 CSV，模拟模型并与实验数据做动画对比。","expect":"needs_confirmation","source":"docs/research/animation-agent-v2.md"}

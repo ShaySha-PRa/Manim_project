@@ -23,7 +23,9 @@ from manim_workbench_api.agent.orchestrator import run_agent
 from manim_workbench_api.code_generation.repository import CodeGenerationRepository
 from manim_workbench_api.code_generation.security import validate_source_security
 from manim_workbench_api.compiler.manim import compile_animation_ir
+from manim_workbench_api.content_plans.errors import ContentPlanError
 from manim_workbench_api.content_plans.models import ProviderResult
+from manim_workbench_api.content_plans.provider import DeepSeekProvider
 from manim_workbench_api.content_plans.repository import ContentPlanRepository
 from manim_workbench_api.projects.repository import ProjectRepository
 
@@ -48,6 +50,7 @@ class AgentService:
             request.prompt,
             csv_text=request.csv_text,
             output_root=self._compute_root,
+            provider=_intent_provider(),
         )
         prompt = self._projects.append_prompt_version(
             request.project_id,
@@ -142,3 +145,10 @@ class AgentService:
                 "code_version": code,
             }
         )
+
+
+def _intent_provider() -> DeepSeekProvider | None:
+    try:
+        return DeepSeekProvider()
+    except ContentPlanError:
+        return None

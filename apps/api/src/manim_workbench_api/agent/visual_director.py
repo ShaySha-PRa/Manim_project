@@ -119,7 +119,7 @@ def _fourier(intent: IntentSpec, run: ToolRun) -> AnimationIR:
             ),
             TimelineOp(op=TimelineOpKind.ANIMATE_STATE, target="n", to=1.0, duration=8.0),
         ),
-        camera=(AnimCameraOp(op=CameraOpKind.STATIC),),
+        camera=(AnimCameraOp(op=CameraOpKind.ZOOM, target="partial", run_time=2.2),),
         assertions=(
             AnimAssertion(type=AssertionType.HARMONIC_COEFFICIENTS, target="partial"),
             AnimAssertion(type=AssertionType.GIBBS_OVERSHOOT, target="partial"),
@@ -155,7 +155,7 @@ def _lorenz(intent: IntentSpec, run: ToolRun) -> AnimationIR:
         ),
         timeline=(
             TimelineOp(op=TimelineOpKind.CREATE, targets=("title", "paths"), duration=0.6),
-            TimelineOp(op=TimelineOpKind.TRACE, target="paths", duration=10.0),
+            TimelineOp(op=TimelineOpKind.TRACE, target="paths", duration=12.0),
         ),
         camera=(
             AnimCameraOp(op=CameraOpKind.SET_ORIENTATION, phi_degrees=70, theta_degrees=45),
@@ -184,6 +184,12 @@ def _pid(intent: IntentSpec, run: ToolRun) -> AnimationIR:
             AnimObject(id="title", type=ObjectType.TITLE, text="PID 阶跃响应对比", color="YELLOW"),
             AnimObject(id="y", type=ObjectType.GRAPH, data_ref="responses", color="BLUE"),
             AnimObject(id="u", type=ObjectType.GRAPH, data_ref="responses", color="ORANGE"),
+        ),
+        bindings=(
+            AnimBinding(
+                target="y.data",
+                source=BindingSource(op=BindingOp.SAMPLE, data="responses", state="t"),
+            ),
         ),
         timeline=(
             TimelineOp(op=TimelineOpKind.CREATE, targets=("title", "y", "u"), duration=0.6),

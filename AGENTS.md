@@ -11,7 +11,9 @@ There are two product paths. Do not describe them as one live LLM Agent.
 1. Teaching: Prompt → ContentPlan → CodeVersion. The model may emit Manim Scene Python that still must pass the AST/API allowlist and Docker render sandbox.
 2. Animation Agent V2: one sentence → `IntentSpec` → allowlisted tools → AnimationIR 2.0 → deterministic compiler (`apps/api/.../compiler/manim.py`) → the same render sandbox. The model must not emit free Scene Python, lambdas, or live `np.exp` in the Scene.
 
-The current one-sentence Intent resolver is a **keyword catalog** in `resolve_intent` (`apps/api/.../agent/intent_resolver.py`), not a live LLM fill of `IntentSpec`. Unknown prompts return `needs_confirmation`. CSV without a body returns `asset_required`. `intent_from_llm_json` exists as a parser for future IntentSpec-only model output; P0 does not call a model there.
+The current one-sentence Intent resolver prefers an LLM that may only fill `IntentSpec` JSON (`fill_intent_from_provider`). Invalid JSON, fenced output, and Manim Python are rejected. Without `DEEPSEEK_API_KEY`, `resolve_intent` falls back to the keyword catalog in `resolve_intent_catalog`. Unknown prompts and the research-matrix paper/PDF slice return `needs_confirmation` because P0 has no PDF equation parser. CSV without a body returns `asset_required`. Spec source of truth: `docs/research/animation-agent-v2.md` P0 row. Not in P0: VLM critic, IR repair, AssetVersion provenance, simulator plugins.
+
+Remaining P0 from that report (not done): the paper+CSV reproduction slice beyond confirmation. P0 gold rates (≥85% first render / ≥97% final / ≥90% science) are measured by `scripts/agent_p0_acceptance.py` against `eval/agent_p0_gold.jsonl`; science uses ToolRun assertions, and the paper+CSV row counts as `needs_confirmation`. The Manim compiler walks AnimationIR `data` / `states` / `objects` / `bindings` / `timeline` / `camera` and selects Scene / MovingCameraScene / ThreeDScene from dimension and camera ops, not from `VisualPattern`.
 
 The local workbench does not use a login page. `settings_from_environment` defaults `auth_disabled` to true and `GET /auth/session` issues a `dev@local.test` session so owner isolation, CSRF, and cookies still work. `/login` and `/change-password` redirect to `/workbench`. Set `MANIM_WORKBENCH_AUTH_DISABLED=false` only if you need the Phase 8 login API path. Local Web should leave `NEXT_PUBLIC_API_URL` unset so the browser uses same-origin `/api` rewrites from `apps/web/next.config.ts`.
 
@@ -32,7 +34,7 @@ uv run python -m manim_workbench_runner run
 npm run dev:web
 ```
 
-Apply schema changes with `uv run alembic upgrade head`. Use `scripts/phase8_acceptance.py` and `scripts/phase9_acceptance.py` for focused acceptance gates.
+Apply schema changes with `uv run alembic upgrade head`. Use `scripts/phase8_acceptance.py` and `scripts/phase9_acceptance.py` for focused acceptance gates. Use `uv run python scripts/agent_p0_acceptance.py` for Animation Agent V2 gold-set rates (add `--skip-render` without the Manim image).
 
 ## Coding Style & Naming Conventions
 

@@ -2179,6 +2179,7 @@
         "control",
         "data_analysis",
         "geometry.diff3d",
+        "scientific_reproduction",
         "teaching"
       ],
       "title": "IntentDomain",

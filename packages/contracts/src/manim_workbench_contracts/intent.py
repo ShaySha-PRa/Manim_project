@@ -40,6 +40,7 @@ class IntentDomain(str, Enum):
     CONTROL = "control"
     DATA_ANALYSIS = "data_analysis"
     GEOMETRY_DIFF3D = "geometry.diff3d"
+    SCIENTIFIC_REPRODUCTION = "scientific_reproduction"
     TEACHING = "teaching"
 
 

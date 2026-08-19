@@ -70,7 +70,7 @@ export function ProjectPromptPanel({ model }: { model: WorkbenchModel }) {
           <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4} maxLength={4_000}
             placeholder="例如：展示二维波动方程中两个波包碰撞后的干涉过程" required />
         </label>
-        <p className={styles.muted}>当前 Intent 是关键词目录，不是 live LLM。匹配波包/傅里叶/Lorenz/PID/CSV/Frenet 才会直接出片；未匹配返回 needs_confirmation。</p>
+        <p className={styles.muted}>Intent 只允许填 JSON。有模型密钥时由 LLM 填 IntentSpec，否则用关键词目录。论文/PDF 对比在 P0 会要求确认，不会补方程。未匹配返回 needs_confirmation。</p>
         <div className={styles.fieldRow}>
           <label className={styles.field}><span>受众</span><select value={audience} onChange={(event) => setAudience(event.target.value as Audience)}>{audiences.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
           <label className={styles.field}><span>时长（秒）</span><input type="number" min={30} max={180} value={duration} onChange={(event) => setDuration(Number(event.target.value))} /></label>
