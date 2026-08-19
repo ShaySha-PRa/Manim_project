@@ -1,5 +1,5 @@
 // Generated from Pydantic contracts. Do not edit.
-export const CONTRACT_SCHEMA_VERSION = "1.9" as const;
+export const CONTRACT_SCHEMA_VERSION = "1.10" as const;
 
 export interface AgentEvent {
   readonly stage: string;
@@ -643,7 +643,7 @@ export type RenderProfile = "preview" | "final";
 
 export interface SceneHint {
   readonly dimension?: "2d" | "3d";
-  readonly renderer_hint?: "manim";
+  readonly renderer_hint?: "manim" | "web";
 }
 
 export interface SceneObject {

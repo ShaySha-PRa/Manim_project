@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from manim_workbench_api.tools.kernels import (
-    ALLOWED_OPS,
+    allowed_ops,
     canonical_dumps,
     run_kernel,
     sha256_text,
@@ -32,6 +32,7 @@ class ComputeArtifact:
     artifact_ref: str
     artifact_path: Path
     assertions: dict[str, float | int | bool | str]
+    cache_hit: bool = False
 
 
 class ComputeSandboxError(RuntimeError):
@@ -46,13 +47,15 @@ def execute_tool(
     output_root: Path | None = None,
     docker_command: Sequence[str] | None = None,
 ) -> ComputeArtifact:
-    if op not in ALLOWED_OPS:
+    if op not in allowed_ops():
         raise ComputeSandboxError(f"tool op is not allowlisted: {op}")
     params_json = canonical_dumps(dict(params))
     params_sha = sha256_text(params_json)
     input_sha = sha256_text(input_text or "")
     root = output_root or DEFAULT_COMPUTE_ROOT
     root.mkdir(parents=True, exist_ok=True)
+    digest_name = sha256_text(f"{op}:{params_sha}:{input_sha}")
+    output_path = root / f"{digest_name}.npz"
     if docker_command:
         output_path = _execute_in_docker(
             op,
@@ -71,9 +74,19 @@ def execute_tool(
             artifact_path=output_path,
             assertions=_load_assertions(output_path),
         )
+    if output_path.is_file():
+        output_sha = hashlib.sha256(output_path.read_bytes()).hexdigest()
+        return ComputeArtifact(
+            op=op,
+            params_sha256=params_sha,
+            input_sha256=input_sha,
+            output_sha256=output_sha,
+            artifact_ref=f"tool:{op}:{output_sha[:16]}",
+            artifact_path=output_path,
+            assertions=_load_assertions(output_path),
+            cache_hit=True,
+        )
     result = run_kernel(op, params, input_text)
-    digest_name = sha256_text(f"{op}:{params_sha}:{input_sha}")
-    output_path = root / f"{digest_name}.npz"
     output_sha = write_npz(output_path, result)
     return ComputeArtifact(
         op=op,

@@ -13,7 +13,7 @@ def test_api_health_contract() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "api",
-        "contract_schema_version": "1.9",
+        "contract_schema_version": "1.10",
     }
 
 
@@ -28,6 +28,6 @@ def test_runner_has_safe_phase3_smoke_entrypoint() -> None:
     assert json.loads(result.stdout) == {
         "status": "idle",
         "service": "runner",
-        "contract_schema_version": "1.9",
+        "contract_schema_version": "1.10",
         "docker_access": False,
     }

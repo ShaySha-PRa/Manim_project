@@ -1,0 +1,130 @@
+{"id": "wave-01", "prompt": "展示二维波动方程中两个波包碰撞后的干涉过程。", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "wave-02", "prompt": "请动画两个波包相向传播并发生干涉。", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "wave-03", "prompt": "wave packet interference after two Gaussian packets collide", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "wave-04", "prompt": "二维波动里两个波包撞上之后的干涉画面", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "wave-05", "prompt": "把两个相向波包的干涉过程做成短片", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "wave-06", "prompt": "visualize interfering wave packets on a 2d wave equation", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "wave-07", "prompt": "两个高斯波包碰撞干涉，不要现场写公式求解器", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "wave-08", "prompt": "展示波包撞上之后的叠加干涉条纹", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "wave-09", "prompt": "interfering wave packets colliding along x", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "wave-10", "prompt": "用预计算场展示两个波包对撞干涉", "expect": "ready", "family": "wave", "source": "p1-gold", "science_keys": ["linear_superposition"]}
+{"id": "fourier-01", "prompt": "展示傅里叶级数逐渐逼近方波，并放大 Gibbs 现象。", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-02", "prompt": "方波的傅里叶逼近，镜头推近看 Gibbs 过冲", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-03", "prompt": "show Fourier series approaching a square wave and zoom Gibbs", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-04", "prompt": "傅里叶部分和逐步逼近方波", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-05", "prompt": "把 Gibbs 现象放大给本科生看", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-06", "prompt": "harmonic partial sums of a square wave with Gibbs overshoot", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-07", "prompt": "傅立叶级数逼近方波并观察间断点过冲", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-08", "prompt": "N 增大时方波傅里叶和的 Gibbs 振荡", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-09", "prompt": "animate Fourier convergence toward a square wave", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-10", "prompt": "展示奇数谐波叠加逼近方波", "expect": "ready", "family": "fourier", "source": "p1-gold", "science_keys": ["harmonic_coefficients"]}
+{"id": "lorenz-01", "prompt": "展示三个初值只差 1e-5 的 Lorenz 系统轨迹逐渐分离。", "expect": "ready", "family": "lorenz", "source": "p1-gold", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-02", "prompt": "洛伦兹吸引子三条差 1e-5 的轨迹", "expect": "ready", "family": "lorenz", "source": "p1-gold", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-03", "prompt": "Lorenz sensitive dependence with three nearby ICs", "expect": "ready", "family": "lorenz", "source": "p1-gold", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-04", "prompt": "三个 Lorenz 初值差一点点然后散开", "expect": "ready", "family": "lorenz", "source": "p1-gold", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-05", "prompt": "visualize Lorenz trajectories diverging from 1e-5", "expect": "ready", "family": "lorenz", "source": "p1-gold", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-06", "prompt": "洛伦兹方程对初值敏感的三维轨迹", "expect": "ready", "family": "lorenz", "source": "p1-gold", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-07", "prompt": "三条 Lorenz 轨道从几乎相同的起点分开", "expect": "ready", "family": "lorenz", "source": "p1-gold", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-08", "prompt": "show three Lorenz paths with tiny initial error", "expect": "ready", "family": "lorenz", "source": "p1-gold", "science_keys": ["trajectory_error"]}
+{"id": "pid-01", "prompt": "展示 PID 参数改变时二阶系统阶跃响应、超调和控制量如何变化。", "expect": "ready", "family": "pid", "source": "p1-gold", "science_keys": ["metric_match"]}
+{"id": "pid-02", "prompt": "三组 PID 阶跃响应对比，不要连续调参", "expect": "ready", "family": "pid", "source": "p1-gold", "science_keys": ["metric_match"]}
+{"id": "pid-03", "prompt": "PID step responses and overshoot for a second-order plant", "expect": "ready", "family": "pid", "source": "p1-gold", "science_keys": ["metric_match"]}
+{"id": "pid-04", "prompt": "pid 参数变化时超调怎么变", "expect": "ready", "family": "pid", "source": "p1-gold", "science_keys": ["metric_match"]}
+{"id": "pid-05", "prompt": "比较三套 PID 的阶跃响应曲线", "expect": "ready", "family": "pid", "source": "p1-gold", "science_keys": ["metric_match"]}
+{"id": "pid-06", "prompt": "second-order plant PID comparison animation", "expect": "ready", "family": "pid", "source": "p1-gold", "science_keys": ["metric_match"]}
+{"id": "pid-07", "prompt": "PID 控制量与输出一起对比", "expect": "ready", "family": "pid", "source": "p1-gold", "science_keys": ["metric_match"]}
+{"id": "pid-08", "prompt": "展示不同 PID 增益下的超调差异", "expect": "ready", "family": "pid", "source": "p1-gold", "science_keys": ["metric_match"]}
+{"id": "csv-01", "prompt": "从上传 CSV 展示 temperature/pressure 演化，并突出 350 秒附近异常。", "expect": "ready", "family": "csv", "source": "p1-gold", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-02", "prompt": "把 CSV 里 temperature 在 350 秒附近的异常高亮", "expect": "ready", "family": "csv", "source": "p1-gold", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-03", "prompt": "timeseries CSV temperature pressure anomaly around 350s", "expect": "ready", "family": "csv", "source": "p1-gold", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-04", "prompt": "时序 CSV 展示温度压力并标出异常段", "expect": "ready", "family": "csv", "source": "p1-gold", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-05", "prompt": "从 csv 画出 temperature 曲线并突出异常", "expect": "ready", "family": "csv", "source": "p1-gold", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-06", "prompt": "highlight the CSV temperature anomaly near 350 seconds", "expect": "ready", "family": "csv", "source": "p1-gold", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-07", "prompt": "pressure 和 temperature 的 CSV 异常区域", "expect": "ready", "family": "csv", "source": "p1-gold", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-08", "prompt": "上传的 temperature/pressure 时序异常动画", "expect": "ready", "family": "csv", "source": "p1-gold", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "frenet-01", "prompt": "展示三维螺旋线上的切向量、法向量和副法向量随参数移动。", "expect": "ready", "family": "frenet", "source": "p1-gold", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-02", "prompt": "螺旋线 Frenet 标架 TNB 跟着走", "expect": "ready", "family": "frenet", "source": "p1-gold", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-03", "prompt": "animate the Frenet frame on a 3d helix", "expect": "ready", "family": "frenet", "source": "p1-gold", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-04", "prompt": "三维螺旋的切向量法向量副法向量", "expect": "ready", "family": "frenet", "source": "p1-gold", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-05", "prompt": "frenet frame traveling on a helix", "expect": "ready", "family": "frenet", "source": "p1-gold", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-06", "prompt": "螺旋线上的活动标架动画", "expect": "ready", "family": "frenet", "source": "p1-gold", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-07", "prompt": "show T N B orthonormal frame on a helix", "expect": "ready", "family": "frenet", "source": "p1-gold", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-08", "prompt": "三维曲线 Frenet 标架随弧长移动", "expect": "ready", "family": "frenet", "source": "p1-gold", "science_keys": ["frenet_orthonormal"]}
+{"id": "paper-01", "prompt": "根据上传论文中的动力学方程和实验 CSV，模拟模型并与实验数据做动画对比。", "expect": "ready", "family": "paper", "source": "p1-gold", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-02", "prompt": "用论文里的 Lotka-Volterra 方程和实验 CSV 做对比动画", "expect": "ready", "family": "paper", "source": "p1-gold", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-03", "prompt": "compare the paper Lotka-Volterra model with experimental CSV", "expect": "ready", "family": "paper", "source": "p1-gold", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-04", "prompt": "论文动力学方程加实验 CSV 的残差对比", "expect": "ready", "family": "paper", "source": "p1-gold", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-05", "prompt": "把论文模型和 hare/lynx CSV 画在一起", "expect": "ready", "family": "paper", "source": "p1-gold", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-06", "prompt": "scientific reproduction: paper ODE versus CSV", "expect": "ready", "family": "paper", "source": "p1-gold", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-unknown-01", "prompt": "根据上传论文中的动力学方程和实验 CSV，模拟模型并与实验数据做动画对比。", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p1-gold", "asset": "paper_unknown"}
+{"id": "paper-unknown-02", "prompt": "这篇 paper 的未知 PDE 加上实验 CSV 请直接出片", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p1-gold", "asset": "paper_unknown"}
+{"id": "paper-unknown-03", "prompt": "根据论文 PDF 自行补一个新方程再对比 CSV", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p1-gold", "asset": "paper_unknown"}
+{"id": "paper-unknown-04", "prompt": "实验数据和一篇没有目录方程的论文做动画", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p1-gold", "asset": "paper_unknown"}
+{"id": "paper-unknown-05", "prompt": "paper model versus CSV but the PDF has no cataloged ODE", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p1-gold", "asset": "paper_unknown"}
+{"id": "paper-unknown-06", "prompt": "上传论文和 CSV，方程看不清也请生成", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p1-gold", "asset": "paper_unknown"}
+{"id": "csv-missing-01", "prompt": "从上传 CSV 展示 temperature/pressure 演化，并突出 350 秒附近异常。", "expect": "asset_required", "family": "csv-missing", "source": "p1-gold"}
+{"id": "csv-missing-02", "prompt": "请根据 temperature 时序异常做动画，我还没给 csv", "expect": "asset_required", "family": "csv-missing", "source": "p1-gold"}
+{"id": "csv-missing-03", "prompt": "csv 异常高亮，但文件稍后上传", "expect": "asset_required", "family": "csv-missing", "source": "p1-gold"}
+{"id": "csv-missing-04", "prompt": "缺少 temperature CSV 时不要伪造数据", "expect": "asset_required", "family": "csv-missing", "source": "p1-gold"}
+{"id": "csv-missing-05", "prompt": "时序异常可视化，资产还没给", "expect": "asset_required", "family": "csv-missing", "source": "p1-gold"}
+{"id": "csv-missing-06", "prompt": "highlight CSV anomaly without attaching the file", "expect": "asset_required", "family": "csv-missing", "source": "p1-gold"}
+{"id": "unknown-01", "prompt": "随便讲一个没见过的科研现象", "expect": "needs_confirmation", "family": "unknown", "source": "p1-gold"}
+{"id": "unknown-02", "prompt": "把纳维斯托克斯湍流闭包做成通用求解器动画", "expect": "needs_confirmation", "family": "unknown", "source": "p1-gold"}
+{"id": "unknown-03", "prompt": "请解释意识的量子起源并渲染", "expect": "needs_confirmation", "family": "unknown", "source": "p1-gold"}
+{"id": "unknown-04", "prompt": "未知领域的新定理，直接出三维片", "expect": "needs_confirmation", "family": "unknown", "source": "p1-gold"}
+{"id": "unknown-05", "prompt": "做一个没有 Intent 目录的奇异科研演示", "expect": "needs_confirmation", "family": "unknown", "source": "p1-gold"}
+{"id": "unknown-06", "prompt": "random unsupported scientific topic please animate", "expect": "needs_confirmation", "family": "unknown", "source": "p1-gold"}
+{"id": "wave-11", "prompt": "两个波包相向干涉的科研短片", "expect": "ready", "family": "wave", "source": "p2-bench", "science_keys": ["linear_superposition"]}
+{"id": "wave-12", "prompt": "colliding wave packets interference animation", "expect": "ready", "family": "wave", "source": "p2-bench", "science_keys": ["linear_superposition"]}
+{"id": "wave-13", "prompt": "展示波包干涉不要现场解 PDE", "expect": "ready", "family": "wave", "source": "p2-bench", "science_keys": ["linear_superposition"]}
+{"id": "wave-14", "prompt": "two packets interfere after collision", "expect": "ready", "family": "wave", "source": "p2-bench", "science_keys": ["linear_superposition"]}
+{"id": "wave-15", "prompt": "波动方程线性叠加下的波包对撞", "expect": "ready", "family": "wave", "source": "p2-bench", "science_keys": ["linear_superposition"]}
+{"id": "wave-16", "prompt": "visualize 2d wave packet interferometry", "expect": "ready", "family": "wave", "source": "p2-bench", "science_keys": ["linear_superposition"]}
+{"id": "fourier-11", "prompt": "方波傅里叶级数与 Gibbs 现象", "expect": "ready", "family": "fourier", "source": "p2-bench", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-12", "prompt": "square wave Fourier series Gibbs zoom", "expect": "ready", "family": "fourier", "source": "p2-bench", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-13", "prompt": "把方波谐波叠加过程做出来", "expect": "ready", "family": "fourier", "source": "p2-bench", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-14", "prompt": "Gibbs overshoot as N grows for a square wave", "expect": "ready", "family": "fourier", "source": "p2-bench", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-15", "prompt": "傅里叶逼近方波的镜头推近", "expect": "ready", "family": "fourier", "source": "p2-bench", "science_keys": ["harmonic_coefficients"]}
+{"id": "fourier-16", "prompt": "Fourier partial sums approaching a square wave", "expect": "ready", "family": "fourier", "source": "p2-bench", "science_keys": ["harmonic_coefficients"]}
+{"id": "lorenz-09", "prompt": "Lorenz 吸引子初值敏感", "expect": "ready", "family": "lorenz", "source": "p2-bench", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-10", "prompt": "three nearby Lorenz ICs diverging", "expect": "ready", "family": "lorenz", "source": "p2-bench", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-11", "prompt": "洛伦兹三条轨道分离", "expect": "ready", "family": "lorenz", "source": "p2-bench", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-12", "prompt": "Lorenz chaos 1e-5 perturbation", "expect": "ready", "family": "lorenz", "source": "p2-bench", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-13", "prompt": "展示 Lorenz 对初值的敏感依赖", "expect": "ready", "family": "lorenz", "source": "p2-bench", "science_keys": ["trajectory_error"]}
+{"id": "lorenz-14", "prompt": "tiny offset Lorenz trajectories", "expect": "ready", "family": "lorenz", "source": "p2-bench", "science_keys": ["trajectory_error"]}
+{"id": "pid-09", "prompt": "PID 阶跃响应对比动画", "expect": "ready", "family": "pid", "source": "p2-bench", "science_keys": ["metric_match"]}
+{"id": "pid-10", "prompt": "超调随 PID 参数怎么变", "expect": "ready", "family": "pid", "source": "p2-bench", "science_keys": ["metric_match"]}
+{"id": "pid-11", "prompt": "three PID tunings step response", "expect": "ready", "family": "pid", "source": "p2-bench", "science_keys": ["metric_match"]}
+{"id": "pid-12", "prompt": "二阶对象的 PID 控制对比", "expect": "ready", "family": "pid", "source": "p2-bench", "science_keys": ["metric_match"]}
+{"id": "pid-13", "prompt": "PID overshoot comparison clip", "expect": "ready", "family": "pid", "source": "p2-bench", "science_keys": ["metric_match"]}
+{"id": "pid-14", "prompt": "plant step response under PID", "expect": "ready", "family": "pid", "source": "p2-bench", "science_keys": ["metric_match"]}
+{"id": "csv-09", "prompt": "CSV 时序 temperature 异常可视化", "expect": "ready", "family": "csv", "source": "p2-bench", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-10", "prompt": "pressure 曲线上的异常段", "expect": "ready", "family": "csv", "source": "p2-bench", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-11", "prompt": "plot the temperature CSV anomaly", "expect": "ready", "family": "csv", "source": "p2-bench", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-12", "prompt": "时序数据 350 秒附近异常", "expect": "ready", "family": "csv", "source": "p2-bench", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-13", "prompt": "temperature pressure timeseries highlight", "expect": "ready", "family": "csv", "source": "p2-bench", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "csv-14", "prompt": "上传 CSV 后标出异常区间", "expect": "ready", "family": "csv", "source": "p2-bench", "science_keys": ["data_fidelity"], "asset": "csv"}
+{"id": "frenet-09", "prompt": "helix Frenet TNB animation", "expect": "ready", "family": "frenet", "source": "p2-bench", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-10", "prompt": "螺旋线切向量跟着走", "expect": "ready", "family": "frenet", "source": "p2-bench", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-11", "prompt": "三维 helix 上的 Frenet 标架", "expect": "ready", "family": "frenet", "source": "p2-bench", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-12", "prompt": "show the moving TNB frame", "expect": "ready", "family": "frenet", "source": "p2-bench", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-13", "prompt": "副法向量沿螺旋线", "expect": "ready", "family": "frenet", "source": "p2-bench", "science_keys": ["frenet_orthonormal"]}
+{"id": "frenet-14", "prompt": "Frenet frame orthonormal animation", "expect": "ready", "family": "frenet", "source": "p2-bench", "science_keys": ["frenet_orthonormal"]}
+{"id": "paper-07", "prompt": "Lotka-Volterra 论文模型对照实验 CSV", "expect": "ready", "family": "paper", "source": "p2-bench", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-08", "prompt": "洛特卡沃尔泰拉方程和 CSV 对比", "expect": "ready", "family": "paper", "source": "p2-bench", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-09", "prompt": "paper Lotka Volterra versus hare lynx CSV", "expect": "ready", "family": "paper", "source": "p2-bench", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-10", "prompt": "用论文系数和实验数据做残差动画", "expect": "ready", "family": "paper", "source": "p2-bench", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-11", "prompt": "scientific reproduction of Lotka-Volterra CSV", "expect": "ready", "family": "paper", "source": "p2-bench", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-12", "prompt": "论文 ODE 与实验 CSV 叠画", "expect": "ready", "family": "paper", "source": "p2-bench", "science_keys": ["residual_matches_tool"], "asset": "paper_csv"}
+{"id": "paper-unknown-07", "prompt": "未知论文 PDF 加 CSV 请出片", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p2-bench", "asset": "paper_unknown"}
+{"id": "paper-unknown-08", "prompt": "this paper model plus experimental CSV, invent the PDE", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p2-bench", "asset": "paper_unknown"}
+{"id": "paper-unknown-09", "prompt": "论文看不清公式也请对比实验数据", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p2-bench", "asset": "paper_unknown"}
+{"id": "paper-unknown-10", "prompt": "paper model versus CSV without catalog match", "expect": "needs_confirmation", "family": "paper-unknown", "source": "p2-bench", "asset": "paper_unknown"}
+{"id": "csv-missing-07", "prompt": "请做 temperature CSV 异常动画", "expect": "asset_required", "family": "csv-missing", "source": "p2-bench"}
+{"id": "csv-missing-08", "prompt": "时序异常可视化还没上传文件", "expect": "asset_required", "family": "csv-missing", "source": "p2-bench"}
+{"id": "csv-missing-09", "prompt": "highlight pressure anomaly, csv coming later", "expect": "asset_required", "family": "csv-missing", "source": "p2-bench"}
+{"id": "csv-missing-10", "prompt": "缺少 CSV 时不要编造 temperature", "expect": "asset_required", "family": "csv-missing", "source": "p2-bench"}
+{"id": "unknown-07", "prompt": "请渲染一个全新的未收录课题", "expect": "needs_confirmation", "family": "unknown", "source": "p2-bench"}
+{"id": "unknown-08", "prompt": "animate an unspecified theorem from nowhere", "expect": "needs_confirmation", "family": "unknown", "source": "p2-bench"}
+{"id": "unknown-09", "prompt": "做一个目录以外的物理效应", "expect": "needs_confirmation", "family": "unknown", "source": "p2-bench"}
+{"id": "unknown-10", "prompt": "generic unsupported research viz please animate", "expect": "needs_confirmation", "family": "unknown", "source": "p2-bench"}

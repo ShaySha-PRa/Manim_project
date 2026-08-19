@@ -12,18 +12,6 @@ from typing import Any
 
 import numpy as np
 
-ALLOWED_OPS = frozenset(
-    {
-        "wave2d_superposition",
-        "fourier_square_wave",
-        "lorenz_ensemble",
-        "pid_step_response",
-        "csv_anomaly",
-        "frenet_frame",
-        "ode_compare",
-    }
-)
-
 
 @dataclass(frozen=True, slots=True)
 class KernelResult:
@@ -424,8 +412,35 @@ KERNELS: dict[str, Callable[[Mapping[str, Any], str | None], KernelResult]] = {
 }
 
 
+def allowed_ops() -> frozenset[str]:
+    return frozenset(KERNELS)
+
+
+ALLOWED_OPS = allowed_ops()
+
+
+def register_simulator(
+    name: str,
+    fn: Callable[[Mapping[str, Any], str | None], KernelResult],
+) -> None:
+    """Allowlist a scientific simulator plugin. The model still cannot name new ops."""
+    if not name.isidentifier() or not name.islower() or "." in name:
+        raise ValueError("simulator name is invalid")
+    if name in KERNELS:
+        raise ValueError(f"simulator already registered: {name}")
+    KERNELS[name] = fn
+    global ALLOWED_OPS
+    ALLOWED_OPS = allowed_ops()
+
+
+def unregister_simulator(name: str) -> None:
+    KERNELS.pop(name, None)
+    global ALLOWED_OPS
+    ALLOWED_OPS = allowed_ops()
+
+
 def run_kernel(op: str, params: Mapping[str, Any], input_text: str | None) -> KernelResult:
-    if op not in ALLOWED_OPS:
+    if op not in KERNELS:
         raise ValueError(f"tool op is not allowlisted: {op}")
     return KERNELS[op](params, input_text)
 

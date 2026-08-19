@@ -17,6 +17,8 @@ P0 gold rates (≥85% first render / ≥97% final / ≥90% science) are measured
 
 P1: immutable `AssetVersion` on `ToolRun` plus append-only `asset_versions` (`migrations/versions/0008_asset_versions.py`). CSV ingest limits columns, rows, and numeric dtypes; `.npy/.npz` load with `allow_pickle=False`. Teaching `UserAsset` (PNG/JPEG) is unchanged. After compile, a TIFA-style critic scores expression from IR/source/ToolRun; an optional provider may only fill `CriticJudgement` JSON. IR-level repair is at most one pass and never emits Scene Python. P1 gold (`eval/agent_p1_gold.jsonl`, 50–100 prompts) is gated by `scripts/agent_p1_acceptance.py` (expression ≥4.2/5, mean repair ≤1, full provenance).
 
+P2: simulator plugins register in-process via `register_simulator` (the model still cannot name new ops). The second renderer is a deterministic Web JSON backend walking the same AnimationIR (`renderer_hint` `manim` | `web`); it is not Blender. Tool npz cache is `{op, params, input}` at `output_root`; IR compile cache is optional `cache_root`. P2 benchmark (`eval/agent_p2_benchmark.jsonl`, 100–300 prompts) is gated by `scripts/agent_p2_acceptance.py` (science ≥95%, unexpected `FAILED` <1%, every ready IR compiles on both backends). `scripts/agent_p2_trial.py` is a lab harness, not an external user study. OpenFOAM/FEniCS adapters and field trials are out of scope.
+
 The local workbench does not use a login page. `settings_from_environment` defaults `auth_disabled` to true and `GET /auth/session` issues a `dev@local.test` session so owner isolation, CSRF, and cookies still work. `/login` and `/change-password` redirect to `/workbench`. Set `MANIM_WORKBENCH_AUTH_DISABLED=false` only if you need the Phase 8 login API path. Local Web should leave `NEXT_PUBLIC_API_URL` unset so the browser uses same-origin `/api` rewrites from `apps/web/next.config.ts`.
 
 ## Build, Test, and Development Commands
@@ -36,7 +38,7 @@ uv run python -m manim_workbench_runner run
 npm run dev:web
 ```
 
-Apply schema changes with `uv run alembic upgrade head`. Use `scripts/phase8_acceptance.py` and `scripts/phase9_acceptance.py` for focused acceptance gates. Use `uv run python scripts/agent_p0_acceptance.py` for Animation Agent V2 P0 gold-set rates (add `--skip-render` without the Manim image). Use `uv run python scripts/agent_p1_acceptance.py` for P1 expression / repair / provenance gates.
+Apply schema changes with `uv run alembic upgrade head`. Use `scripts/phase8_acceptance.py` and `scripts/phase9_acceptance.py` for focused acceptance gates. Use `uv run python scripts/agent_p0_acceptance.py` for Animation Agent V2 P0 gold-set rates (add `--skip-render` without the Manim image). Use `uv run python scripts/agent_p1_acceptance.py` for P1 expression / repair / provenance gates. Use `uv run python scripts/agent_p2_acceptance.py` for P2 science / fail / cross-backend gates.
 
 ## Coding Style & Naming Conventions
 

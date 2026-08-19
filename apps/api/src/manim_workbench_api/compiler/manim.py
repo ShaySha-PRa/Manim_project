@@ -9,7 +9,10 @@ dispatches on the IR pattern field. Never emits lambda.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 from manim_workbench_contracts import ToolRun
@@ -33,6 +36,7 @@ from manim_workbench_contracts.ir import VisualKind
 
 from manim_workbench_api.agent.ir_validator import validate_animation_ir
 from manim_workbench_api.compiler.base import CompiledProgram, CompiledSegment, UnsupportedFeature
+from manim_workbench_api.compiler.web import WebBackend
 
 _TITLE_FONT = "Noto Sans CJK SC"
 _MOVING_CAMERA_OPS = frozenset({CameraOpKind.ZOOM, CameraOpKind.FOLLOW})
@@ -99,10 +103,12 @@ class ManimBackend:
 
 
 class RendererRegistry:
-    def require(self, renderer_hint: str) -> ManimBackend:
-        if renderer_hint != "manim":
-            raise UnsupportedFeature("only the Manim backend is available")
-        return ManimBackend()
+    def require(self, renderer_hint: str) -> ManimBackend | WebBackend:
+        if renderer_hint == "manim":
+            return ManimBackend()
+        if renderer_hint == "web":
+            return WebBackend()
+        raise UnsupportedFeature(f"unknown renderer backend: {renderer_hint}")
 
 
 renderer_registry = RendererRegistry()
@@ -117,9 +123,86 @@ def _fallback_fixed_camera(ir: AnimationIR) -> bool:
 def compile_animation_ir(
     ir: AnimationIR,
     tool_runs: tuple[ToolRun, ...],
+    *,
+    backend: str | None = None,
+    cache_root: Path | None = None,
+) -> CompiledProgram:
+    hint = backend or ir.scene.renderer_hint
+    if backend and backend != ir.scene.renderer_hint:
+        ir = ir.model_copy(
+            update={"scene": ir.scene.model_copy(update={"renderer_hint": backend})}
+        )
+    cache_key = _compile_cache_key(ir, tool_runs, hint)
+    if cache_root is not None:
+        cached = _read_compile_cache(cache_root, cache_key)
+        if cached is not None:
+            return cached
+    program = _compile_animation_ir(ir, tool_runs, hint)
+    if cache_root is not None:
+        _write_compile_cache(cache_root, cache_key, program)
+    return program
+
+
+def _compile_cache_key(ir: AnimationIR, tool_runs: tuple[ToolRun, ...], hint: str) -> str:
+    payload = {
+        "hint": hint,
+        "ir": ir.model_dump(mode="json"),
+        "runs": [
+            {
+                "artifact_path": run.artifact_path,
+                "artifact_ref": run.artifact_ref,
+                "output_sha256": run.output_sha256,
+            }
+            for run in tool_runs
+        ],
+    }
+    blob = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _read_compile_cache(cache_root: Path, cache_key: str) -> CompiledProgram | None:
+    path = cache_root / f"{cache_key}.json"
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    segments = tuple(
+        CompiledSegment(
+            source=item["source"],
+            scene_base=item["scene_base"],
+            visual_kinds=tuple(VisualKind(kind) for kind in item["visual_kinds"]),
+            duration_seconds=float(item["duration_seconds"]),
+        )
+        for item in data["segments"]
+    )
+    return CompiledProgram(segments=segments)
+
+
+def _write_compile_cache(cache_root: Path, cache_key: str, program: CompiledProgram) -> None:
+    cache_root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "segments": [
+            {
+                "duration_seconds": segment.duration_seconds,
+                "scene_base": segment.scene_base,
+                "source": segment.source,
+                "visual_kinds": [kind.value for kind in segment.visual_kinds],
+            }
+            for segment in program.segments
+        ]
+    }
+    (cache_root / f"{cache_key}.json").write_text(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def _compile_animation_ir(
+    ir: AnimationIR,
+    tool_runs: tuple[ToolRun, ...],
+    hint: str,
 ) -> CompiledProgram:
     validate_animation_ir(ir, tool_runs)
-    backend = renderer_registry.require(ir.scene.renderer_hint)
+    backend = renderer_registry.require(hint)
     if not ir.data:
         raise UnsupportedFeature("AnimationIR requires tool data")
     scene_base = backend.select_scene_base(ir)
@@ -137,7 +220,11 @@ def compile_animation_ir(
     source = ctx.finish()
     if "lambda" in source:
         raise UnsupportedFeature("compiler emitted lambda")
-    kind = VisualKind.THREE_D if scene_base == "ThreeDScene" else VisualKind.FUNCTION
+    kind = (
+        VisualKind.THREE_D
+        if scene_base in {"ThreeDScene", "Web3DScene"}
+        else VisualKind.FUNCTION
+    )
     return CompiledProgram(
         segments=(
             CompiledSegment(

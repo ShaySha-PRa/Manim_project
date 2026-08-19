@@ -3919,8 +3919,11 @@
           "type": "string"
         },
         "renderer_hint": {
-          "const": "manim",
           "default": "manim",
+          "enum": [
+            "manim",
+            "web"
+          ],
           "title": "Renderer Hint",
           "type": "string"
         }
@@ -4929,7 +4932,7 @@
       "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.9",
+  "$id": "https://manim-workbench.local/contracts/1.10",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
@@ -5016,5 +5019,5 @@
     "WorkspaceContentPlanGenerationRequest",
     "WorkspaceRenderJobSubmission"
   ],
-  "x-contract-schema-version": "1.9"
+  "x-contract-schema-version": "1.10"
 }

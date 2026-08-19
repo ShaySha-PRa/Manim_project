@@ -90,7 +90,7 @@ class FallbackStrategy(str, Enum):
 
 class SceneHint(ContractModel):
     dimension: Literal["2d", "3d"] = "2d"
-    renderer_hint: Literal["manim"] = "manim"
+    renderer_hint: Literal["manim", "web"] = "manim"
 
 
 class DataRef(ContractModel):
