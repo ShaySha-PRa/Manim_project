@@ -40,6 +40,9 @@ media/
 third_party/
 .cache/
 
+# Local planning
+/openspec/
+
 # IDE / OS
 .idea/
 .vscode/
