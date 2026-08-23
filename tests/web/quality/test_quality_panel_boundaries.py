@@ -81,4 +81,5 @@ def test_parent_workbench_connects_quality_to_the_active_job_state() -> None:
     source = _source(ROOT / "apps/web/src/components/workbench/render-panel.tsx")
 
     assert 'import { QualityPanel } from "../quality/quality-panel"' in source
-    assert "<QualityPanel jobId={job?.id} refreshKey={job?.state_version} />" in source
+    assert "jobId={job && terminal.has(job.status) ? job.id : null}" in source
+    assert "refreshKey={job?.state_version}" in source

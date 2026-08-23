@@ -124,6 +124,21 @@ def test_llm_provider_fills_intent_spec_only() -> None:
     assert result.intent.domain is IntentDomain.MATH_SIGNAL
 
 
+def test_fourier_provider_cannot_drop_the_largest_explicit_harmonic_count() -> None:
+    payload = IntentSpec(
+        domain=IntentDomain.MATH_SIGNAL,
+        goal="show Fourier convergence",
+        tools_needed=(ToolNeed(op=ToolOp.FOURIER_SQUARE_WAVE, params={"n_max": 5}),),
+    ).model_dump_json()
+
+    intent = fill_intent_from_provider(
+        _FakeIntentProvider(payload),
+        "比较方波傅里叶级数取 5、15、31 个奇次谐波时的逼近效果。",
+    )
+
+    assert intent.tools_needed == (ToolNeed(op=ToolOp.FOURIER_SQUARE_WAVE, params={"n_max": 31}),)
+
+
 def test_intent_prompt_spells_out_the_strict_json_shape() -> None:
     assert 'schema_version must be the JSON string "1.0", not a number' in INTENT_SYSTEM_PROMPT
     assert "tools_needed must be an array of objects shaped exactly as" in INTENT_SYSTEM_PROMPT

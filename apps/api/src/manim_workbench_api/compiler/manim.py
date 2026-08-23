@@ -50,6 +50,7 @@ _IMPORT_ORDER = (
     "ThreeDAxes",
     "Line",
     "DashedLine",
+    "DecimalNumber",
     "VMobject",
     "VGroup",
     "Dot",
@@ -60,6 +61,7 @@ _IMPORT_ORDER = (
     "always_redraw",
     "UP",
     "DOWN",
+    "LEFT",
     "YELLOW",
     "BLUE",
     "GRAY",
@@ -605,7 +607,7 @@ class ManimEmitContext:
         run_time = op.run_time
         if any(item.type is AssertionType.GIBBS_OVERSHOOT for item in self.ir.assertions):
             self._camera_suffix.append(
-                f"self.play(self.camera.frame.animate.scale(0.32).move_to(axes.c2p(0.45, 1.12)), run_time={run_time})"
+                f"self.play(self.camera.frame.animate.scale(0.8).move_to(axes.c2p(0.25, 0.35)), run_time={run_time})"
             )
         else:
             self._camera_suffix.append(
@@ -860,7 +862,14 @@ class ManimEmitContext:
             xs = self._unpack(data_id, "x", "xs")
             partials = self._unpack(data_id, "partials")
             self._ensure_polyline()
-            self._use("always_redraw", "BLUE")
+            self._use(
+                "always_redraw",
+                "BLUE",
+                "DecimalNumber",
+                "Text",
+                "WHITE",
+                "LEFT",
+            )
             fn_name = f"redraw_{obj.id}"
             self._state_end[state_id] = f"len({partials}) - 1"
             self._object_vars[obj.id] = obj.id
@@ -875,8 +884,20 @@ class ManimEmitContext:
                     "        index = last",
                     f"    return polyline({xs}, {partials}[index], {self._color(obj, 'BLUE')})",
                     f"{obj.id} = always_redraw({fn_name})",
+                    "def redraw_partial_count():",
+                    f"    index = int({tracker}.get_value())",
+                    f"    last = len({partials}) - 1",
+                    "    if index < 0:",
+                    "        index = 0",
+                    "    if index > last:",
+                    "        index = last",
+                    f"    progress = 100.0 * {tracker}.get_value() / max(1, last)",
+                    "    return DecimalNumber(progress, num_decimal_places=0, font_size=28, color=WHITE).move_to(axes.c2p(2.7, -1.35))",
+                    "partial_count = always_redraw(redraw_partial_count)",
+                    "partial_count_label = Text('逼近进度 %', font='Noto Sans CJK SC', font_size=24, color=WHITE).next_to(partial_count, LEFT)",
                 ]
             )
+            self._always_add.extend(("partial_count_label", "partial_count"))
             return
         if "y" in info.keys and len(self._shape(data_id, "y")) == 2:
             if data_id not in self._consumed_series:

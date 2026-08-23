@@ -16,6 +16,11 @@ from manim_workbench_api.content_plans.models import ProviderMessage, ProviderRe
 
 _WAVE = re.compile(r"波包|干涉|wave.?packet|interfer", re.I)
 _FOURIER = re.compile(r"傅里叶|傅立叶|gibbs|方波|fourier", re.I)
+_FOURIER_N_MAX = re.compile(
+    r"(?:n\s*=\s*(\d{1,3})|(?:增加到|增至|up\s+to)\s*(\d{1,3})|"
+    r"(\d{1,3})\s*(?:个|项)\s*(?:奇次)?谐波)",
+    re.I,
+)
 _LORENZ = re.compile(r"lorenz|洛伦兹", re.I)
 _PID = re.compile(r"\bpid\b|阶跃响应|超调", re.I)
 _CSV = re.compile(r"csv|异常|temperature|pressure|时序", re.I)
@@ -298,9 +303,31 @@ def _post_validate(
         return spec.model_copy(
             update={"tools_needed": (ToolNeed(op=ToolOp.CSV_ANOMALY, params=params),)}
         )
+    if spec.domain is IntentDomain.MATH_SIGNAL:
+        requested = _explicit_fourier_n_max(prompt)
+        if requested is not None:
+            if not 1 <= requested <= 63:
+                return _needs_confirmation(prompt, "请求的 Fourier 谐波上限超出 1..63")
+            return spec.model_copy(
+                update={
+                    "tools_needed": (
+                        ToolNeed(op=ToolOp.FOURIER_SQUARE_WAVE, params={"n_max": requested}),
+                    )
+                }
+            )
     if spec.domain is IntentDomain.TEACHING and not spec.tools_needed:
         return spec.model_copy(update={"needs_confirmation": True})
     return spec
+
+
+def _explicit_fourier_n_max(prompt: str) -> int | None:
+    values = [
+        int(group)
+        for match in _FOURIER_N_MAX.finditer(prompt)
+        for group in match.groups()
+        if group is not None
+    ]
+    return max(values) if values else None
 
 
 def _needs_confirmation(prompt: str, assumption: str) -> IntentSpec:
