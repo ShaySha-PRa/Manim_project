@@ -90,3 +90,18 @@
 - 退出码：`1`
 - 结果：`next@16.3.0 -> postcss@8.5.23 -> nanoid@3.3.17` 命中 High advisory；安全版本为 `>=3.3.18`
 - 状态：待以独立最小 lockfile 修复关闭；不得混入 Ruff commit
+
+### 阶段 1A 提交
+
+- Commit：`c7502bf fix: satisfy geometry reference scene lint`
+- 内容：目标 import 排序、OpenSpec 本地忽略规则、RC1 追加式执行日志
+- 推送：否
+
+## 2026-08-23 — 阶段 1B：Production dependency audit
+
+- 根因：`postcss@8.5.23` 允许 `nanoid ^3.3.16`，锁文件固定在存在 High advisory 的 `3.3.17`
+- 最小修复：仅将 `package-lock.json` 中的 transitive `nanoid` 更新到 `3.3.18`
+- `package.json`、Next、PostCSS 和其他依赖版本未改变
+- 复测命令：`npm ci --ignore-scripts`、`npm audit --omit=dev --audit-level=high`
+- 退出码：均为 `0`
+- 结果：实际安装 `nanoid 3.3.18`；production audit 为 `0 vulnerabilities`
