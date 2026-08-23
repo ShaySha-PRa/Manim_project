@@ -75,13 +75,16 @@ def content_plan() -> ContentPlanVersion:
     )
 
 
-def request_for(plan: ContentPlanVersion) -> CodeGenerationRequest:
+def request_for(
+    plan: ContentPlanVersion,
+    category: CodeGenerationCategory = CodeGenerationCategory.FUNCTION_VISUALIZATION,
+) -> CodeGenerationRequest:
     return CodeGenerationRequest(
         project_id=plan.project_id,
         owner_id=plan.owner_id,
         prompt_version_id=uuid4(),
         content_plan_version_id=plan.id,
-        category=CodeGenerationCategory.FUNCTION_VISUALIZATION,
+        category=category,
     )
 
 
@@ -163,18 +166,66 @@ class FakeRepository:
         )
 
 
+def legacy_service(
+    repository: FakeRepository, provider: FakeProvider, renderer: FakeRenderer
+) -> CodeGenerationService:
+    return CodeGenerationService(
+        repository,
+        provider,
+        renderer,
+        allow_legacy_free_python=True,
+    )
+
+
 def test_success_is_persisted_only_after_security_preflight_and_sandbox() -> None:
     plan = content_plan()
     repository = FakeRepository(plan)
     provider = FakeProvider([model_json()])
     renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
 
-    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+    response = legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert response.outcome is CodeGenerationOutcome.READY
     assert response.attempts_used == 1
     assert provider.calls == renderer.calls == len(repository.saved) == 1
     assert repository.failures == []
+
+
+def test_default_teaching_path_compiles_storyboard_without_free_python_provider() -> None:
+    plan = content_plan()
+    repository = FakeRepository(plan)
+    provider = FakeProvider([])
+    renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
+
+    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+
+    assert response.outcome is CodeGenerationOutcome.READY
+    assert response.mode is CodeGenerationMode.COMPILED_IR
+    assert response.attempts_used == 1
+    assert provider.calls == 0
+    assert renderer.calls == 1
+    assert repository.saved[0]["mode"] is CodeGenerationMode.COMPILED_IR
+    source = repository.saved[0]["response"].code
+    assert "Axes(" in source
+    assert "lambda" not in source
+
+
+def test_default_geometry_path_requires_a_validated_storyboard_instead_of_placeholder() -> None:
+    plan = content_plan()
+    repository = FakeRepository(plan)
+    provider = FakeProvider([])
+    renderer = FakeRenderer([])
+
+    with pytest.raises(CodeGenerationError) as caught:
+        CodeGenerationService(repository, provider, renderer).generate(
+            request_for(plan, CodeGenerationCategory.GEOMETRY_PROOF)
+        )
+
+    assert caught.value.code is CodeGenerationErrorCode.INVALID_MODEL_RESPONSE
+    assert "requires a validated SceneStoryboard" in str(caught.value)
+    assert provider.calls == 0
+    assert renderer.calls == 0
+    assert repository.saved == []
 
 
 def test_short_timeline_uses_bounded_repair_before_render_or_persistence() -> None:
@@ -183,7 +234,7 @@ def test_short_timeline_uses_bounded_repair_before_render_or_persistence() -> No
     provider = FakeProvider([model_json(SHORT_SOURCE), model_json()])
     renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
 
-    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+    response = legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert response.outcome is CodeGenerationOutcome.READY
     assert response.attempts_used == 2
@@ -193,7 +244,32 @@ def test_short_timeline_uses_bounded_repair_before_render_or_persistence() -> No
     assert repository.failures[0]["error_code"] is CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID
     repair_prompt = provider.messages[1][1].content
     assert "duration_too_short" in repair_prompt
+    assert "measured=4.0" in repair_prompt
+    assert "54.0 to 66.0 seconds" in repair_prompt
+    assert "exactly 60 seconds" in repair_prompt
     assert "PREVIOUS_CANDIDATE_SOURCE" in repair_prompt
+
+
+def test_exhausted_repair_budget_uses_quality_checked_deterministic_template() -> None:
+    plan = content_plan()
+    repository = FakeRepository(plan)
+    provider = FakeProvider([model_json(SHORT_SOURCE)] * 3)
+    renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
+
+    response = legacy_service(repository, provider, renderer).generate(request_for(plan))
+
+    assert response.outcome is CodeGenerationOutcome.DEGRADED
+    assert response.attempts_used == 3
+    assert provider.calls == 3
+    assert renderer.calls == 1
+    assert len(repository.failures) == 3
+    assert len(repository.saved) == 1
+    saved = repository.saved[0]
+    assert saved["mode"] is CodeGenerationMode.DETERMINISTIC_TEMPLATE
+    assert saved["attempt_number"] == 3
+    candidate: CodeModelResponse = saved["response"]
+    assert "run_time=" in candidate.code
+    assert "self.wait(" in candidate.code
 
 
 def test_two_transient_provider_retries_do_not_consume_repair_budget() -> None:
@@ -214,7 +290,7 @@ def test_two_transient_provider_retries_do_not_consume_repair_budget() -> None:
     )
     renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
 
-    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+    response = legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert response.attempts_used == 1
     assert provider.calls == 3
@@ -229,7 +305,7 @@ def test_security_failure_never_enters_sandbox_or_repair() -> None:
     renderer = FakeRenderer([])
 
     with pytest.raises(CodeGenerationError) as caught:
-        CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+        legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert caught.value.code is CodeGenerationErrorCode.SECURITY_POLICY_VIOLATION
     assert provider.calls == 1
@@ -252,7 +328,7 @@ def test_render_failure_uses_at_most_two_repairs_then_persists() -> None:
         ]
     )
 
-    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+    response = legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert response.outcome is CodeGenerationOutcome.READY
     assert response.attempts_used == 2
@@ -272,7 +348,7 @@ def test_unknown_safe_api_and_lambda_are_repaired_without_entering_sandbox() -> 
     provider = FakeProvider([model_json(missing_import), model_json()])
     renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
 
-    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+    response = legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert response.attempts_used == 2
     assert provider.calls == 2
@@ -296,7 +372,7 @@ def test_missing_allowlisted_manim_import_is_completed_before_first_render() -> 
     provider = FakeProvider([model_json(missing_up)])
     renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
 
-    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+    response = legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert response.attempts_used == 1
     assert provider.calls == renderer.calls == 1
@@ -315,7 +391,7 @@ def test_low_risk_scene_structure_drift_uses_source_free_repair() -> None:
     provider = FakeProvider([model_json(extra_method), model_json()])
     renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
 
-    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+    response = legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert response.attempts_used == 2
     assert repository.failures[0]["error_code"] is (
@@ -330,14 +406,15 @@ def test_three_render_failures_exhaust_budget_without_persisting() -> None:
     repository = FakeRepository(plan)
     provider = FakeProvider([model_json(), model_json(), model_json()])
     renderer = FakeRenderer(
-        [CandidateRenderResult(False, "render_failed", "failure") for _ in range(3)]
+        [CandidateRenderResult(False, "render_failed", "failure") for _ in range(4)]
     )
 
     with pytest.raises(CodeGenerationError) as caught:
-        CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+        legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert caught.value.code is CodeGenerationErrorCode.ATTEMPT_BUDGET_EXHAUSTED
-    assert provider.calls == renderer.calls == 3
+    assert provider.calls == 3
+    assert renderer.calls == 4
     assert repository.saved == []
 
 
@@ -359,7 +436,7 @@ def test_third_latex_failure_uses_validated_text_degradation() -> None:
         ]
     )
 
-    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+    response = legacy_service(repository, provider, renderer).generate(request_for(plan))
 
     assert response.outcome is CodeGenerationOutcome.DEGRADED
     assert response.mode is CodeGenerationMode.DETERMINISTIC_TEMPLATE

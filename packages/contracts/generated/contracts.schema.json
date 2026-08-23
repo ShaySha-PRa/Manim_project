@@ -2615,7 +2615,8 @@
         "fade_in",
         "create",
         "wait",
-        "write"
+        "write",
+        "indicate"
       ],
       "title": "IrStateChangeKind",
       "type": "string"

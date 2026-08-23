@@ -169,3 +169,25 @@ def test_static_repair_prompt_regenerates_with_only_explicit_manim_imports() -> 
     assert 'font="Noto Sans CJK SC"' in prompt
     assert "Never put Chinese text inside MathTex" in prompt
     assert "PREVIOUS_CANDIDATE_SOURCE" not in prompt
+
+
+def test_repair_prompt_turns_content_plan_duration_into_an_explicit_constraint() -> None:
+    decision = RepairOrchestrator().failure_decision(
+        CodeGenerationCategory.FORMULA_DERIVATION,
+        attempt_number=1,
+        error_code=CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
+    )
+
+    messages = build_repair_messages(
+        content_plan={"title": "Tangent", "target_duration_seconds": 60},
+        decision=decision,
+        diagnostic="duration_too_short: measured=24.0 threshold=54.0",
+        candidate_source="from manim import Scene\nclass GeneratedScene(Scene): pass\n",
+    )
+    prompt = "\n".join(message["content"] for message in messages)
+
+    assert "exactly 60 seconds" in prompt
+    assert "54.0 to 66.0 seconds" in prompt
+    assert "at least 15 active self.play calls" in prompt
+    assert "each individual self.play run_time at or below 4 seconds" in prompt
+    assert "Do not use one long wait" in prompt

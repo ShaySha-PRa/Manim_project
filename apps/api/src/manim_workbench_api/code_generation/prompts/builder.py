@@ -14,7 +14,7 @@ from manim_workbench_contracts import (
 from manim_workbench_api.code_generation.template_compiler import degrade_mathtex_to_text
 from manim_workbench_api.content_plans.models import ProviderMessage
 
-PROMPT_TEMPLATE_VERSION = "phase9-code-generation-v3-timeline"
+PROMPT_TEMPLATE_VERSION = "phase9-code-generation-v4-timeline-budget"
 
 _MAX_CONTENT_PLAN_JSON_CHARS = 12_000
 _MAX_REFERENCE_EXAMPLE_CHARS = 3_200
@@ -171,11 +171,15 @@ def build_code_generation_messages(
     content_plan_json = _content_plan_json(content_plan_version)
     reference_examples_json = _json_data({"examples": _reference_examples(category)})
     target_duration = content_plan_version.target_duration_seconds
+    minimum_active_plays = (target_duration + 3) // 4
     user_prompt = "\n".join(
         (
             f"Generate one {category.value} scene from the following ContentPlan.",
             f"Target timeline: {target_duration} seconds. The accepted range is "
             f"{target_duration * 0.9:.1f} to {target_duration * 1.1:.1f} seconds.",
+            f"Use at least {minimum_active_plays} active self.play calls because each play is "
+            "limited to 4 seconds. Before returning JSON, calculate the sum of every explicit "
+            "run_time and wait value and make it equal the target timeline.",
             "Distribute that time across all teaching scenes and steps using explicit run_time and "
             "wait values. Do not pad with a long static ending. Preview and Final must share this "
             "identical timeline.",

@@ -425,7 +425,7 @@ export type IrExprId = "identity" | "pow2" | "pow3" | "cubic_slope" | "sine" | "
 
 export type IrObjectType = "title" | "math_tex" | "text" | "axes" | "plot" | "dot" | "line" | "dashed_line" | "circle" | "polygon" | "angle" | "right_angle" | "label" | "decimal" | "surface" | "sphere" | "cube" | "image_ref" | "equation_panel" | "geometry_figure";
 
-export type IrStateChangeKind = "set_value" | "transform_matching_tex" | "lagged_start" | "succession" | "animation_group" | "fade_in" | "create" | "wait" | "write";
+export type IrStateChangeKind = "set_value" | "transform_matching_tex" | "lagged_start" | "succession" | "animation_group" | "fade_in" | "create" | "wait" | "write" | "indicate";
 
 export interface JobEvent {
   readonly event_id: number;

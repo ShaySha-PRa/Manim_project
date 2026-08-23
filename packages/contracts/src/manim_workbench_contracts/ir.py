@@ -56,6 +56,7 @@ class IrStateChangeKind(str, Enum):
     CREATE = "create"
     WAIT = "wait"
     WRITE = "write"
+    INDICATE = "indicate"
 
 
 class IrCameraOpKind(str, Enum):
