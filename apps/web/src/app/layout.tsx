@@ -7,10 +7,10 @@ import "./styles.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Manim 科研动画工作台",
-    template: "%s · Manim 科研动画工作台",
+    default: "Manim 科学与技术动画工作台",
+    template: "%s · Manim 科学与技术动画工作台",
   },
-  description: "一句话变成可审阅、可渲染的科学动画。",
+  description: "用自然语言生成可审阅、可渲染的科学与技术动画。",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

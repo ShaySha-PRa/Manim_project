@@ -1,15 +1,15 @@
-# Manim 数学动画工作台
+# Manim 科学与技术动画工作台
 
-本地开发与验收用的工作台：浏览器里提交 Prompt，API 生成可审阅的 Manim 代码或 AnimationIR，Runner 在 Docker 沙箱里出 Preview / Final。不是生产部署方案。
+项目目标是构建由 LLM 驱动的科学与技术动画创作系统：用户只需描述想展示的内容，系统负责受约束的意图理解与规划、白名单计算、动画设计、确定性编译、隔离渲染和视频交付。当前仓库是这一产品的本地开发与验收工作台，不是生产部署方案。
 
 仓库里有两条路径，实现和口径都不要混：
 
 ```
-教学  Prompt → ContentPlan → CodeVersion → Preview/Final
+教学  Prompt → ContentPlan → SceneStoryboard → Compiler → CodeVersion → Preview/Final
 科研  一句话 → IntentSpec → 白名单 Tools → AnimationIR 2.0 → Compiler → 同一套 Preview
 ```
 
-教学路径允许模型写 Manim Scene Python，但必须过 AST / API allowlist 再进沙箱。科研路径（Animation Agent V2）禁止模型写自由 Scene、lambda 或 Scene 里的 `np.exp`；数字来自 ToolRun，编译器 lowering 预计算数组。
+两条路径中 LLM 都只产生受契约约束的语义数据，不是自由代码执行器。教学路径由 LLM 填写 `ContentPlan`，公式和函数场景再转换为 `SceneStoryboard` 并确定性编译；不支持的函数表达式或缺少 Storyboard 的几何/3D 请求会结构化失败，不生成纯文字占位视频。科研路径（Animation Agent V2）只允许 LLM 填写 `IntentSpec`；模型不得写自由 Scene、lambda 或 Scene 里的 `np.exp`，数字来自 ToolRun，编译器 lowering 预计算数组。所有编译结果仍须通过 AST/API allowlist 和 Docker render sandbox。
 
 一句话 Intent：有 `DEEPSEEK_API_KEY` 时 LLM 只填 `IntentSpec` JSON（围栏、Manim Python、非法 JSON 一律拒绝）；没有密钥则走 `resolve_intent_catalog` 关键词目录。CSV 无正文返回 `asset_required`。论文/PDF 只有命中封闭 Lotka–Volterra 目录且系数齐全才跑 `ode_compare`，否则 `needs_confirmation`，不补公式。
 

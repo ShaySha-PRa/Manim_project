@@ -312,3 +312,77 @@
 - 两轮均执行真实 Docker P0，最慢项约 46 秒；均正常退出，无人工中止。
 - `uv run ruff check .`、`generate_contracts.py --check`、`git diff --check`：均退出码 `0`。
 - Web lint/typecheck：退出码 `0`；production build 首次受工具 sandbox 影响无法创建 `.next`，在授权的项目 worktree 环境原命令复跑后退出码 `0`，6 个静态页面生成。
+
+## 2026-08-23 — 自然语言教学重构与最终发布闭环
+
+### 产品基准与教学执行边界
+
+- 统一产品目标：自然语言输入后，系统自动完成理解、必要计算、动画设计、安全编译、渲染、质量验证和视频交付。
+- 内部仍保留教学 ContentPlan 与科研 IntentSpec/AnimationIR 两条受约束路径；未把它们合并为一个可输出任意可执行代码的 live Agent。
+- 教学默认路径改为 `ContentPlan → SceneStoryboard → deterministic compiler → CodeVersion`；真实 Provider 只填严格 ContentPlan，`CodeVersion.provider_model=null`，`generation_mode=compiled_ir`。
+- 新增受限数学表达式编译器；未知函数、可执行表达式、lambda、动态 import、无界指数和除零均结构化失败，不替换为默认曲线。
+- 公式路径保留全部步骤、解释、变换和高亮；函数路径生成真实坐标轴、曲线、公式标签与请求相关关键特征；目标时长由显式有限 timeline 分配，不使用长 terminal wait。
+
+### 真实 DeepSeek 教学与 Docker
+
+- 两个 held-out 教学请求：真实 DeepSeek ContentPlan、确定性编译、真实 Docker；2/2 首次及最终渲染成功，数学 5/5、视觉 4/5，attempt=1。
+- 8 个恶意/越界表达式全部在编译或安全门禁前阻断；未进入自由 Python Provider。
+- 初始证据：`/tmp/rc1-teaching-deterministic-report-14.jsonl`、`/tmp/rc1-teaching-deterministic-attacks-14.jsonl`；最终候选复测输出到 `*-final.jsonl`。
+
+### 教学 production 浏览器长文本质量修复
+
+- 圆面积扇形重排 held-out 首轮 Preview 渲染完成，但 QualityReport `failed/67`，`object_out_of_bounds=35`，Artifact 按设计拒绝发布。
+- 按文本长度确定安全字号后，边缘接触降到 11；逐帧定位显示只有第 25 秒 `Indicate(reason)` 默认放大 20% 时触碰左右边界各 6 像素。
+- 最终修复：保留正文可读字号，将确定性高亮限制为 `scale_factor=1.05`；不修改质量阈值。
+- production 浏览器最终结果：ContentPlan、compiled_ir CodeVersion、Preview/Final、视频播放、质量诊断、下载、刷新恢复全部通过。
+- Preview：30.4 秒、456 帧、15 fps、92/100；Final：30.0 秒、60 fps、92/100；下载 MP4 1,412,898 bytes，可识别为 ISO MP4。
+- 仅保留非阻断 `object_overlap` warning；UI 明确显示“已降级交付”，没有隐藏诊断。
+- 证据：`/tmp/manim-rc1-final/teaching/evidence/browser-teaching.json`、`.png`、下载 MP4。
+
+### 科研 Fourier 与浏览器质量修复
+
+- 真实 Provider 曾把用户显式的 `5、15、31` 个奇次谐波缩小为 `n_max=5`；服务端后校验现强制保留最大显式项数，1–63 之外返回确认。
+- 原 Gibbs zoom `scale(0.32)` 造成裁切，且静态尾段被质量器拒绝；现使用安全视图并增加由 tracker 驱动的连续逼近进度。
+- 独立真实 Preview：30.4 秒、456 帧、无 diagnostics。
+- production 浏览器：Preview/Final 均 succeeded/100，视频存在、下载成功、刷新恢复成功；`failed_responses=[]`。
+- Web 只在 Job 终态后加载 QualityReport，消除 queued/running 阶段无意义的 404 轮询。
+- 证据：`/tmp/manim-rc1-final/evidence/browser.json`、`browser-final.png`、`browser-final.mp4`。
+
+### 最终真实 Provider 与安全停止
+
+- 科研 held-out 共 6 个：Lorenz、Fourier、两个新 CSV、缺失 CSV、未知论文。
+- 模型为 `deepseek-v4-flash`；记录 prompt template hash、tokens、assumptions、工具 op、AssetVersion/tool output hash、IR hash、repair count、critic score 与最终状态，未记录 API key。
+- Lorenz/Fourier 为 `ready`，分别选择 `lorenz_ensemble`/`fourier_square_wave`；两个 CSV 只使用真实上传内容并选择 `csv_anomaly`。
+- 缺失 CSV 为 `asset_required`；未知论文为 `needs_confirmation + asset_required`；production API 项目中 CodeVersion=0、RenderJob=0、QualityReport=0。
+- 证据：`/tmp/rc1-scientific-provider-heldout.json`、`/tmp/manim-rc1-final/safety/evidence/safety.json`。
+
+### Web production build 配置发现
+
+- 新产品标题为“科学与技术动画工作台”，教学入口不再标为旧路径；工作台同时说明 ContentPlan 与 IntentSpec 两条内部路径。
+- 第一次重建漏传 `MANIM_WORKBENCH_API_URL`，Next.js build-time rewrite 固化到默认 8000，浏览器会话 API 连接拒绝；保留为失败证据。
+- 以 `MANIM_WORKBENCH_API_URL=http://127.0.0.1:8012` 重新 build 后通过。该变量必须在 build 阶段提供，不能只在 `next start` 时提供。
+- Web lint、typecheck、production build 均退出 `0`；Google Fonts 构建依赖未恢复。
+
+### pytest 候选检查
+
+- 当前收集 `613` 项。
+- 首次预提交全量：`612 passed, 1 failed in 74.10s`；唯一失败是 Phase 8 黑盒仍断言自由 Python code provider 调用一次。
+- 修正该过时架构断言：默认教学必须 `code_provider.calls == 0`、`generation_mode=compiled_ir`、`provider_model=null`；注入恶意 `open()` 的 Provider 不被调用，生成源码不含 `open(`。
+- 聚焦复测：`1 passed in 1.87s`；没有删除、skip、xfail 或降低业务断言。
+- 工具沙箱内的 TestClient 聚焦运行曾停在 `TestClient.__enter__`；faulthandler 证明是本地 socketpair 被网络隔离阻止。正常本机环境同组 `25 passed in 1.27s`，不作为产品挂起缺陷。
+- 最终同 commit 两轮完整结果写入 `/tmp/manim-pytest-final-{1,2}.log`。
+
+### 最终静态、契约和 migration
+
+- `uv run ruff check .`：pass。
+- 本次触碰 Python 文件 `ruff format --check`：pass；未批量格式化历史文件。
+- `scripts/generate_contracts.py --check`：pass，schema 1.10，无漂移。
+- `git diff --check`：pass。
+- 空 SQLite `/tmp/manim-rc1-migration.PL6aIG/empty.db` 从 0001 升级到 `0008_asset_versions (head)`：pass。
+- Python 3.10.20、Node 22.23.1、npm 10.9.8、Docker 29.1.3、Chromium 151.0.7922.34。
+
+### 发布边界
+
+- 最终候选 SHA 与清理结果写入 `/tmp/manim-rc1-final/evidence/final-candidate.txt`。
+- 不创建 tag；`v0.1.0-rc1` 仍需用户单独确认。
+- Phase 10 与外部用户试用已取消，不执行、不恢复。

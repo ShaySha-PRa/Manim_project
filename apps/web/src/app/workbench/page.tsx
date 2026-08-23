@@ -33,8 +33,8 @@ export default function WorkbenchPage() {
       <header className={styles.header}>
         <div>
           <p className={styles.eyebrow}>ANIMATION AGENT</p>
-          <h1>科研动画工作台</h1>
-          <p className={styles.scriptLine}>one sentence, compiled</p>
+          <h1>科学与技术动画工作台</h1>
+          <p className={styles.scriptLine}>one sentence, computed &amp; compiled</p>
         </div>
       </header>
       {model.busy && <p className={styles.progress} aria-live="polite">正在处理请求，请勿关闭此页面…</p>}
@@ -44,7 +44,7 @@ export default function WorkbenchPage() {
         <ContentPlanEditor model={model} />
         <RenderPanel model={model} />
       </div>
-      <p className={styles.ribbon}>Intent · Tools · AnimationIR · Compiler</p>
+      <p className={styles.ribbon}>ContentPlan · IntentSpec · Tools · Compiler · Sandbox</p>
     </main>
   );
 }

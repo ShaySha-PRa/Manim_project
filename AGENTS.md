@@ -6,9 +6,16 @@
 
 ## Generation paths
 
-There are two product paths. Do not describe them as one live LLM Agent.
+The product goal is an LLM-driven scientific and technical animation system: natural-language
+input is converted into constrained semantic plans, allowlisted computation, deterministic
+animation programs, sandboxed renders, and downloadable video. There are two bounded internal
+paths; do not describe them as one unrestricted live LLM Agent.
 
-1. Teaching: Prompt → ContentPlan → CodeVersion. The model may emit Manim Scene Python that still must pass the AST/API allowlist and Docker render sandbox.
+1. Teaching: Prompt → ContentPlan → SceneStoryboard → deterministic compiler → CodeVersion. The
+   model fills constrained plan data; the default product path must not accept free Manim Scene
+   Python. Formula and function expressions use the bounded expression compiler. Unsupported
+   expressions, or geometry/3D plans without a validated Storyboard, fail closed instead of
+   publishing a text-only placeholder video.
 2. Animation Agent V2: one sentence → `IntentSpec` → allowlisted tools → AnimationIR 2.0 → deterministic compiler (`apps/api/.../compiler/manim.py`) → the same render sandbox. The model must not emit free Scene Python, lambdas, or live `np.exp` in the Scene.
 
 The current one-sentence Intent resolver prefers an LLM that may only fill `IntentSpec` JSON (`fill_intent_from_provider`). Invalid JSON, fenced output, and Manim Python are rejected. Without `DEEPSEEK_API_KEY`, `resolve_intent` falls back to the keyword catalog in `resolve_intent_catalog`. CSV without a body returns `asset_required`. Paper/PDF reproduction runs `ode_compare` only when extracted text matches the closed Lotka–Volterra catalog with explicit coefficients; otherwise the run stays at `needs_confirmation` and does not invent equations. Spec source of truth: `docs/research/animation-agent-v2.md`.

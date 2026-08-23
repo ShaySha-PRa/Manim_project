@@ -24,23 +24,23 @@ export function AuthShell({
           <p className="auth-aside__index">01 / 安全入口</p>
           <div>
             <p className="eyebrow">ANIMATION AGENT</p>
-            <h1>让一句话，成为可审阅的科学动画。</h1>
+            <h1>让一句话，成为可审阅的科学与技术动画。</h1>
             <p>
-              从教学意图到预览与终渲，每一步都保留版本、状态和可追溯的渲染产物。
+              从自然语言理解、必要计算和动画设计，到预览与终渲，每一步都保留版本、状态和可追溯产物。
             </p>
           </div>
           <dl className="auth-aside__facts">
             <div>
               <dt>输入</dt>
-              <dd>教学 Prompt</dd>
+              <dd>自然语言 Prompt</dd>
             </div>
             <div>
               <dt>过程</dt>
-              <dd>内容计划与代码审阅</dd>
+              <dd>理解、计算与动画设计</dd>
             </div>
             <div>
               <dt>输出</dt>
-              <dd>隔离渲染的数学动画</dd>
+              <dd>隔离渲染的视频产物</dd>
             </div>
           </dl>
         </aside>
