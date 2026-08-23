@@ -3,14 +3,23 @@ from pathlib import Path
 import numpy as np
 import pytest
 from manim_workbench_api.agent.orchestrator import run_agent
+from manim_workbench_api.agent.scientific_planner import plan_tools
+from manim_workbench_api.agent.service import AgentService
 from manim_workbench_api.assets.scientific import (
     AssetIngestError,
     ingest_csv_text,
     inspect_numpy_file,
 )
 from manim_workbench_api.tools.registry import invoke
-from manim_workbench_contracts import AssetDType, AssetMime, AssetSource
-from manim_workbench_contracts.intent import AgentRunOutcome
+from manim_workbench_contracts import (
+    AssetDType,
+    AssetMime,
+    AssetSource,
+    IntentSpec,
+    ToolNeed,
+    ToolOp,
+)
+from manim_workbench_contracts.intent import AgentRunOutcome, IntentDomain
 
 
 def _csv() -> str:
@@ -86,6 +95,19 @@ def test_csv_tool_run_links_output_to_upload_hash(tmp_path: Path) -> None:
     assert run.asset_version.sha256 == run.output_sha256
 
 
+def test_csv_tool_accepts_timestamp_without_rewriting_asset_provenance(tmp_path: Path) -> None:
+    text = "timestamp,temperature,pressure\n0,21.0,101.2\n1,21.1,101.1\n2,28.9,98.4\n"
+    run = invoke("csv_anomaly", {}, input_text=text, output_root=tmp_path)
+    assert run.input_asset_version is not None
+    assert run.input_asset_version.columns == ("timestamp", "temperature", "pressure")
+    assert run.assertions["data_fidelity"] is True
+    assert run.assertions["anomaly_center"] == 2.0
+    assert run.assertions["anomaly_count"] == 1
+    with np.load(run.artifact_path, allow_pickle=False) as payload:
+        assert payload["t"].tolist() == [0.0, 1.0, 2.0]
+        assert payload["temperature"].tolist() == pytest.approx([21.0, 21.1, 28.9])
+
+
 def test_agent_rejects_csv_without_numeric_schema(tmp_path: Path) -> None:
     result = run_agent(
         "把这段 CSV 的温度异常高亮出来",
@@ -95,3 +117,35 @@ def test_agent_rejects_csv_without_numeric_schema(tmp_path: Path) -> None:
     assert result.outcome == AgentRunOutcome.FAILED
     assert result.error_code == "asset_invalid"
     assert result.tool_runs == ()
+
+
+def test_agent_service_uses_configured_compute_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MANIM_WORKBENCH_COMPUTE_ROOT", str(tmp_path))
+    service = AgentService(None, None, None)  # type: ignore[arg-type]
+    assert service._compute_root == tmp_path
+
+
+def test_csv_planner_does_not_inject_benchmark_specific_center() -> None:
+    intent = IntentSpec(
+        schema_version="1.0",
+        domain=IntentDomain.DATA_ANALYSIS,
+        goal="Highlight anomalies in the uploaded data",
+        assumptions=(),
+        dimension="2d",
+        tools_needed=(ToolNeed(op=ToolOp.CSV_ANOMALY, params={}),),
+        asset_required=False,
+        needs_confirmation=False,
+    )
+
+    planned = plan_tools(intent)
+
+    assert planned[0].params == {}
+
+
+def test_csv_explicit_center_uses_dataset_scale_without_inventing_interval(tmp_path: Path) -> None:
+    run = invoke("csv_anomaly", {"center": 2.0}, input_text=_csv(), output_root=tmp_path)
+
+    assert run.assertions["anomaly_center"] == 2.0
+    assert run.assertions["anomaly_count"] == 1

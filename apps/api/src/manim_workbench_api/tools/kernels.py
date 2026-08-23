@@ -97,9 +97,7 @@ def wave2d_superposition(params: Mapping[str, Any], _input_text: str | None) -> 
             "superposition_residual": float(residual),
             "frame_count": int(nt),
             "collision_in_window": bool(t_min < t_collide < t_max),
-            "pass_through": bool(
-                x_left + speed * t_max > 0.5 and x_right - speed * t_max < -0.5
-            ),
+            "pass_through": bool(x_left + speed * t_max > 0.5 and x_right - speed * t_max < -0.5),
         },
     )
 
@@ -277,20 +275,30 @@ def csv_anomaly(params: Mapping[str, Any], input_text: str | None) -> KernelResu
     if not input_text or not input_text.strip():
         raise ValueError("csv_anomaly requires csv_text")
     frame = pd.read_csv(io.StringIO(input_text))
-    required = ("time", "temperature", "pressure")
+    time_column = "time" if "time" in frame.columns else "timestamp"
+    required = ("temperature", "pressure")
     missing = [name for name in required if name not in frame.columns]
+    if "time" not in frame.columns and "timestamp" not in frame.columns:
+        missing.insert(0, "time|timestamp")
     if missing:
         raise ValueError(f"csv missing columns: {missing}")
     if len(frame) > 5_000:
         raise ValueError("csv exceeds row limit")
-    time = frame["time"].to_numpy(dtype=np.float64)
+    time = frame[time_column].to_numpy(dtype=np.float64)
     temperature = frame["temperature"].to_numpy(dtype=np.float64)
     pressure = frame["pressure"].to_numpy(dtype=np.float64)
-    center = _as_float(params, "center", 350.0)
-    width = _as_float(params, "width", 20.0)
+    temperature_delta = np.abs(temperature - np.median(temperature))
+    center = _as_float(params, "center", float(time[int(np.argmax(temperature_delta))]))
+    if "width" in params:
+        width = _as_float(params, "width", 20.0)
+    else:
+        ordered = np.unique(np.sort(time))
+        steps = np.diff(ordered)
+        positive_steps = steps[steps > 0]
+        width = float(np.median(positive_steps) * 0.49) if positive_steps.size else 0.0
     mask = np.abs(time - center) <= width
     if not np.any(mask):
-        peak = int(np.argmax(np.abs(temperature - np.median(temperature))))
+        peak = int(np.argmax(temperature_delta))
         center = float(time[peak])
         mask = np.abs(time - center) <= width
     return KernelResult(
@@ -326,9 +334,7 @@ def frenet_frame(params: Mapping[str, Any], _input_text: str | None) -> KernelRe
     dots_tn = np.abs(np.sum(tangent * normal, axis=1))
     dots_tb = np.abs(np.sum(tangent * binormal, axis=1))
     dots_nb = np.abs(np.sum(normal * binormal, axis=1))
-    orthonormal = bool(
-        np.max(dots_tn) < 0.05 and np.max(dots_tb) < 0.05 and np.max(dots_nb) < 0.05
-    )
+    orthonormal = bool(np.max(dots_tn) < 0.05 and np.max(dots_tb) < 0.05 and np.max(dots_nb) < 0.05)
     return KernelResult(
         arrays={
             "curve": helix.astype(np.float32),

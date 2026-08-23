@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from manim_workbench_contracts import (
@@ -42,7 +43,9 @@ class AgentService:
         self._projects = projects
         self._content_plans = content_plans
         self._code_versions = code_versions
-        self._compute_root = compute_root or Path("runtime/compute-artifacts")
+        self._compute_root = compute_root or Path(
+            os.environ.get("MANIM_WORKBENCH_COMPUTE_ROOT", "runtime/compute-artifacts")
+        )
 
     def run(self, request: AgentRunRequest) -> AgentRunResponse:
         self._projects.get_project(request.project_id, request.owner_id)

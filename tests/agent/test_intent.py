@@ -6,7 +6,13 @@ from manim_workbench_api.agent.intent_resolver import (
 )
 from manim_workbench_api.agent.orchestrator import run_agent
 from manim_workbench_api.content_plans.models import ProviderMessage, ProviderResult
-from manim_workbench_contracts.intent import AgentRunOutcome, IntentDomain, IntentSpec, ToolOp
+from manim_workbench_contracts.intent import (
+    AgentRunOutcome,
+    IntentDomain,
+    IntentSpec,
+    ToolNeed,
+    ToolOp,
+)
 
 
 class _FakeIntentProvider:
@@ -32,6 +38,32 @@ def test_csv_without_asset_is_required() -> None:
     result = run_agent("从上传 CSV 展示 temperature 异常")
     assert result.outcome is AgentRunOutcome.ASSET_REQUIRED
     assert result.error_code == "asset_required"
+
+
+def test_llm_csv_params_are_derived_from_explicit_prompt_time_only() -> None:
+    base = IntentSpec(
+        domain=IntentDomain.DATA_ANALYSIS,
+        goal="show anomaly",
+        tools_needed=(ToolNeed(op=ToolOp.CSV_ANOMALY, params={"center": 0}),),
+    ).model_dump_json()
+    without_time = fill_intent_from_provider(
+        _FakeIntentProvider(base),
+        "展示 timestamp、temperature、pressure 并自动突出异常",
+        csv_text="timestamp,temperature,pressure\n0,1,2\n",
+    )
+    assert without_time.tools_needed[0].params == {}
+    with_time = fill_intent_from_provider(
+        _FakeIntentProvider(base),
+        "突出 350 秒附近异常",
+        csv_text="time,temperature,pressure\n350,1,2\n",
+    )
+    assert with_time.tools_needed[0].params == {"center": 350.0}
+    with_time_assignment = fill_intent_from_provider(
+        _FakeIntentProvider(base),
+        "标记 time=2 的异常点",
+        csv_text="time,temperature,pressure\n2,1,2\n",
+    )
+    assert with_time_assignment.tools_needed[0].params == {"center": 2.0}
 
 
 def test_unknown_prompt_needs_confirmation() -> None:
@@ -79,9 +111,7 @@ def test_llm_provider_fills_intent_spec_only() -> None:
         tools_needed=(),
     ).model_dump_json()
     provider = _FakeIntentProvider(payload)
-    intent = fill_intent_from_provider(
-        provider, "展示傅里叶级数逐渐逼近方波，并放大 Gibbs 现象"
-    )
+    intent = fill_intent_from_provider(provider, "展示傅里叶级数逐渐逼近方波，并放大 Gibbs 现象")
     assert intent.domain is IntentDomain.MATH_SIGNAL
     assert provider.messages is not None
     assert provider.messages[0].content == INTENT_SYSTEM_PROMPT
@@ -92,6 +122,19 @@ def test_llm_provider_fills_intent_spec_only() -> None:
     )
     assert result.intent is not None
     assert result.intent.domain is IntentDomain.MATH_SIGNAL
+
+
+def test_intent_prompt_spells_out_the_strict_json_shape() -> None:
+    assert 'schema_version must be the JSON string "1.0", not a number' in INTENT_SYSTEM_PROMPT
+    assert "tools_needed must be an array of objects shaped exactly as" in INTENT_SYSTEM_PROMPT
+    assert "never return tool names as bare strings" in INTENT_SYSTEM_PROMPT
+    assert "evaluate expressions such as 8/3" in INTENT_SYSTEM_PROMPT
+    assert "never add a top-level parameters field" in INTENT_SYSTEM_PROMPT
+    assert "lorenz_ensemble allows only delta" in INTENT_SYSTEM_PROMPT
+    assert "Never return arrays, objects, initial_conditions" in INTENT_SYSTEM_PROMPT
+    assert "include center only when the user explicitly supplies a numeric time" in (
+        INTENT_SYSTEM_PROMPT
+    )
 
 
 def test_invalid_llm_json_needs_confirmation() -> None:

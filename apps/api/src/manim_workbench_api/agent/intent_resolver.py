@@ -19,6 +19,13 @@ _FOURIER = re.compile(r"傅里叶|傅立叶|gibbs|方波|fourier", re.I)
 _LORENZ = re.compile(r"lorenz|洛伦兹", re.I)
 _PID = re.compile(r"\bpid\b|阶跃响应|超调", re.I)
 _CSV = re.compile(r"csv|异常|temperature|pressure|时序", re.I)
+_CSV_CENTER = re.compile(
+    r"(?:"
+    r"(?:time|timestamp|t|时间)\s*=\s*(\d+(?:\.\d+)?)"
+    r"|(?:near|around|at|附近|接近|位于)?\s*(\d+(?:\.\d+)?)\s*(?:s|sec|seconds?|秒)"
+    r")",
+    re.I,
+)
 _FRENET = re.compile(r"frenet|切向量|法向量|副法|螺旋|helix|tnb", re.I)
 _PAPER = re.compile(
     r"论文|\.pdf\b|paper model|paper ode|scientific reproduction|"
@@ -30,6 +37,25 @@ INTENT_SYSTEM_PROMPT = (
     "You fill IntentSpec JSON for an Animation Agent. "
     "Return a single JSON object. Do not use markdown fences. "
     "Do not write Manim, Python, lambdas, or NumPy. "
+    "Return exactly these fields and no others: schema_version, domain, goal, assumptions, "
+    "tools_needed, output_duration_seconds, dimension, needs_confirmation, asset_required, "
+    'asset_kind, category_hint. schema_version must be the JSON string "1.0", not a number. '
+    "assumptions must be an array of strings. tools_needed must be an array of objects shaped "
+    'exactly as {"op":"allowed_tool_name","params":{}}; never return tool names as '
+    "bare strings and never add a top-level parameters field. Every numeric parameter must be "
+    "a finite JSON number; evaluate expressions such as 8/3 before returning JSON. "
+    "Tool params are a closed scalar-only contract: wave2d_superposition allows only c and k; "
+    "fourier_square_wave allows only n_max; lorenz_ensemble allows only delta; "
+    "pid_step_response allows no params; csv_anomaly allows only center; frenet_frame allows no "
+    "params. Never return arrays, objects, initial_conditions, duration, dt, sigma, rho, or beta "
+    "inside params. ode_compare params are supplied only after the server matches its closed "
+    "paper catalog; do not invent them. "
+    "For csv_anomaly, include center only when the user explicitly supplies a numeric time; "
+    "otherwise return empty params so the deterministic kernel detects the anomaly. "
+    'output_duration_seconds must be a number, dimension must be "2d" or "3d", '
+    "needs_confirmation and asset_required must be booleans, and asset_kind must be a string "
+    "or null. category_hint must be one of formula_derivation, function_visualization, "
+    "plane_geometry, geometry_proof, three_d, or mixed. "
     "Allowed domains: physics.wave, math.signal, dynamical_systems, "
     "control, data_analysis, geometry.diff3d, scientific_reproduction, teaching. "
     "Allowed tools: wave2d_superposition, fourier_square_wave, lorenz_ensemble, "
@@ -41,7 +67,8 @@ INTENT_SYSTEM_PROMPT = (
     "If PAPER_MATCHED=true and CSV_PRESENT=true, use ode_compare and "
     "needs_confirmation false. "
     "If the prompt needs CSV and none is provided, set asset_required true "
-    "and asset_kind csv. schema_version must be 1.0."
+    "and asset_kind csv, set needs_confirmation false, and do not request a tool run. "
+    "schema_version must be 1.0."
 )
 
 
@@ -85,6 +112,7 @@ def fill_intent_from_provider(
     )
     return _post_validate(
         intent_from_llm_json(result.content),
+        prompt=prompt,
         csv_text=csv_text,
         paper_text=paper_text,
     )
@@ -246,13 +274,30 @@ def _paper_intent(
 def _post_validate(
     spec: IntentSpec,
     *,
+    prompt: str,
     csv_text: str | None,
     paper_text: str | None,
 ) -> IntentSpec:
     if spec.domain is IntentDomain.SCIENTIFIC_REPRODUCTION:
         return _paper_intent(spec.goal, csv_text=csv_text, paper_text=paper_text)
     if spec.domain is IntentDomain.DATA_ANALYSIS and not (csv_text and csv_text.strip()):
-        return spec.model_copy(update={"asset_required": True, "asset_kind": "csv"})
+        return spec.model_copy(
+            update={
+                "tools_needed": (),
+                "needs_confirmation": False,
+                "asset_required": True,
+                "asset_kind": "csv",
+            }
+        )
+    if spec.domain is IntentDomain.DATA_ANALYSIS:
+        match = _CSV_CENTER.search(prompt)
+        center = (
+            next((group for group in match.groups() if group is not None), None) if match else None
+        )
+        params = {"center": float(center)} if center is not None else {}
+        return spec.model_copy(
+            update={"tools_needed": (ToolNeed(op=ToolOp.CSV_ANOMALY, params=params),)}
+        )
     if spec.domain is IntentDomain.TEACHING and not spec.tools_needed:
         return spec.model_copy(update={"needs_confirmation": True})
     return spec
