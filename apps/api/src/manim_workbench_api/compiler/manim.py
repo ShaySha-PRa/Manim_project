@@ -50,6 +50,7 @@ _IMPORT_ORDER = (
     "ThreeDAxes",
     "Line",
     "DashedLine",
+    "VMobject",
     "VGroup",
     "Dot",
     "Arrow",
@@ -129,9 +130,7 @@ def compile_animation_ir(
 ) -> CompiledProgram:
     hint = backend or ir.scene.renderer_hint
     if backend and backend != ir.scene.renderer_hint:
-        ir = ir.model_copy(
-            update={"scene": ir.scene.model_copy(update={"renderer_hint": backend})}
-        )
+        ir = ir.model_copy(update={"scene": ir.scene.model_copy(update={"renderer_hint": backend})})
     cache_key = _compile_cache_key(ir, tool_runs, hint)
     if cache_root is not None:
         cached = _read_compile_cache(cache_root, cache_key)
@@ -221,9 +220,7 @@ def _compile_animation_ir(
     if "lambda" in source:
         raise UnsupportedFeature("compiler emitted lambda")
     kind = (
-        VisualKind.THREE_D
-        if scene_base in {"ThreeDScene", "Web3DScene"}
-        else VisualKind.FUNCTION
+        VisualKind.THREE_D if scene_base in {"ThreeDScene", "Web3DScene"} else VisualKind.FUNCTION
     )
     return CompiledProgram(
         segments=(
@@ -262,6 +259,8 @@ class ManimEmitContext:
     _axes_var: str | None = None
     _always_add: list[str] = field(default_factory=list)
     _consumed_series: set[str] = field(default_factory=set)
+    _progressive_series: dict[str, list[tuple[str, str, str, str]]] = field(default_factory=dict)
+    _progressive_fraction: dict[str, float] = field(default_factory=dict)
     duration_seconds: float = 0.0
 
     def __post_init__(self) -> None:
@@ -298,7 +297,9 @@ class ManimEmitContext:
         var = f"tracker_{state.id}"
         self._trackers[state.id] = var
         initial = 0 if state.type is StateType.INTEGER else state.initial
-        self._state_lines.append(f"{var} = ValueTracker({int(initial) if float(initial).is_integer() else initial})")
+        self._state_lines.append(
+            f"{var} = ValueTracker({int(initial) if float(initial).is_integer() else initial})"
+        )
 
     def emit_object(self, obj: AnimObject) -> None:
         handler = _OBJECT_HANDLERS.get(obj.type)
@@ -380,12 +381,16 @@ class ManimEmitContext:
                 continue
             elif op.op is CameraOpKind.ZOOM:
                 if self.scene_base != "MovingCameraScene":
-                    if any(item.strategy is FallbackStrategy.FIXED_CAMERA for item in self.ir.fallbacks):
+                    if any(
+                        item.strategy is FallbackStrategy.FIXED_CAMERA for item in self.ir.fallbacks
+                    ):
                         continue
                     raise UnsupportedFeature("zoom requires MovingCameraScene")
                 self._emit_zoom(op)
             elif op.op is CameraOpKind.FOLLOW:
-                if any(item.strategy is FallbackStrategy.FIXED_CAMERA for item in self.ir.fallbacks):
+                if any(
+                    item.strategy is FallbackStrategy.FIXED_CAMERA for item in self.ir.fallbacks
+                ):
                     continue
                 raise UnsupportedFeature("camera follow is not lowered")
             else:
@@ -448,18 +453,14 @@ class ManimEmitContext:
     def _ensure_polyline(self) -> None:
         if self._polyline_emitted:
             return
-        self._use("Line", "VGroup")
+        self._use("VMobject")
         self._object_lines.extend(
             [
                 "def polyline(xs, ys, color):",
-                "    pieces = []",
-                "    previous = None",
-                "    for index in range(len(xs)):",
-                "        point = axes.c2p(float(xs[index]), float(ys[index]))",
-                "        if previous is not None:",
-                "            pieces.append(Line(previous, point, color=color))",
-                "        previous = point",
-                "    return VGroup(*pieces)",
+                "    graph = VMobject(color=color)",
+                "    points = [axes.c2p(float(xs[index]), float(ys[index])) for index in range(len(xs))]",
+                "    graph.set_points_as_corners(points)",
+                "    return graph",
             ]
         )
         self._polyline_emitted = True
@@ -517,7 +518,8 @@ class ManimEmitContext:
         self._use("ThreeDAxes")
         self._axes_var = "axes"
         self._object_lines.append(
-            "axes = ThreeDAxes(x_range=[-24, 24, 8], y_range=[-24, 24, 8], z_range=[0, 48, 8], x_length=6, y_length=6, z_length=4)"
+            "axes = ThreeDAxes(x_range=[-24, 24, 8], y_range=[-24, 24, 8], "
+            "z_range=[0, 48, 8], x_length=5.2, y_length=5.2, z_length=3.2)"
         )
         self._always_add.append("axes")
 
@@ -553,12 +555,47 @@ class ManimEmitContext:
                 state_id = self.ir.states[0].id
         if state_id is None or state_id not in self._trackers:
             raise UnsupportedFeature("timeline is missing a state tracker")
+        progressive = self._progressive_series.get(state_id)
+        if progressive:
+            self._play_progressive_series(state_id, progressive, op)
+            return
         end_expr = self._state_end.get(state_id, "1")
+        if op.to is not None and op.to != 1.0:
+            end_expr = f"({end_expr}) * {op.to!r}"
         duration = op.duration
         self._timeline_lines.append(
             f"self.play({self._trackers[state_id]}.animate.set_value({end_expr}), run_time={duration}, rate_func=linear)"
         )
         self.duration_seconds += duration
+
+    def _play_progressive_series(
+        self,
+        state_id: str,
+        series: list[tuple[str, str, str, str]],
+        op: TimelineOp,
+    ) -> None:
+        self._use("Create")
+        start = self._progressive_fraction.get(state_id, 0.0)
+        end = op.to if op.to is not None else 1.0
+        if not start < end <= 1.0:
+            raise UnsupportedFeature("progressive series timeline must advance monotonically")
+        animations: list[str] = []
+        chunk = len(self._timeline_lines)
+        for object_id, ts, values, color in series:
+            part = f"{object_id}_part_{chunk}"
+            self._timeline_lines.extend(
+                [
+                    f"{part}_start = int((len({ts}) - 1) * {start!r})",
+                    f"{part}_end = int((len({ts}) - 1) * {end!r}) + 1",
+                    f"{part} = polyline({ts}[{part}_start:{part}_end], {values}[{part}_start:{part}_end], {color})",
+                ]
+            )
+            animations.append(f"Create({part})")
+        self._timeline_lines.append(
+            f"self.play({', '.join(animations)}, run_time={op.duration}, rate_func=linear)"
+        )
+        self._progressive_fraction[state_id] = end
+        self.duration_seconds += op.duration
 
     def _use_camera_rotation(self, op: AnimCameraOp) -> None:
         rate = op.rate if op.rate is not None else 0.08
@@ -649,7 +686,9 @@ class ManimEmitContext:
         self._state_end[self.ir.states[0].id] = "len(ts) - 1"
         if tracker in {line.split(" = ", 1)[0] for line in self._state_lines}:
             self._state_lines[:] = [
-                line.replace("ValueTracker(0)", "ValueTracker(2)") if line.startswith(tracker) else line
+                line.replace("ValueTracker(0)", "ValueTracker(2)")
+                if line.startswith(tracker)
+                else line
                 for line in self._state_lines
             ]
         curve_vars: list[str] = []
@@ -691,6 +730,8 @@ class ManimEmitContext:
     def _timeseries(self, obj: AnimObject) -> None:
         if obj.data_ref is None:
             raise UnsupportedFeature("timeseries requires data_ref")
+        if obj.id in self._bound_objects:
+            return
         self._ensure_2d_axes(obj.data_ref)
         self._unpack(obj.data_ref, "t", "ts")
         self._ensure_polyline()
@@ -707,6 +748,24 @@ class ManimEmitContext:
             )
             return
         raise UnsupportedFeature(f"timeseries {obj.id} is not lowered")
+
+    def _bind_timeseries(self, obj: AnimObject, data_id: str, state_id: str) -> None:
+        self._ensure_2d_axes(data_id)
+        ts = self._unpack(data_id, "t", "ts")
+        values_key = "temperature" if obj.id in {"temp", "temperature"} else obj.id
+        if values_key not in self._data[data_id].keys:
+            raise UnsupportedFeature(f"timeseries {obj.id} has no array to lower")
+        values = (
+            "pressure_plot"
+            if values_key == "pressure" and "temperature" in self._data[data_id].keys
+            else self._unpack(data_id, values_key)
+        )
+        self._ensure_polyline()
+        self._use("VGroup")
+        color = self._color(obj, "RED" if values_key == "temperature" else "BLUE")
+        self._object_vars[obj.id] = obj.id
+        self._binding_lines.append(f"{obj.id} = VGroup()")
+        self._progressive_series.setdefault(state_id, []).append((obj.id, ts, values, color))
 
     def _region(self, obj: AnimObject) -> None:
         if obj.data_ref is None:
@@ -834,14 +893,17 @@ class ManimEmitContext:
         self._state_end[state_id] = f"len({paths}[0]) - 1"
         if any(line.startswith(tracker) for line in self._state_lines):
             self._state_lines[:] = [
-                line.replace("ValueTracker(0)", "ValueTracker(1)") if line.startswith(tracker) else line
+                line.replace("ValueTracker(0)", "ValueTracker(1)")
+                if line.startswith(tracker)
+                else line
                 for line in self._state_lines
             ]
         colors = ("BLUE", "RED", "GREEN", "YELLOW", "ORANGE")
         self._binding_lines.extend(
             [
                 "def scaled(point):",
-                "    return [float(point[0]) * 0.12, float(point[1]) * 0.12, float(point[2]) * 0.12 - 1.5]",
+                "    return [float(point[0]) * 0.09, float(point[1]) * 0.09, "
+                "float(point[2]) * 0.09 - 1.6]",
             ]
         )
         trace_vars: list[str] = []
@@ -924,5 +986,6 @@ _BINDING_HANDLERS = {
     ObjectType.SCALAR_FIELD: ManimEmitContext._bind_scalar_field,
     ObjectType.GRAPH: ManimEmitContext._bind_graph,
     ObjectType.TRAJECTORY_SET: ManimEmitContext._bind_trajectory_set,
+    ObjectType.TIMESERIES: ManimEmitContext._bind_timeseries,
     ObjectType.ARROW_FRAME: ManimEmitContext._bind_arrow_frame,
 }

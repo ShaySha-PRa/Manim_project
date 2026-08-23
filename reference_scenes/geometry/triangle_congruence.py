@@ -1,4 +1,4 @@
-from manim import UP, Circle, Create, FadeIn, Polygon, Scene, Text, VGroup, WHITE, YELLOW
+from manim import UP, WHITE, YELLOW, Circle, Create, FadeIn, Polygon, Scene, Text, VGroup
 
 
 class TriangleCongruenceScene(Scene):

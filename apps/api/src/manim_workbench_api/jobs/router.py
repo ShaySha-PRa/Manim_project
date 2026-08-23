@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from manim_workbench_contracts import (
     RenderJobCompletion,
+    RenderJobFailureCode,
     RenderJobFailureReport,
     RenderJobHeartbeat,
     RenderJobLease,
@@ -18,7 +19,10 @@ from manim_workbench_contracts import (
 from sqlalchemy import Engine
 
 from manim_workbench_api.delivery.dependencies import get_artifact_root
-from manim_workbench_api.quality.completion import record_completed_quality
+from manim_workbench_api.quality.completion import (
+    quality_schema_exists,
+    record_completed_quality,
+)
 
 from .dependencies import (
     JobSignalPublisher,
@@ -180,14 +184,23 @@ def complete_render_job(
     if error := _token_error(request_token, expected_token):
         return error
     try:
-        response = _service(engine, publisher).complete(job_id, completion)
-        record_completed_quality(
+        service = _service(engine, publisher)
+        quality_required = quality_schema_exists(engine)
+        report = record_completed_quality(
             engine=engine,
             artifact_root=get_artifact_root(),
             job_id=job_id,
             completion=completion,
         )
-        return response
+        if quality_required and (report is None or report.status.value == "failed"):
+            return service.fail(
+                job_id,
+                RenderJobFailureReport(
+                    lease_token=completion.lease_token,
+                    failure_code=RenderJobFailureCode.RENDER_FAILED,
+                ),
+            )
+        return service.complete(job_id, completion)
     except JobError as error:
         return error.response()
 

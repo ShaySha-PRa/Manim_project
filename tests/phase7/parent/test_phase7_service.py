@@ -31,10 +31,19 @@ from manim_workbench_contracts import (
 )
 
 VALID_SOURCE = (
-    "from manim import Scene\n\n"
+    "from manim import Scene, Text, Write\n\n"
     "class GeneratedScene(Scene):\n"
     "    def construct(self):\n"
-    "        self.wait(0.1)\n"
+    "        formula = Text('y=kx', font='Noto Sans CJK SC')\n"
+    "        self.play(Write(formula), run_time=60.0)\n"
+)
+
+SHORT_SOURCE = (
+    "from manim import Scene, Text, Write\n\n"
+    "class GeneratedScene(Scene):\n"
+    "    def construct(self):\n"
+    "        formula = Text('y=kx', font='Noto Sans CJK SC')\n"
+    "        self.play(Write(formula), run_time=4.0)\n"
 )
 
 
@@ -168,6 +177,25 @@ def test_success_is_persisted_only_after_security_preflight_and_sandbox() -> Non
     assert repository.failures == []
 
 
+def test_short_timeline_uses_bounded_repair_before_render_or_persistence() -> None:
+    plan = content_plan()
+    repository = FakeRepository(plan)
+    provider = FakeProvider([model_json(SHORT_SOURCE), model_json()])
+    renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
+
+    response = CodeGenerationService(repository, provider, renderer).generate(request_for(plan))
+
+    assert response.outcome is CodeGenerationOutcome.READY
+    assert response.attempts_used == 2
+    assert provider.calls == 2
+    assert renderer.calls == 1
+    assert len(repository.failures) == 1
+    assert repository.failures[0]["error_code"] is CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID
+    repair_prompt = provider.messages[1][1].content
+    assert "duration_too_short" in repair_prompt
+    assert "PREVIOUS_CANDIDATE_SOURCE" in repair_prompt
+
+
 def test_two_transient_provider_retries_do_not_consume_repair_budget() -> None:
     plan = content_plan()
     repository = FakeRepository(plan)
@@ -261,8 +289,9 @@ def test_missing_allowlisted_manim_import_is_completed_before_first_render() -> 
     plan = content_plan()
     repository = FakeRepository(plan)
     missing_up = (
-        "from manim import Scene, Text\nclass GeneratedScene(Scene):\n"
-        "    def construct(self):\n        title = Text('safe').to_edge(UP)\n"
+        "from manim import Scene, Text, Write\nclass GeneratedScene(Scene):\n"
+        "    def construct(self):\n        title = Text('y=kx').to_edge(UP)\n"
+        "        self.play(Write(title), run_time=60.0)\n"
     )
     provider = FakeProvider([model_json(missing_up)])
     renderer = FakeRenderer([CandidateRenderResult(succeeded=True)])
@@ -301,10 +330,7 @@ def test_three_render_failures_exhaust_budget_without_persisting() -> None:
     repository = FakeRepository(plan)
     provider = FakeProvider([model_json(), model_json(), model_json()])
     renderer = FakeRenderer(
-        [
-            CandidateRenderResult(False, "render_failed", "failure")
-            for _ in range(3)
-        ]
+        [CandidateRenderResult(False, "render_failed", "failure") for _ in range(3)]
     )
 
     with pytest.raises(CodeGenerationError) as caught:
@@ -319,9 +345,9 @@ def test_third_latex_failure_uses_validated_text_degradation() -> None:
     plan = content_plan()
     repository = FakeRepository(plan)
     latex_source = (
-        "from manim import MathTex, Scene\nclass GeneratedScene(Scene):\n"
-        "    def construct(self):\n        value = r'x^2=4'\n"
-        "        self.add(MathTex(value))\n"
+        "from manim import MathTex, Scene, Write\nclass GeneratedScene(Scene):\n"
+        "    def construct(self):\n        equation = MathTex(r'y=kx')\n"
+        "        self.play(Write(equation), run_time=60.0)\n"
     )
     provider = FakeProvider([model_json(latex_source) for _ in range(3)])
     renderer = FakeRenderer(

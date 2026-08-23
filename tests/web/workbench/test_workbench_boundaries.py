@@ -61,3 +61,16 @@ def test_workbench_one_sentence_agent_entry() -> None:
     assert "withCredentials: true" in source
     assert "lastEventId" in source
     assert "workbenchApi.getRenderJob" in source
+
+
+def test_web_build_uses_only_local_system_font_stacks() -> None:
+    layout = (WEB / "app/layout.tsx").read_text(encoding="utf-8")
+    styles = (WEB / "app/styles.css").read_text(encoding="utf-8")
+    source = _sources(WEB)
+
+    assert "next/font/google" not in source
+    assert "fonts.googleapis.com" not in source
+    assert "fonts.gstatic.com" not in source
+    for variable in ("--font-display", "--font-body", "--font-script", "--font-mono", "--font-cjk"):
+        assert variable in styles
+    assert "next/font" not in layout

@@ -49,7 +49,6 @@ from manim_workbench_runner.sandbox.executor import (
 _ASSET_REF = re.compile(r"/input/assets/([0-9a-f]{64})\.(npz|npy|png)")
 
 
-
 class JsonTransport(Protocol):
     def request(
         self,
@@ -184,7 +183,11 @@ class HttpJobLifecycle:
                 raise LeaseNotActiveError(code)
         _require_success(status, payload)
         cancellation_requested = payload.get("cancellation_requested_at") is not None
-        return JobControl(active=True, cancellation_requested=cancellation_requested)
+        return JobControl(
+            active=True,
+            cancellation_requested=cancellation_requested,
+            terminal_failed=payload.get("status") == "failed",
+        )
 
 
 def _error_code(payload: dict[str, object]) -> str | None:

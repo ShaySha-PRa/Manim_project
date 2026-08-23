@@ -10,10 +10,12 @@ from manim_workbench_contracts import (
     CodeGenerationRequest,
     CodeGenerationResponse,
     CodeModelResponse,
+    QualitySeverity,
 )
 
 from manim_workbench_api.content_plans.errors import ContentPlanError, ContentPlanErrorCode
 from manim_workbench_api.content_plans.models import ProviderMessage, ProviderResult
+from manim_workbench_api.quality.orchestration import diagnose_content_plan_timeline
 
 from .errors import CodeGenerationError
 from .ir_compiler import IrCompileError, compile_storyboard, synthesize_storyboard
@@ -187,15 +189,11 @@ class CodeGenerationService:
                     code = CodeGenerationErrorCode.STATIC_POLICY_REPAIRABLE
                     finding_diagnostics = tuple(
                         sorted(
-                            f"{finding.code}:{finding.symbol}"
-                            if finding.symbol
-                            else finding.code
+                            f"{finding.code}:{finding.symbol}" if finding.symbol else finding.code
                             for finding in security.findings
                         )
                     )
-                    diagnostic = "Static policy fixes required: " + ", ".join(
-                        finding_diagnostics
-                    )
+                    diagnostic = "Static policy fixes required: " + ", ".join(finding_diagnostics)
                     decision = self._record_and_decide(
                         request=request,
                         orchestrator=orchestrator,
@@ -240,9 +238,7 @@ class CodeGenerationService:
                     "Generated source did not satisfy the security policy.",
                     diagnostic_codes=tuple(
                         sorted(
-                            f"{finding.code}:{finding.symbol}"
-                            if finding.symbol
-                            else finding.code
+                            f"{finding.code}:{finding.symbol}" if finding.symbol else finding.code
                             for finding in security.findings
                         )
                     ),
@@ -268,6 +264,41 @@ class CodeGenerationService:
                     attempt_number = decision.attempt_number
                     continue
                 self._raise_decision(decision.error_code or preflight.diagnostic.error_code)
+
+            _temporal, quality_diagnostics = diagnose_content_plan_timeline(
+                source_code=candidate.code,
+                content_plan=plan,
+            )
+            blocking_quality = tuple(
+                item for item in quality_diagnostics if item.severity is QualitySeverity.ERROR
+            )
+            if blocking_quality:
+                codes = tuple(sorted({item.code.value for item in blocking_quality}))
+                diagnostic = "Timeline quality fixes required: " + ", ".join(codes)
+                decision = self._record_and_decide(
+                    request=request,
+                    orchestrator=orchestrator,
+                    attempt_number=attempt_number,
+                    code=CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
+                    diagnostic=diagnostic,
+                    provider_result=provider_result,
+                    candidate=candidate,
+                    candidate_sha256=security.source_sha256,
+                )
+                if decision.action is RepairAction.REPAIR:
+                    messages = _provider_messages(
+                        build_repair_messages(
+                            content_plan=plan.model_dump(mode="json"),
+                            decision=decision,
+                            diagnostic=diagnostic,
+                            candidate_source=candidate.code,
+                        )
+                    )
+                    attempt_number = decision.attempt_number
+                    continue
+                self._raise_decision(
+                    decision.error_code or CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID
+                )
 
             render = self._renderer.render(candidate.code, candidate.scene_class)
             if not render.succeeded:
@@ -395,9 +426,7 @@ class CodeGenerationService:
         security = validate_source_security(degraded_candidate.code)
         if not security.allowed or not preflight_source(degraded_candidate.code).ok:
             return None
-        render = self._renderer.render(
-            degraded_candidate.code, degraded_candidate.scene_class
-        )
+        render = self._renderer.render(degraded_candidate.code, degraded_candidate.scene_class)
         if not render.succeeded:
             return None
         version = self._repository.save_success(

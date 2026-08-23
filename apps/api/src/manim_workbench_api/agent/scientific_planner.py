@@ -10,7 +10,10 @@ _DEFAULTS: dict[ToolOp, dict[str, float | int | str | bool]] = {
     ToolOp.FOURIER_SQUARE_WAVE: {"n_max": 31, "samples": 240},
     ToolOp.LORENZ_ENSEMBLE: {"delta": 1e-5, "samples": 160, "t_end": 30.0},
     ToolOp.PID_STEP_RESPONSE: {"samples": 160, "t_end": 8.0},
-    ToolOp.CSV_ANOMALY: {"center": 350.0, "width": 20.0},
+    # Dataset-dependent values must be derived by the deterministic kernel. A
+    # fixed center would silently describe unrelated uploads as if they shared
+    # the benchmark's time axis.
+    ToolOp.CSV_ANOMALY: {},
     ToolOp.FRENET_FRAME: {"samples": 80},
     ToolOp.ODE_COMPARE: {},
 }

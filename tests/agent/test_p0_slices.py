@@ -43,6 +43,43 @@ def test_p0_slices_compile_without_lambda(tmp_path: Path) -> None:
         assert again == source
 
 
+def test_requested_duration_retimes_scientific_ir_and_compiled_timeline(tmp_path: Path) -> None:
+    result = run_agent(
+        "展示三个初值只差 1e-5 的 Lorenz 系统轨迹逐渐分离",
+        output_root=tmp_path,
+        target_duration_seconds=30,
+    )
+
+    assert result.outcome is AgentRunOutcome.READY
+    assert result.intent is not None
+    assert result.intent.output_duration_seconds == 30
+    assert result.animation_ir is not None
+    compiled = compile_animation_ir(result.animation_ir, result.tool_runs)
+    assert compiled.segments[0].duration_seconds == 30
+    assert "run_time=3.0" in compiled.segments[0].source
+    assert "run_time=15.0" not in compiled.segments[0].source
+
+
+def test_csv_timeline_progressively_reveals_real_rows(tmp_path: Path) -> None:
+    result = run_agent(
+        "从 CSV 展示 temperature/pressure 并突出 350 秒附近异常",
+        csv_text=_csv(),
+        output_root=tmp_path,
+        target_duration_seconds=30,
+    )
+
+    assert result.outcome is AgentRunOutcome.READY
+    assert result.animation_ir is not None
+    compiled = compile_animation_ir(result.animation_ir, result.tool_runs)
+    assert compiled.segments[0].duration_seconds == 30
+    source = compiled.segments[0].source
+    assert "always_redraw(redraw_temp)" not in source
+    assert "always_redraw(redraw_pressure)" not in source
+    assert "graph = VMobject(color=color)" in source
+    assert "temp_part_" in source
+    assert "pressure_plot[pressure_part_" in source
+
+
 def test_wave_window_covers_collision_and_pass_through(tmp_path: Path) -> None:
     import numpy as np
 

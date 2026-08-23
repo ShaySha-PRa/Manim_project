@@ -40,16 +40,23 @@ def diagnose_content_plan_timeline(
     actual_media: MediaTiming | None = None,
     preview_media: MediaTiming | None = None,
     final_media: MediaTiming | None = None,
+    enforce_teaching_content: bool = True,
 ) -> tuple[TemporalQualityReport, tuple[QualityDiagnostic, ...]]:
     """Carry the immutable ContentPlan target into static and rendered diagnostics."""
-    expectation = ContentPlanExpectation(
-        scenes=tuple(
-            PlanSceneExpectation(
-                scene_number=scene.scene_number,
-                required_formula_expressions=tuple(step.expression for step in scene.formula_steps),
+    expectation = (
+        ContentPlanExpectation(
+            scenes=tuple(
+                PlanSceneExpectation(
+                    scene_number=scene.scene_number,
+                    required_formula_expressions=tuple(
+                        step.expression for step in scene.formula_steps
+                    ),
+                )
+                for scene in content_plan.scenes
             )
-            for scene in content_plan.scenes
         )
+        if enforce_teaching_content
+        else None
     )
     temporal = analyze_temporal_quality(
         source_code,
