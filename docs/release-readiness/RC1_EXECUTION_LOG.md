@@ -105,3 +105,31 @@
 - 复测命令：`npm ci --ignore-scripts`、`npm audit --omit=dev --audit-level=high`
 - 退出码：均为 `0`
 - 结果：实际安装 `nanoid 3.3.18`；production audit 为 `0 vulnerabilities`
+
+## 2026-08-23 — 阶段 2：离线 Web production build
+
+### 根因
+
+- `apps/web/src/app/layout.tsx` 通过 `next/font/google` 声明五组字体
+- Next.js production build 会在编译期访问 Google Fonts；受限网络下因此失败
+
+### 修复
+
+- 删除全部 `next/font/google` import 与运行时字体变量注入
+- 在全局 CSS 中定义 display/body/script/mono/CJK 系统字体栈
+- 未添加字体下载脚本或来源/许可不明确的字体文件
+- 新增 Python 防回归测试，禁止 `next/font/google`、Google Fonts URL 和缺失字体变量
+
+### 验证
+
+- 聚焦测试：`tests/web/workbench/test_workbench_boundaries.py`，`5 passed`
+- Web lint：退出码 `0`
+- Web typecheck：退出码 `0`
+- 干净构建前删除：仅 `apps/web/.next` 构建缓存
+- 离线等价构建：将 HTTP/HTTPS/ALL proxy 指向不可用的 `127.0.0.1:9` 后执行 production build
+- Build：退出码 `0`，6/6 static pages 生成，无外部字体请求
+- Production HTTP：`/workbench` 返回 `200`；默认本地模式 `/login` 返回 `307`
+- Chromium 桌面 1440x1000 与移动 390x844 截图成功；系统字体下中文、导航、错误状态和按钮可读，无裁切或溢出
+- 临时截图：`/tmp/manim-rc1-workbench-desktop.png`、`/tmp/manim-rc1-workbench-mobile.png`
+- 已知说明：此阶段未启动 API，因此工作台按预期显示“无法恢复会话”；完整业务页面留待真实运行阶段验证
+- Production server 已用 SIGINT 停止；未保留后台 Web 进程
