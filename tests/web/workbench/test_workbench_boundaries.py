@@ -53,7 +53,9 @@ def test_workbench_one_sentence_agent_entry() -> None:
     assert "一句话 Prompt" in panel
     assert "生成科研动画" in panel
     assert "自动推断" in panel
-    assert "科研动画工作台" in page
+    assert "科学与技术动画工作台" in page
+    assert "ContentPlan · IntentSpec · Tools · Compiler · Sandbox" in page
+    assert "教学动画路径（ContentPlan）" in panel
     assert "runAgent" in hook
     source = (HOOKS / "use-render-monitor.ts").read_text(encoding="utf-8")
 

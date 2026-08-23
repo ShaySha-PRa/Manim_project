@@ -38,7 +38,7 @@ export function RenderPanel({ model }: { model: WorkbenchModel }) {
   return (
     <section className={styles.column} aria-labelledby="render-heading">
       <div className={styles.sectionHeading}><p>03 · 生成与交付</p><h2 id="render-heading">CodeVersion 与渲染</h2></div>
-      <p className={styles.muted}>一句话生成会编译 AnimationIR；确认后提交预览即可播放。</p>
+      <p className={styles.muted}>教学 ContentPlan 或科研 IntentSpec 会生成可审计的 CodeVersion；确认后提交预览即可播放。</p>
       <button className={styles.primaryButton} type="button" disabled={model.busy || !model.activePlan || !model.activePrompt} onClick={() => void model.generateCode(model.category)}>生成 CodeVersion</button>
       <div className={styles.actionRow}>
         <button type="button" disabled={model.busy || !model.codeVersion} onClick={() => void model.submitRender("preview")}>提交预览</button>
@@ -54,7 +54,10 @@ export function RenderPanel({ model }: { model: WorkbenchModel }) {
           {!terminal.has(job.status) && <button type="button" className={styles.dangerButton} onClick={() => void model.cancelRender()}>取消任务</button>}
         </>}
       </section>
-      <QualityPanel jobId={job?.id} refreshKey={job?.state_version} />
+      <QualityPanel
+        jobId={job && terminal.has(job.status) ? job.id : null}
+        refreshKey={job?.state_version}
+      />
       <section aria-labelledby="artifact-heading"><h3 id="artifact-heading">视频与产物</h3><Artifacts artifacts={model.artifacts} /></section>
       <PythonReadOnly codeVersion={model.codeVersion} />
     </section>

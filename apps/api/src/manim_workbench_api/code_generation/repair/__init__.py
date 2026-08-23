@@ -7,6 +7,7 @@ Callers must persist decisions and invoke the renderer separately.
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -224,9 +225,7 @@ class RepairOrchestrator:
             failures = current.consecutive_failed_quality_rounds + 1
             updated = CategoryPolicy(
                 state=(
-                    CategoryPolicyState.DEGRADED
-                    if failures >= 2
-                    else CategoryPolicyState.ACTIVE
+                    CategoryPolicyState.DEGRADED if failures >= 2 else CategoryPolicyState.ACTIVE
                 ),
                 consecutive_failed_quality_rounds=failures,
             )
@@ -248,9 +247,7 @@ class RepairOrchestrator:
         return any(policy.state is CategoryPolicyState.PAUSED for policy in self._policies.values())
 
     @staticmethod
-    def _paused_decision(
-        policy: CategoryPolicy, *, attempt_number: int = 0
-    ) -> RepairDecision:
+    def _paused_decision(policy: CategoryPolicy, *, attempt_number: int = 0) -> RepairDecision:
         return RepairDecision(
             action=RepairAction.PAUSE,
             attempt_number=attempt_number,
@@ -280,7 +277,7 @@ def build_repair_messages(
 
     system = (
         "Return only one JSON object with exactly these fields and no others: "
-        "{\"scene_class\":\"GeneratedScene\",\"code\":\"...\",\"assumptions\":[]}. "
+        '{"scene_class":"GeneratedScene","code":"...","assumptions":[]}. '
         "Do not use Markdown fences or text outside JSON. scene_class must be GeneratedScene; "
         "code must be complete replacement Python source containing exactly one GeneratedScene "
         "class inheriting Scene; assumptions must be an array of at most 20 short strings. "
@@ -294,7 +291,7 @@ def build_repair_messages(
         "RED, YELLOW, ORANGE, PURPLE, GRAY, PI and TAU. Replace lambdas with a local named "
         "function. Use Text for both prose and formula strings; do not call MathTex. Keep readable "
         "Unicode math such as x², √, ±, ≤ and ≥ inside Text. Every Text object must set "
-        "font=\"Noto Sans CJK SC\". Never put Chinese text inside MathTex. Use `c2p` "
+        'font="Noto Sans CJK SC". Never put Chinese text inside MathTex. Use `c2p` '
         "instead of `coords_to_point`. Use only these object methods: add, append, "
         "add_coordinates, "
         "align_to, animate, arrange, c2p, copy, get_axis_labels, get_bottom, get_center, "
@@ -302,7 +299,11 @@ def build_repair_messages(
         "get_top, get_value, move_to, mobjects, n2p, next_to, plot, play, remove, reverse, rotate, "
         "scale, set_color, "
         "set_fill, set_opacity, set_stroke, set_value, shift, to_edge, to_corner, wait. Do not add "
-        "filesystem, network, process, reflection, or dynamic execution features."
+        "filesystem, network, process, reflection, or dynamic execution features. "
+        "When the approved diagnostic reports a duration failure, replace the entire timeline: "
+        "sum every explicit self.play run_time and self.wait value, keep each individual "
+        "self.play run_time at or below 4 seconds, use active teaching animations rather than "
+        "one long wait, and satisfy the exact target and accepted range stated below."
     )
     sections = [
         "CONTENT_PLAN_JSON:\n" + json.dumps(content_plan, ensure_ascii=False, sort_keys=True),
@@ -310,6 +311,18 @@ def build_repair_messages(
         "REPAIR_METADATA_JSON:\n"
         + json.dumps(dict(decision.template_metadata), ensure_ascii=False, sort_keys=True),
     ]
+    target = content_plan.get("target_duration_seconds")
+    if isinstance(target, int | float) and not isinstance(target, bool) and target > 0:
+        minimum_active_plays = math.ceil(target / 4)
+        sections.insert(
+            1,
+            "TIMELINE_REPAIR_REQUIREMENT:\n"
+            f"The replacement source must total exactly {target:g} seconds and remain within "
+            f"{target * 0.9:.1f} to {target * 1.1:.1f} seconds. Count every explicit run_time "
+            f"and wait value. Use at least {minimum_active_plays} active self.play calls because "
+            "each play is limited to 4 seconds. Use enough short active animations to reach the "
+            "target. Do not use one long wait or terminal padding.",
+        )
     if decision.include_candidate_source:
         sections.append("PREVIOUS_CANDIDATE_SOURCE:\n" + candidate_source)
     return (

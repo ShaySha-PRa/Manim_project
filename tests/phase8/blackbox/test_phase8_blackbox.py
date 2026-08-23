@@ -574,7 +574,9 @@ def test_artifact_symlink_and_content_type_confusion_are_blocked_or_fixed(
     assert safe_mime.headers["x-content-type-options"] == "nosniff"
 
 
-def test_fake_phase5_to_phase7_chain_has_success_and_stage_mapped_failures(tmp_path: Path) -> None:
+def test_fake_phase5_to_phase7_chain_uses_deterministic_teaching_and_maps_failures(
+    tmp_path: Path,
+) -> None:
     success = _build_harness(tmp_path)
     users = AuthService(success.engine)
     users.create_user("teacher-a@example.test", INITIAL_PASSWORD)
@@ -583,9 +585,16 @@ def test_fake_phase5_to_phase7_chain_has_success_and_stage_mapped_failures(tmp_p
     )
     ids = _create_complete_workflow(success, owner, csrf_a)
     assert success.content_provider.calls == 1
-    assert success.code_provider.calls == 1
+    assert success.code_provider.calls == 0
     assert success.renderer.calls == 1
     assert owner.get(f"/api/v1/workspace/render-jobs/{ids['job_id']}").status_code == 200
+    with success.engine.connect() as connection:
+        generation_mode, provider_model = connection.execute(
+            text("SELECT generation_mode, provider_model FROM code_versions WHERE id = :code_id"),
+            {"code_id": ids["code_id"]},
+        ).one()
+    assert generation_mode == "compiled_ir"
+    assert provider_model is None
 
     unavailable = _build_harness(
         tmp_path / "unavailable",
@@ -639,9 +648,12 @@ def test_fake_phase5_to_phase7_chain_has_success_and_stage_mapped_failures(tmp_p
         },
         headers=_mutation_headers(unsafe_csrf),
     )
-    assert code_failure.status_code == 422
-    assert code_failure.json()["error"]["stage"] == "code_generation"
-    assert unsafe.renderer.calls == 0
+    assert code_failure.status_code == 200
+    assert code_failure.json()["outcome"] == "ready"
+    assert code_failure.json()["code_version"]["generation_mode"] == "compiled_ir"
+    assert "open(" not in code_failure.json()["code_version"]["source_code"]
+    assert unsafe.code_provider.calls == 0
+    assert unsafe.renderer.calls == 1
 
 
 def _create_complete_workflow_until_plan(

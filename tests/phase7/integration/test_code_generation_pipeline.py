@@ -161,12 +161,18 @@ def test_api_persists_only_a_sandbox_accepted_code_version(tmp_path: Path) -> No
     assert response.json()["outcome"] == "ready"
     assert read_response.status_code == 200
     assert read_response.json()["id"] == code_version_id
-    assert provider.calls == renderer.calls == 1
+    assert provider.calls == 0
+    assert renderer.calls == 1
+    assert read_response.json()["generation_mode"] == "compiled_ir"
+    assert "Axes(" in read_response.json()["source_code"]
+    assert "lambda" not in read_response.json()["source_code"]
     with engine.connect() as connection:
         assert connection.execute(text("SELECT COUNT(*) FROM code_versions")).scalar_one() == 1
 
 
-def test_api_blocks_unsafe_source_before_renderer_and_hides_details(tmp_path: Path) -> None:
+def test_api_never_uses_free_python_provider_for_default_teaching_generation(
+    tmp_path: Path,
+) -> None:
     engine = migrated_engine(tmp_path)
     provider = StaticProvider(
         "from manim import Scene\nclass GeneratedScene(Scene):\n"
@@ -185,11 +191,10 @@ def test_api_blocks_unsafe_source_before_renderer_and_hides_details(tmp_path: Pa
         )
     app.dependency_overrides.clear()
 
-    assert response.status_code == 422
-    assert response.json() == {
-        "error": {
-            "code": "security_policy_violation",
-            "message": "Generated source did not satisfy the security policy.",
-        }
-    }
-    assert renderer.calls == 0
+    assert response.status_code == 200
+    assert response.json()["outcome"] == "ready"
+    assert provider.calls == 0
+    assert renderer.calls == 1
+    source = response.json()["code_version"]["source_code"]
+    assert "open(" not in source
+    assert "Axes(" in source

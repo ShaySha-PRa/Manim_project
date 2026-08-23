@@ -91,7 +91,7 @@ export function ProjectPromptPanel({ model }: { model: WorkbenchModel }) {
         </section>
       )}
       <details>
-        <summary>教学 ContentPlan（旧入口）</summary>
+        <summary>教学动画路径（ContentPlan）</summary>
         <form className={styles.form} onSubmit={generate}>
           <label className={styles.field}><span>推导风格</span><select value={style} onChange={(event) => setStyle(event.target.value as DerivationStyle)}>{stylesByGoal.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
           <fieldset className={styles.choiceGroup}><legend>动画类型（教学路径）</legend>

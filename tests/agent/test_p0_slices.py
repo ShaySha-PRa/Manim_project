@@ -133,6 +133,12 @@ def test_fourier_zooms_into_gibbs(tmp_path: Path) -> None:
     assert compiled.segments[0].scene_base == "MovingCameraScene"
     source = compiled.segments[0].source
     assert "camera.frame" in source
+    assert "camera.frame.animate.scale(0.8)" in source
+    assert "partial_count = always_redraw(redraw_partial_count)" in source
+    assert "progress = 100.0 * tracker_n.get_value() / max(1, last)" in source
+    assert "move_to(axes.c2p(2.7, -1.35))" in source
+    assert "add_fixed_in_frame_mobjects(title, partial_count_label" not in source
+    assert "lambda" not in source
     report = validate_source_security(source)
     assert report.allowed, report.findings
 

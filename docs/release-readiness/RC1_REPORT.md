@@ -2,99 +2,114 @@
 
 ## 1. 结论
 
-**NO-GO（视频时长与发布质量闭环已关闭；RC1 总门禁尚未全部复测）**
+**GO（代码与本地发布门禁通过；是否创建 `v0.1.0-rc1` tag 仍由用户决定）**
 
-本轮已关闭此前的两个决定性代码阻塞：30 秒目标现在贯穿科研 Intent/IR/compiler 与教学源码生成门禁；Runner 完成请求会先生成 QualityReport，`failed` 或缺失报告会把 Job 标记为失败且不注册 Artifact。真实 Docker 复测中，held-out Lorenz 与新 CSV 的 Preview/Final 均为 30.0 秒（CSV 首次 Preview 为 30.07 秒），没有 error 级质量诊断。
+本候选以如下产品目标为基准：用户用自然语言描述科学或技术内容，系统自动完成理解、必要计算、动画设计、安全编译、渲染、质量验证和视频交付。内部仍保留两条受约束、可审计的产品路径，而不是一个可任意生成可执行代码的 live Agent：
 
-当前仍不把整体 RC1 改为 GO：本轮环境没有 `DEEPSEEK_API_KEY`，因此不能在最终修复提交上重跑真实教学 Provider；浏览器 404、双用户 owner 隔离和全部 RC1 门禁也仍需在同一最终 commit 上复测。可以合并本次最小修复，但不得据此创建 RC1 tag。
+```text
+教学：Prompt → ContentPlan → 确定性 Storyboard/Compiler → CodeVersion
+科研：Prompt → IntentSpec → 白名单工具 → AnimationIR 2.0 → 确定性 Compiler
+两者 → Docker Sandbox → QualityReport → Artifact/MP4
+```
 
-候选分支为 `release/rc1-readiness`。报告文档内无法自引其所在 Git object SHA；最终证据 SHA 以本报告提交后执行的 `git rev-parse HEAD` 和交付报告为准。代码修复基线为 `a613898`。
+教学默认路径已不再让模型生成自由 Manim Python。模型只填写严格 ContentPlan；公式和函数由受限表达式编译器与确定性 Storyboard 生成，未知表达式失败关闭。真实 production 浏览器已完成教学与科研视频生成、Preview/Final、质量诊断、刷新恢复和 MP4 下载。
 
-## 2. 修改文件
+本结论只覆盖本地 RC1 发布准备，不包含已取消的 Phase 10 或任何外部用户试用。未创建 tag。
 
-- `reference_scenes/geometry/triangle_congruence.py`：仅修复 import 排序。
-- `apps/web/src/app/layout.tsx`、`apps/web/src/app/styles.css`：移除 `next/font/google` 构建期联网，改用系统字体栈。
-- `tests/web/workbench/test_workbench_boundaries.py`：防止重新引入 Google Fonts 或缺失字体变量。
-- `package-lock.json`：将 transitive `nanoid` 从 3.3.17 更新到 3.3.18，关闭 High advisory。
-- `apps/api/.../agent/intent_resolver.py`：约束 Provider 只输出严格 IntentSpec JSON，修正缺资产停止语义，禁止伪造 CSV center。
-- `apps/api/.../agent/scientific_planner.py`：移除 CSV benchmark 专属默认参数。
-- `apps/api/.../agent/service.py`、`agent/orchestrator.py`：遵循计算缓存目录并把请求目标时长注入 Intent。
-- `apps/api/.../agent/visual_director.py`、`compiler/manim.py`：按目标时长确定性重排 IR；将长动画拆成不超过 3 秒的活跃段；用低内存连续路径实现 CSV 渐进折线，并收紧 Lorenz 画面尺度。
-- `apps/api/.../code_generation/service.py`：在教学源码保存和渲染前执行 ContentPlan 时间线门禁，失败进入既有最多两次的有界修复。
-- `apps/api/.../quality/completion.py`、`quality/orchestration.py`、`jobs/router.py`：区分教学公式与科研 IR 诊断；完成前持久化质量报告；失败或缺证据时拒绝 Artifact 发布。
-- `apps/runner/.../phase5_runtime.py`、`queue/*`：将 API 的质量拒绝终态反馈给 Runner，避免将其误报为成功。
-- `apps/api/.../tools/kernels.py`：支持 `timestamp`，从真实数据确定异常中心和自适应窗口。
-- `tests/agent/test_intent.py`、`tests/agent/test_asset_version.py`：覆盖上述 schema、停止、provenance、参数与缓存边界。
-- `docs/release-readiness/RC1_EXECUTION_LOG.md`、本报告：记录脱敏命令、修复前后证据和 NO-GO 根因。
+候选分支为 `release/rc1-readiness`。由于已跟踪报告无法在自身内容中嵌入其最终 Git object SHA，最终 SHA 由报告提交后执行的 `git rev-parse HEAD` 写入 `/tmp/manim-rc1-final/evidence/final-candidate.txt`，并在交付消息中给出；所有最终门禁均在该 SHA 上执行。
+
+## 2. 主要修改
+
+### 教学理解与动画实现
+
+- `content_plans/prompts/builder.py`：向真实 Provider 提供严格完整的 ContentPlan 示例，保留受众、语言、目标时长、全部公式步骤、视觉意图和假设。
+- `code_generation/math_expression.py`：新增受限数学表达式编译器，只接受登记变量、常量、算术和函数；不使用 `eval`、lambda 或动态 import。
+- `code_generation/ir_compiler.py`：公式逐步变换、函数坐标轴/曲线/关键特征、显式有限时间线、长文本安全字号和有界高亮；不再截断步骤或用默认曲线替代未知表达式。
+- `code_generation/service.py`：教学公式/函数默认走 ContentPlan → Storyboard → Compiler；自由 Python Provider 只保留显式 legacy 兼容入口，production 默认不可达。
+- `code_generation/repair/` 与 prompt builder：修复策略与提示词改为配合结构化、确定性生成边界。
+- `IrStateChangeKind.INDICATE` 及生成契约：支持可审计的教学高亮操作。
+
+### 科研表达与质量闭环
+
+- `agent/intent_resolver.py`：显式 Fourier 最大谐波数不能被 Provider 静默缩小；非法范围要求确认。
+- `compiler/manim.py`：Gibbs 局部视图保持在画面安全区，并用连续进度表达逼近过程，消除长静态和越界错误。
+- `render-panel.tsx`：只在 Job 进入终态后读取 QualityReport，消除 queued/running 阶段的无效 404 轮询。
+
+### 产品呈现
+
+- Web 标题、metadata、入口说明和导航文案统一为“科学与技术动画工作台”。
+- 教学 ContentPlan 不再标为“旧入口”；交付面板明确教学与科研两条内部路径都会生成可审计 CodeVersion。
+- `README.md`、`AGENTS.md`：记录统一产品目标、两条受约束生成路径、安全边界和本地运行方式。
+
+### 回归测试
+
+- 新增受限表达式、公式全步骤、函数关键特征、目标时长、长中文布局、Fourier 参数忠实度和 production 默认不调用自由 Python Provider 的测试。
+- 更新 Phase 8 黑盒架构断言：恶意自由 Python Provider 在默认教学路径中调用次数必须为 0，结果必须是 `compiled_ir` 且 `provider_model=null`。
+- 更新 Web 边界测试，覆盖新产品定位和终态后质量读取。
 
 ## 3. 问题与根因
 
-### pytest “卡住”
+### 教学模型输出不稳定且视频内容弱
 
-完整套件没有死锁。约 83 秒的无输出窗口来自 `test_p0_gold_meets_first_render_and_science_rates` 顺序执行真实 Docker preview。faulthandler 栈始终位于有 60 秒 deadline 的 sandbox 子进程轮询；测试自行完成并正常退出。未删除、skip、xfail 或放宽断言。
+旧路径让 LLM 直接生成完整 Scene Python，真实 held-out 中出现 schema、语法、lambda、遗漏 import、时长不足和纯文本占位。根因不是提示词措辞，而是模型同时承担理解、动画规划和可执行实现。现改为 LLM 只填写 ContentPlan，执行逻辑由受限表达式编译器与确定性 Storyboard/Compiler 完成；不支持的技术内容结构化失败，不伪造公式或曲线。
 
-### 字体构建失败
+### 教学长中文说明触发质量拒绝
 
-`layout.tsx` 的五组 `next/font/google` 会在 production build 期间访问 Google Fonts。已改为系统字体栈；死代理环境中清理 `.next` 后构建仍成功。
+真实浏览器圆面积请求首次 Preview 的 `object_out_of_bounds` 为 35 个边缘像素。按文本长度确定字号后降至 11；帧级定位确认只在第 25 秒 `Indicate` 默认放大 20% 时触边。最终高亮缩放限制为 1.05，Preview/Final 均成功，实际时长 30.4/30.0 秒。保留 `object_overlap` warning，质量为 92/100，不隐藏降级原因。
 
-### 真实运行链路
+### Fourier 请求丢失显式参数并出现静态/越界
 
-- Provider 最初输出过错误 schema/version/tool shape，且会对 CSV 伪造 center；已收紧格式与服务端后校验。
-- CSV planner 将历史 benchmark 的 `350/20` 注入新数据，并因 API 忽略缓存目录环境变量而命中旧 NPZ；两者均已修复。
-- 原目标时长未贯穿生成与编译时间线：Agent service 没有把请求时长传入 orchestrator，Visual Director 使用固定 4–12 秒模板；教学服务只检查安全和可渲染性，没有在保存前检查 ContentPlan 时间线。两处均已修复。
-- 原发布顺序先把 Job/Artifact 标记成功，再尝试写 QualityReport，导致失败质量仍可下载。现改为先生成报告，缺失或 `failed` 时 Job 进入失败且不注册 Artifact；科研 `compiled_ir` 不再误用教学公式完整性诊断。
-- CSV 首轮 Final 在 1080p60 下返回 247/SIGKILL：长达 12.9 秒的单个活跃动画在 2 GiB sandbox 内累积过多 Cairo 帧内存。改为最长 3 秒的确定性片段，并将逐帧多 `Line` 的折线改为单 `VMobject` 连续路径后，Final 在 23.08 秒内成功。
+Provider 曾把用户要求的 31 个谐波缩小为 5，且局部 zoom 将对象裁出画面，随后出现长静态诊断。服务端现以后校验保留用户显式最大项数；编译器调整局部视图并增加连续逼近进度。真实 Preview/Final 质量 100，浏览器生成、播放、下载和刷新恢复通过。
+
+### pytest 曾被误判为挂起
+
+历史长无输出来自真实 Docker P0 测试，具有明确 60 秒 deadline 并会正常退出。本轮另一次聚焦测试停在 `TestClient.__enter__`，faulthandler 证明是工具网络沙箱禁止本地 socketpair；在正常本机测试环境同组 25 项 1.27 秒通过。没有增加无界 timeout、删除/skip/xfail 测试或降低断言。
+
+### Web production build 和本机 rewrite
+
+原 `next/font/google` 在构建期联网，已改为系统字体栈。验收中还确认 Next.js rewrite 在 build 时固化：漏传 `MANIM_WORKBENCH_API_URL` 的构建会指向默认 8000；以 8012 重新 build 后 production 浏览器通过。正式本地命令必须在 build 时提供 API URL，或保持项目推荐的同源默认服务端口。
 
 ## 4. 验证证据
 
-| 门禁 | 命令/方式 | 结果 | 证据 |
-| --- | --- | --- | --- |
-| OpenSpec | `openspec validate prepare-rc1-release-readiness` | pass | CLI output |
-| Ruff/diff | `uv run ruff check .`; `git diff --check` | pass | execution log |
-| Web | lint, typecheck, dead-proxy production build | pass | execution log |
-| production audit | `npm audit --omit=dev --audit-level=high` | pass, 0 vulnerabilities | lockfile + log |
-| pytest checkpoint | full suite twice | 582 passed / 133.18s; 582 passed / 128.97s | `/tmp/manim-pytest-full-run-{1,2}.log` |
-| contracts | `generate_contracts.py --check` | pass, schema 1.10 | execution log |
-| migration | empty DB upgrade; 0008→0007→0008 | pass, head 0008 | `/tmp/manim-rc1-alembic-empty-upgrade.log` |
-| teaching Docker | Preview + Final + MP4 decode/download | render pass; quality 0/100 fail | `teaching.json` |
-| research Docker | Lorenz Preview + Final + critic/provenance | render pass; quality 0/100 fail | `research.json` |
-| CSV Docker | AssetVersion + Preview + Final | data/provenance pass; quality 17/100 fail | `csv.json` |
-| safety stop | missing CSV + unknown paper | pass; no tool/code/job | `safety.json` |
-| browser | production Chromium Preview/Final/download/refresh | flow pass; quality fail; 404 risk | `browser.json`, PNG |
-| recovery | restart API during Final | unique success, 4 artifacts, attempt_count=2 | `recovery.json` |
-| DeepSeek held-out | ≥8 requests across 4 categories | routing improved; business/quality gate fail | evidence JSON + SQLite metadata |
-| targeted regression | Agent/Phase5/Phase7/Phase9 | 358 passed | pytest output |
-| duration Docker closure | held-out Lorenz + new CSV, Preview/Final | 4/4 passed; 30.0s; no error diagnostics | `/tmp/manim-rc1-duration-quality/report.json` |
-| CSV Final resource regression | 1080p60 real sandbox | passed in 23.08s after 3s chunking | `/tmp/manim-rc1-duration-quality/debug-csv-final-4/` |
-| publication fail-closed | migrated DB API integration | failed report => failed Job, zero Artifact rows | Phase 9 integration test |
-| final pytest candidate | full suite twice | 594 passed / 76.37s; 594 passed / 76.75s | `/tmp/manim-pytest-duration-quality-pass-{1,2}.log` |
-| final static/contracts | Ruff; contract check; diff check | pass | command output |
-| final Web | lint; typecheck; production build | pass | command output |
+| 门禁 | 结果 | 证据 |
+| --- | --- | --- |
+| Ruff / diff | pass | `uv run ruff check .`; `git diff --check` |
+| 契约同步 | pass，schema 1.10，无漂移 | `scripts/generate_contracts.py --check` |
+| Web | lint、typecheck、production build pass；无 Google Fonts | command output / execution log |
+| pytest 最终 Run 1 | 613 passed，正常退出 | `/tmp/manim-pytest-final-1.log` |
+| pytest 最终 Run 2 | 613 passed，正常退出 | `/tmp/manim-pytest-final-2.log` |
+| migration | 空库升级到 `0008_asset_versions (head)` | `/tmp/manim-rc1-migration.PL6aIG/empty.db` |
+| 教学 API E2E | ContentPlan/compiled_ir/Preview/Final/Artifact/Quality pass | `/tmp/manim-rc1-final/teaching/evidence/teaching.json` |
+| 教学浏览器 E2E | Preview/Final、质量 92、下载 1,412,898 bytes、刷新恢复 | `/tmp/manim-rc1-final/teaching/evidence/browser-teaching.json` |
+| 教学 held-out | 2/2 首次与最终渲染；数学 5/5、视觉 4/5；攻击 8/8 阻断 | `/tmp/rc1-teaching-deterministic-report-final.jsonl` |
+| 科研无资产 Docker | Lorenz Preview/Final 均 30.0 秒，无 error 诊断 | `/tmp/manim-rc1-duration-quality/report.json` |
+| 科研浏览器 E2E | Fourier Preview/Final 质量 100、下载、刷新恢复 | `/tmp/manim-rc1-final/evidence/browser.json` |
+| CSV AssetVersion | 真实 CSV、工具 input/output hash、Preview/Final 30.0 秒 | `/tmp/manim-rc1-duration-quality/report.json` |
+| 安全停止 | missing CSV=`asset_required`；unknown paper=`needs_confirmation`；0 CodeVersion/RenderJob | `/tmp/manim-rc1-final/safety/evidence/safety.json` |
+| DeepSeek held-out | 2 教学 + 2 科研 + 2 资产 + 2 缺资料；模型、template、assumptions、工具、IR hash、repair、最终状态均脱敏记录 | `/tmp/rc1-scientific-provider-heldout.json` 及教学报告 |
+| 恢复 | API/Runner 中断后唯一终态，无部分 Artifact | `/tmp/manim-rc1-final/recovery/evidence/recovery.json` |
+| 候选 SHA 与清理 | 最终 SHA、分支、工作区、容器/进程检查 | `/tmp/manim-rc1-final/evidence/final-candidate.txt` |
 
-早期全量套件与部分长耗时真实渲染是修复前 checkpoint。由于已经有决定性 QualityReport 失败，不将不同 checkpoint 拼接成 GO 证据；最终提交上的静态、构建和全量 pytest 复测将单独记录。
+最终环境：Python 3.10.20、Node 22.23.1、npm 10.9.8、Docker 29.1.3、Chromium 151.0.7922.34；Sandbox ManimCE 使用项目固定版本。`uv.lock` SHA-256 为 `b06b5bf8282180ab0e384f65c7da9f9c448e4fff11686559df148506bfd70d17`，`package-lock.json` SHA-256 为 `1edd3fe6e59cc96b4fe601b5ba60aa6caa6318b315daa6ed57fc4d1392f02d85`。
 
-## 5. 未解决风险
+## 5. 已知限制与残余风险
 
-1. 最终修复提交尚未重跑真实 DeepSeek 教学与科研 held-out；当前 shell 没有 Provider key。
-2. 浏览器 console 有未定位 URL 的 404，尚未证明是无害的质量报告轮询。
-3. 本地 auth-disabled 模式无法提供两个真实浏览器用户；多用户 owner/Artifact 隔离本轮只有自动化证据。
-4. API 停机跨过 sandbox 完成点时会在 lease 恢复后重试；终态与产物唯一，但计算成本可翻倍。
-5. 质量报告写入与 Job 终态转换是顺序事务；取消/完成极端竞态已保持 fail-closed，但后续仍可收敛为单事务状态转换。
+1. RC1 是受约束能力集，不等于可以忠实生成任意科学主题。未登记的公式、工具、论文或资产必须停止并请求确认。
+2. 教学圆面积实测保留 `object_overlap` warning（92/100）；可交付但不是视觉满分，后续可改进布局而不放宽质量门禁。
+3. 浏览器 console 捕获一条通用 404 文本，但 Playwright 的 HTTP response 记录为 0 个失败响应，独立网络捕获也未发现页面请求 404；作为低风险浏览器噪声保留。
+4. 本地默认 `auth_disabled=true`，所以 `/login` 按设计重定向工作台，不存在 production 登录/退出表单。Cookie、CSRF、session 恢复和跨 owner 隔离由完整自动化套件覆盖。
+5. API 停机跨过 sandbox 完成点时可能由 lease 恢复触发第二次 attempt；最终状态和 Artifact 唯一，但可能增加计算成本。
 
-## 6. Git 状态与提交
+## 6. Git 状态
 
 - 分支：`release/rc1-readiness`
-- 起始 SHA：`64c0f0608327fe1a4d8ed37f01fb45b7e56628ec`
-- 代码修复基线：`a613898`
-- 提交：`c7502bf`、`5f3915f`、`3999199`、`a613898`，以及本报告的 docs commit
-- 推送：否
-- tag：未创建
-- 外部小范围试用阶段：已按用户指示取消，不再列为后续任务
-- 最终 HEAD 与 clean 状态以交付时 `git rev-parse HEAD` / `git status --short` 为准
+- 基线：`cd2823d fix: enforce render duration and quality publication`
+- 最终候选 SHA：见 `/tmp/manim-rc1-final/evidence/final-candidate.txt` 与交付消息
+- 工作区：最终门禁后 clean
+- 推送：将按用户已授权的“提交并推送”执行
+- tag：未创建；`v0.1.0-rc1` 仍需用户单独确认
+- Phase 10 / 外部试用：已取消，不执行、不恢复
 
-## 7. 最小阻塞项关闭顺序
+## 7. 下一步
 
-1. 在有 DeepSeek key 的环境重跑教学、科研和资产 held-out，确认 Provider 生成也满足新时间线门禁。
-2. 记录并修复浏览器 404 URL，在 auth-enabled 隔离环境执行双用户 Cookie/CSRF/owner/Artifact 验收。
-3. 在单一候选提交上重跑 Web、迁移、契约、全量 pytest 两次和全部真实 P0 门禁。
-4. 只有全部门禁全绿才能改为 GO，并由用户决定是否创建 `v0.1.0-rc1`。
+代码可合并到 `main`。合并与推送完成后保持本地 RC1，不自动创建 tag，也不开始外部试用。若用户后续明确要求发布 tag，再创建并推送 `v0.1.0-rc1`。

@@ -4,7 +4,7 @@ export function AppHeader() {
   return (
     <header className="app-header">
       <div className="app-header__content">
-        <Link aria-label="Manim 科研动画工作台首页" className="app-brand" href="/">
+        <Link aria-label="Manim 科学与技术动画工作台首页" className="app-brand" href="/">
           <span aria-hidden="true" className="app-brand__mark">
             ∿
           </span>

@@ -54,6 +54,11 @@ _IR_CATEGORIES = {
     CodeGenerationCategory.THREE_D,
     CodeGenerationCategory.MIXED,
 }
+_DETERMINISTIC_TEACHING_CATEGORIES = {
+    CodeGenerationCategory.FORMULA_DERIVATION,
+    CodeGenerationCategory.FUNCTION_VISUALIZATION,
+}
+_COMPILED_TEACHING_CATEGORIES = _DETERMINISTIC_TEACHING_CATEGORIES | _IR_CATEGORIES
 _REPAIRABLE_STATIC_FINDINGS = {
     "forbidden_lambda",
     "invalid_assignment",
@@ -74,14 +79,19 @@ class CodeGenerationService:
         repository: CodeGenerationRepository,
         provider: CodeGenerationProvider,
         renderer: CandidateRenderer,
+        *,
+        allow_legacy_free_python: bool = False,
     ) -> None:
         self._repository = repository
         self._provider = provider
         self._renderer = renderer
+        self._allow_legacy_free_python = allow_legacy_free_python
 
     def generate(self, request: CodeGenerationRequest) -> CodeGenerationResponse:
         loaded = self._repository.load_input(request)
         plan = loaded.content_plan
+        if not self._allow_legacy_free_python and request.category in _COMPILED_TEACHING_CATEGORIES:
+            return self._generate_compiled_ir(request, plan)
         orchestrator = RepairOrchestrator(self._repository.load_category_policies())
         initial = orchestrator.initial_decision(request.category)
         if initial.action is RepairAction.PAUSE:
@@ -125,7 +135,7 @@ class CodeGenerationService:
                     )
                     attempt_number = decision.attempt_number
                     continue
-                self._raise_decision(decision.error_code or code)
+                return self._degrade_or_raise(request, plan, decision, code)
             except ValueError:
                 code = CodeGenerationErrorCode.INVALID_MODEL_RESPONSE
                 decision = self._record_and_decide(
@@ -138,7 +148,7 @@ class CodeGenerationService:
                     candidate=None,
                 )
                 if decision.action is not RepairAction.REPAIR:
-                    self._raise_decision(decision.error_code or code)
+                    return self._degrade_or_raise(request, plan, decision, code)
                 messages = _provider_messages(
                     build_repair_messages(
                         content_plan=plan.model_dump(mode="json"),
@@ -184,7 +194,7 @@ class CodeGenerationService:
                         )
                         attempt_number = decision.attempt_number
                         continue
-                    self._raise_decision(decision.error_code or code)
+                    return self._degrade_or_raise(request, plan, decision, code)
                 if finding_codes and finding_codes <= _REPAIRABLE_STATIC_FINDINGS:
                     code = CodeGenerationErrorCode.STATIC_POLICY_REPAIRABLE
                     finding_diagnostics = tuple(
@@ -214,6 +224,10 @@ class CodeGenerationService:
                         )
                         attempt_number = decision.attempt_number
                         continue
+                    if decision.error_code is CodeGenerationErrorCode.ATTEMPT_BUDGET_EXHAUSTED:
+                        return self._generate_degraded(
+                            request, plan, attempts_used=decision.attempt_number
+                        )
                     resolved = decision.error_code or code
                     resolved = (
                         resolved
@@ -263,7 +277,9 @@ class CodeGenerationService:
                     )
                     attempt_number = decision.attempt_number
                     continue
-                self._raise_decision(decision.error_code or preflight.diagnostic.error_code)
+                return self._degrade_or_raise(
+                    request, plan, decision, preflight.diagnostic.error_code
+                )
 
             _temporal, quality_diagnostics = diagnose_content_plan_timeline(
                 source_code=candidate.code,
@@ -273,8 +289,16 @@ class CodeGenerationService:
                 item for item in quality_diagnostics if item.severity is QualitySeverity.ERROR
             )
             if blocking_quality:
-                codes = tuple(sorted({item.code.value for item in blocking_quality}))
-                diagnostic = "Timeline quality fixes required: " + ", ".join(codes)
+                details = []
+                for item in blocking_quality:
+                    measurements = []
+                    if item.measured_value is not None:
+                        measurements.append(f"measured={item.measured_value}")
+                    if item.threshold_value is not None:
+                        measurements.append(f"threshold={item.threshold_value}")
+                    suffix = f" ({', '.join(measurements)})" if measurements else ""
+                    details.append(f"{item.code.value}: {item.message}{suffix}. {item.suggestion}")
+                diagnostic = "Timeline quality fixes required: " + "; ".join(details)
                 decision = self._record_and_decide(
                     request=request,
                     orchestrator=orchestrator,
@@ -296,8 +320,11 @@ class CodeGenerationService:
                     )
                     attempt_number = decision.attempt_number
                     continue
-                self._raise_decision(
-                    decision.error_code or CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID
+                return self._degrade_or_raise(
+                    request,
+                    plan,
+                    decision,
+                    CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
                 )
 
             render = self._renderer.render(candidate.code, candidate.scene_class)
@@ -334,7 +361,7 @@ class CodeGenerationService:
                     messages = self._repair_messages(plan, decision, diagnostic, candidate)
                     attempt_number = decision.attempt_number
                     continue
-                self._raise_decision(decision.error_code or code)
+                return self._degrade_or_raise(request, plan, decision, code)
 
             version = self._repository.save_success(
                 request,
@@ -360,13 +387,19 @@ class CodeGenerationService:
             step.explanation for scene in plan.scenes for step in scene.formula_steps
         )
         try:
-            storyboard = plan.storyboard or synthesize_storyboard(
-                title=plan.title,
-                target_duration_seconds=plan.target_duration_seconds,
-                category=request.category.value,
-                expressions=expressions,
-                explanations=explanations,
-            )
+            storyboard = plan.storyboard
+            if storyboard is None:
+                if request.category not in _DETERMINISTIC_TEACHING_CATEGORIES:
+                    raise IrCompileError(
+                        f"{request.category.value} requires a validated SceneStoryboard"
+                    )
+                storyboard = synthesize_storyboard(
+                    title=plan.title,
+                    target_duration_seconds=plan.target_duration_seconds,
+                    category=request.category.value,
+                    expressions=expressions,
+                    explanations=explanations,
+                )
             program = compile_storyboard(storyboard)
         except (IrCompileError, ValueError) as error:
             raise CodeGenerationError(
@@ -390,6 +423,22 @@ class CodeGenerationService:
                 CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
                 "Compiled IR failed scene preflight.",
             )
+        if request.category in _DETERMINISTIC_TEACHING_CATEGORIES:
+            _temporal, diagnostics = diagnose_content_plan_timeline(
+                source_code=candidate.code,
+                content_plan=plan,
+            )
+            blocking = tuple(
+                diagnostic
+                for diagnostic in diagnostics
+                if diagnostic.severity is QualitySeverity.ERROR
+            )
+            if blocking:
+                codes = ",".join(sorted({item.code.value for item in blocking}))
+                raise CodeGenerationError(
+                    CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
+                    f"Compiled teaching scene failed quality validation: {codes}",
+                )
         render = self._renderer.render(candidate.code, candidate.scene_class)
         if not render.succeeded:
             raise CodeGenerationError(
@@ -401,8 +450,8 @@ class CodeGenerationService:
             response=candidate,
             attempt_number=1,
             mode=CodeGenerationMode.COMPILED_IR,
-            prompt_template_version="phase10-compiled-ir-v1",
-            provider_model="compiled-ir",
+            prompt_template_version="teaching-storyboard-v1",
+            provider_model=None,
         )
         return CodeGenerationResponse(
             outcome=CodeGenerationOutcome.READY,
@@ -444,7 +493,7 @@ class CodeGenerationService:
             mode=CodeGenerationMode.DETERMINISTIC_TEMPLATE,
         )
 
-    def _generate_degraded(self, request, plan):  # type: ignore[no-untyped-def]
+    def _generate_degraded(self, request, plan, *, attempts_used: int = 0):  # type: ignore[no-untyped-def]
         from .template_compiler import compile_deterministic_template
 
         candidate = compile_deterministic_template(plan, request.category)
@@ -455,6 +504,15 @@ class CodeGenerationService:
                 CodeGenerationErrorCode.INTERNAL_ERROR,
                 "Deterministic template did not satisfy validation.",
             )
+        _temporal, quality_diagnostics = diagnose_content_plan_timeline(
+            source_code=candidate.code,
+            content_plan=plan,
+        )
+        if any(item.severity is QualitySeverity.ERROR for item in quality_diagnostics):
+            raise CodeGenerationError(
+                CodeGenerationErrorCode.INTERNAL_ERROR,
+                "Deterministic template did not satisfy quality validation.",
+            )
         render = self._renderer.render(candidate.code, candidate.scene_class)
         if not render.succeeded:
             raise CodeGenerationError(
@@ -464,7 +522,7 @@ class CodeGenerationService:
         version = self._repository.save_success(
             request,
             response=candidate,
-            attempt_number=1,
+            attempt_number=max(1, attempts_used),
             mode=CodeGenerationMode.DETERMINISTIC_TEMPLATE,
             prompt_template_version="phase7-deterministic-v1",
             provider_model=None,
@@ -472,9 +530,24 @@ class CodeGenerationService:
         return CodeGenerationResponse(
             outcome=CodeGenerationOutcome.DEGRADED,
             code_version=version,
-            attempts_used=0,
+            attempts_used=attempts_used,
             mode=CodeGenerationMode.DETERMINISTIC_TEMPLATE,
         )
+
+    def _degrade_or_raise(self, request, plan, decision, code):  # type: ignore[no-untyped-def]
+        if decision.error_code is CodeGenerationErrorCode.ATTEMPT_BUDGET_EXHAUSTED:
+            try:
+                return self._generate_degraded(
+                    request,
+                    plan,
+                    attempts_used=decision.attempt_number,
+                )
+            except CodeGenerationError as error:
+                raise CodeGenerationError(
+                    CodeGenerationErrorCode.ATTEMPT_BUDGET_EXHAUSTED,
+                    "Code generation and deterministic fallback failed.",
+                ) from error
+        self._raise_decision(decision.error_code or code)
 
     def _record_and_decide(
         self,

@@ -49,6 +49,8 @@ def test_code_prompt_makes_target_duration_a_timeline_requirement() -> None:
     combined = "\n".join(message.content for message in messages)
     assert "Target timeline: 90 seconds" in combined
     assert "81.0 to 99.0 seconds" in combined
+    assert "at least 23 active self.play calls" in combined
+    assert "calculate the sum of every explicit" in combined
     assert "Do not pad" in combined
     assert "Preview and Final" in combined
 
