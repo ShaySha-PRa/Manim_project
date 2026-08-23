@@ -45,8 +45,8 @@ def record_completed_quality(
     job_id: UUID,
     completion: RenderJobCompletion,
 ) -> QualityReport | None:
-    """Persist one immutable report after a successful completion, when evidence is available."""
-    if not _quality_schema_exists(engine):
+    """Persist one immutable report before terminal publication, when evidence is available."""
+    if not quality_schema_exists(engine):
         return None
     metadata_artifact = next(
         (artifact for artifact in completion.artifacts if artifact.kind.value == "metadata"), None
@@ -79,6 +79,7 @@ def record_completed_quality(
         source_code=str(row["source_code"]),
         content_plan=plan,
         actual_media=video,
+        enforce_teaching_content=not _is_scientific_compiled_ir(row),
     )
     diagnostics = temporal_diagnostics + _visual_diagnostics(metadata)
     service = QualityReportService(QualityReportRepository(engine))
@@ -125,7 +126,7 @@ def record_completed_quality(
     return service.append_report(report, diagnostics)
 
 
-def _quality_schema_exists(engine: Engine) -> bool:
+def quality_schema_exists(engine: Engine) -> bool:
     with engine.connect() as connection:
         return (
             connection.execute(
@@ -166,6 +167,7 @@ def _lineage(engine: Engine, job_id: UUID):  # type: ignore[no-untyped-def]
                     """
                 SELECT jobs.project_id, jobs.owner_id, jobs.code_version_id,
                        code.content_plan_version_id, code.source_code,
+                       code.generation_mode,
                        code.prompt_template_version, code.provider_model,
                        plan.version AS plan_version,
                        plan.parent_version_id AS plan_parent_version_id,
@@ -174,7 +176,7 @@ def _lineage(engine: Engine, job_id: UUID):  # type: ignore[no-untyped-def]
                 FROM render_jobs AS jobs
                 JOIN code_versions AS code ON code.id = jobs.code_version_id
                 JOIN content_plan_versions AS plan ON plan.id = code.content_plan_version_id
-                WHERE jobs.id = :job_id AND jobs.status = 'succeeded'
+                WHERE jobs.id = :job_id AND jobs.status IN ('running', 'succeeded')
                 """
                 ),
                 {"job_id": str(job_id)},
@@ -182,6 +184,14 @@ def _lineage(engine: Engine, job_id: UUID):  # type: ignore[no-untyped-def]
             .mappings()
             .one_or_none()
         )
+
+
+def _is_scientific_compiled_ir(row: object) -> bool:
+    return (
+        str(row["generation_mode"]) == "compiled_ir"  # type: ignore[index]
+        and str(row["provider_model"] or "") == "compiler+tools"  # type: ignore[index]
+        and str(row["prompt_template_version"] or "") == "animation-agent-v2"  # type: ignore[index]
+    )
 
 
 def _timestamp(value: object) -> datetime:

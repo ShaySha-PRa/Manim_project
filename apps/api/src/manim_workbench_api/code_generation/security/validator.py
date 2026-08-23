@@ -138,6 +138,7 @@ _MANIM_SYMBOLS: Final = frozenset(
         "Triangle",
         "UL",
         "UP",
+        "VMobject",
         "VGroup",
         "ValueTracker",
         "WHITE",
@@ -227,6 +228,7 @@ _MANIM_MEMBER_NAMES: Final = frozenset(
         "set_fill",
         "set_height",
         "set_opacity",
+        "set_points_as_corners",
         "set_stroke",
         "set_value",
         "shift",
@@ -370,15 +372,12 @@ def validate_source_security(source: str) -> SourceSecurityReport:
         )
 
 
-def complete_allowlisted_manim_imports(
-    source: str, report: SourceSecurityReport
-) -> str:
+def complete_allowlisted_manim_imports(source: str, report: SourceSecurityReport) -> str:
     """Add only omitted, already-allowlisted Manim symbols to an existing import."""
     missing = {
         finding.symbol
         for finding in report.findings
-        if finding.code in {"unknown_call", "unknown_name"}
-        and finding.symbol in _MANIM_SYMBOLS
+        if finding.code in {"unknown_call", "unknown_name"} and finding.symbol in _MANIM_SYMBOLS
     }
     if not missing:
         return source
@@ -398,8 +397,7 @@ def complete_allowlisted_manim_imports(
         alias.name for node in imports for alias in node.names if alias.asname is None
     }
     existing_tokens = {
-        f"{alias.name} as {alias.asname}" if alias.asname else alias.name
-        for alias in target.names
+        f"{alias.name} as {alias.asname}" if alias.asname else alias.name for alias in target.names
     }
     replacement = "from manim import " + ", ".join(
         sorted(existing_tokens | (missing - directly_imported))
@@ -492,9 +490,7 @@ class _SecurityVisitor(ast.NodeVisitor):
                     statement, "forbidden_top_level", "top-level statement is not allowed"
                 )
         if self._class_count != 1 or self._generated_scene_count != 1:
-            self._finding(
-                node, "invalid_scene_class", "exactly one GeneratedScene is required"
-            )
+            self._finding(node, "invalid_scene_class", "exactly one GeneratedScene is required")
 
     def visit_Import(self, node: ast.Import) -> None:  # noqa: N802
         for imported in node.names:
@@ -773,16 +769,10 @@ class _SecurityVisitor(ast.NodeVisitor):
                     else None
                 )
                 pickle_kw = next(
-                    (
-                        keyword.value
-                        for keyword in node.keywords
-                        if keyword.arg == "allow_pickle"
-                    ),
+                    (keyword.value for keyword in node.keywords if keyword.arg == "allow_pickle"),
                     None,
                 )
-                allowed_pickle = (
-                    isinstance(pickle_kw, ast.Constant) and pickle_kw.value is False
-                )
+                allowed_pickle = isinstance(pickle_kw, ast.Constant) and pickle_kw.value is False
                 if (
                     not isinstance(path, str)
                     or not _ARRAY_ASSET_PATH.fullmatch(path)
@@ -855,9 +845,7 @@ class _SecurityVisitor(ast.NodeVisitor):
             return True
         alias = self._aliases.get(name)
         return alias is not None and (
-            alias.startswith("manim:")
-            or alias.startswith("math:")
-            or alias.startswith("numpy:")
+            alias.startswith("manim:") or alias.startswith("math:") or alias.startswith("numpy:")
         )
 
     def _is_allowed_attribute(self, node: ast.Attribute) -> bool:
@@ -881,9 +869,12 @@ def _is_assignable_target(node: ast.expr) -> bool:
 
 
 def _without_docstring(statements: list[ast.stmt]) -> list[ast.stmt]:
-    if statements and isinstance(statements[0], ast.Expr) and isinstance(
-        statements[0].value, ast.Constant
-    ) and isinstance(statements[0].value.value, str):
+    if (
+        statements
+        and isinstance(statements[0], ast.Expr)
+        and isinstance(statements[0].value, ast.Constant)
+        and isinstance(statements[0].value.value, str)
+    ):
         return statements[1:]
     return statements
 

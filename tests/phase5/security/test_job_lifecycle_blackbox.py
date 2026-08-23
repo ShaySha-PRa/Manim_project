@@ -167,7 +167,13 @@ def test_expired_runner_token_cannot_mutate_a_reclaimed_job_after_runner_restart
 
 def test_cancel_complete_race_never_accepts_completion_after_cancel_request(
     api_client: tuple[TestClient, Engine, RecordingPublisher],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # This Phase 5 test isolates the cancel/complete state-machine race. Phase 9
+    # quality-gate behavior is covered with real metadata in its own integration tests.
+    monkeypatch.setattr(
+        "manim_workbench_api.jobs.router.quality_schema_exists", lambda _engine: False
+    )
     client, _engine, _publisher = api_client
     job_id = _submit(client, "cancel-complete-race-key")
     lease_token = _claim(client, job_id, "runner-race")
@@ -192,9 +198,7 @@ def test_cancel_complete_race_never_accepts_completion_after_cancel_request(
         assert completion.json()["status"] == "succeeded"
 
 
-def _cancel_or_complete(
-    client: TestClient, action: str, job_id: UUID, lease_token: str
-):
+def _cancel_or_complete(client: TestClient, action: str, job_id: UUID, lease_token: str):
     if action == "cancel":
         return client.post(f"/api/v1/render-jobs/{job_id}/cancel", headers=HEADERS)
     return client.post(

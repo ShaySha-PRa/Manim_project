@@ -51,6 +51,7 @@ class AgentService:
         self._projects.get_project(request.project_id, request.owner_id)
         generated = run_agent(
             request.prompt,
+            target_duration_seconds=request.target_duration_seconds,
             csv_text=request.csv_text,
             paper_text=request.paper_text,
             output_root=self._compute_root,

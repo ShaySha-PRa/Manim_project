@@ -271,3 +271,44 @@
 - 所有真实视频的质量门禁均失败；因此结论已被确定性固定为 `NO-GO`
 - 修复质量门禁需让 ContentPlan/Agent target duration 真正约束时间线，并将修复循环接入发布链；这不是可用删测试、改 benchmark 或虚报渲染成功替代的问题
 - 不创建 tag，不推送；外部小范围试用阶段已按用户指示从计划中取消
+
+## 2026-08-23 — 视频时长与发布质量闭环
+
+### 根因与修复
+
+- Agent API 未向 orchestrator 传递 `target_duration_seconds`，Visual Director 继续使用 4–12 秒固定模板；现由 Intent 接收请求时长并按固定开销/活跃动画权重确定性重排 IR。
+- 教学源码在安全和 sandbox preflight 后直接持久化；现增加 ContentPlan 时间线/内容门禁，并复用既有最多两次有界修复，错误源码不会保存。
+- `/complete` 原先先注册 Artifact，再写 QualityReport；现先生成不可变报告，缺失或 `failed` 时 Job 失败且 Artifact 表不注册任何行。
+- 科研 `compiled_ir` 原先被教学公式完整性规则误伤；现只对科研执行时间与媒体视觉诊断。
+- CSV 1080p60 Final 首轮返回 247/SIGKILL；根因是单个 12.9 秒 Cairo 动画触及 2 GiB sandbox 内存。现将活跃动画拆为最长 3 秒，并以单 `VMobject` 连续路径替代逐帧多 `Line` 重建。
+
+### 自动化验证
+
+- 聚焦与相关回归：`358 passed in 63.17s`，退出码 `0`。
+- 编译器与安全边界增量复测：`34 passed`，退出码 `0`。
+- `uv run ruff check .`：退出码 `0`。
+- `git diff --check`：退出码 `0`。
+
+### 真实 Docker 验收
+
+- 证据目录：`/tmp/manim-rc1-duration-quality/`，不纳入 Git。
+- held-out Lorenz Preview：目标/估算/实际 `30/30/30s`，450 帧，15 fps，无 error 诊断。
+- held-out Lorenz Final：目标/估算/实际 `30/30/30s`，1800 帧，60 fps，无 error 诊断。
+- 新 CSV Preview：目标/估算/实际 `30/30/30s`，450 帧，15 fps，无 error 诊断。
+- 新 CSV Final：目标/估算/实际 `30/30/30s`，1800 帧，60 fps，无 error 诊断。
+- 四项均保留 `object_overlap` warning，QualityReport 可发布但不隐藏告警。
+- 独立 CSV Final 资源复测：退出码 `0`，真实 sandbox 渲染约 `23.08s`。
+
+### 当前边界
+
+- 当前 shell 未配置 `DEEPSEEK_API_KEY`，未在本次修复提交上重跑真实 Provider；不将 catalog fallback 当作 Provider 证据。
+- 视频时长与 fail-closed 发布代码阻塞已关闭，但整体 RC1 仍为 NO-GO，禁止创建 tag。
+
+### 合并前全量门禁
+
+- 首次全量复测发现 Phase 8 黑盒假 Provider 仍用 `0.1s` 源码声明 60 秒 ContentPlan，10 个测试被新质量门禁正确拒绝；将夹具改为包含必需公式且具有 60 秒活跃时间线后，Phase 8 黑盒 `11 passed`。
+- 全量 Run 1：`594 passed in 76.37s`，退出码 `0`；证据 `/tmp/manim-pytest-duration-quality-pass-1.log`。
+- 全量 Run 2：`594 passed in 76.75s`，退出码 `0`；证据 `/tmp/manim-pytest-duration-quality-pass-2.log`。
+- 两轮均执行真实 Docker P0，最慢项约 46 秒；均正常退出，无人工中止。
+- `uv run ruff check .`、`generate_contracts.py --check`、`git diff --check`：均退出码 `0`。
+- Web lint/typecheck：退出码 `0`；production build 首次受工具 sandbox 影响无法创建 `.next`，在授权的项目 worktree 环境原命令复跑后退出码 `0`，6 个静态页面生成。

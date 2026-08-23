@@ -62,6 +62,7 @@ class FakeLifecycle:
         self.failed: list[UUID] = []
         self.recoverable: tuple[UUID, ...] = ()
         self.next_start = JobControl(active=True, cancellation_requested=False)
+        self.next_complete = JobControl(active=True, cancellation_requested=False)
         self.heartbeat_controls: deque[JobControl] = deque()
 
     def claim(self, job_id: UUID, *, runner_id: str, lease_seconds: int) -> RenderJobLease | None:
@@ -89,7 +90,7 @@ class FakeLifecycle:
         artifacts: tuple[RenderArtifactPayload, ...],
     ) -> JobControl:
         self.completed.append((lease.job_id, artifacts))
-        return JobControl(active=True, cancellation_requested=False)
+        return self.next_complete
 
     def fail(self, lease: RenderJobLease, failure_code: object) -> None:
         self.failed.append(lease.job_id)
@@ -222,6 +223,22 @@ def test_default_lease_tolerates_short_host_clock_resynchronization() -> None:
     assert outcome is CoordinatorOutcome.SUCCEEDED
     assert lifecycle.claim_lease_seconds == [300]
     assert lifecycle.heartbeat_extend_seconds == [300, 300, 300]
+
+
+def test_quality_rejected_completion_is_reported_as_failed_not_succeeded() -> None:
+    job_id = uuid4()
+    queue = FakeQueue(deque([signal_for(job_id)]))
+    lifecycle = FakeLifecycle({job_id: lease_for(job_id)})
+    lifecycle.next_complete = JobControl(
+        active=True,
+        cancellation_requested=False,
+        terminal_failed=True,
+    )
+
+    outcome = coordinator(queue, lifecycle, FakeSandbox()).run_once(timeout_seconds=0.1)
+
+    assert outcome is CoordinatorOutcome.FAILED
+    assert lifecycle.completed == [(job_id, artifacts_for(job_id))]
 
 
 def test_claim_rejection_is_acked_without_starting_sandbox() -> None:

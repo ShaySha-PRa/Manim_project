@@ -174,6 +174,8 @@ class RunnerCoordinator:
                 return cancellation_outcome
 
             completion_control = self._lifecycle.complete(lease, result.artifacts)
+            if completion_control.terminal_failed:
+                return CoordinatorOutcome.FAILED
             cancellation_outcome = self._control_outcome(
                 lease,
                 completion_control,

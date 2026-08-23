@@ -124,12 +124,11 @@ def _safe_generated_scene() -> str:
         {
             "scene_class": "GeneratedScene",
             "code": (
-                "from manim import Scene, Text\n\n"
+                "from manim import MathTex, Scene, Write\n\n"
                 "class GeneratedScene(Scene):\n"
                 "    def construct(self):\n"
-                "        title = Text('Linear function')\n"
-                "        self.add(title)\n"
-                "        self.wait(0.1)\n"
+                "        formula = MathTex(r'y=kx')\n"
+                "        self.play(Write(formula), run_time=60)\n"
             ),
             "assumptions": ["Use a readable title."],
         }

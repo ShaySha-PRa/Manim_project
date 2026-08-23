@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from manim_workbench_contracts import IntentSpec, ToolOp, ToolRun
 from manim_workbench_contracts.animation_ir import (
     AnimAssertion,
@@ -43,7 +45,58 @@ def direct_ir(intent: IntentSpec, tool_runs: tuple[ToolRun, ...]) -> AnimationIR
     builder = builders.get(primary.op)
     if builder is None:
         raise ValueError(f"no visual pattern for {primary.op}")
-    return builder(intent, primary)
+    return _retime_ir(builder(intent, primary), intent.output_duration_seconds)
+
+
+_ACTIVE_TIMELINE_OPS = {
+    TimelineOpKind.ANIMATE_STATE,
+    TimelineOpKind.TRACE,
+    TimelineOpKind.COMPARE,
+}
+# Cairo/FFmpeg final renders can exceed the 2 GiB sandbox limit when one
+# animation spans hundreds of 1080p frames. Keep deterministic active chunks
+# short while preserving the requested aggregate duration.
+_MAX_ACTIVE_OP_SECONDS = 3.0
+
+
+def _retime_ir(ir: AnimationIR, target_duration_seconds: float) -> AnimationIR:
+    """Fit deterministic active animation to the requested duration without static padding."""
+    active = tuple(item for item in ir.timeline if item.op in _ACTIVE_TIMELINE_OPS)
+    if not active:
+        return ir
+    fixed_seconds = sum(_fixed_timeline_seconds(item) for item in ir.timeline)
+    fixed_seconds += sum(item.run_time + 1.2 for item in ir.camera if item.op is CameraOpKind.ZOOM)
+    available = target_duration_seconds - fixed_seconds
+    if available <= 0:
+        raise ValueError("target duration is too short for the selected visual pattern")
+    total_weight = sum(item.duration for item in active)
+    retimed: list[TimelineOp] = []
+    for item in ir.timeline:
+        if item.op not in _ACTIVE_TIMELINE_OPS:
+            retimed.append(item)
+            continue
+        duration = available * item.duration / total_weight
+        chunks = max(1, math.ceil(duration / _MAX_ACTIVE_OP_SECONDS))
+        for index in range(chunks):
+            retimed.append(
+                item.model_copy(
+                    update={
+                        "duration": duration / chunks,
+                        "to": (index + 1) / chunks,
+                    }
+                )
+            )
+    return ir.model_copy(update={"timeline": tuple(retimed)})
+
+
+def _fixed_timeline_seconds(item: TimelineOp) -> float:
+    if item.op is TimelineOpKind.REVEAL:
+        return 1.0
+    if item.op is TimelineOpKind.HIGHLIGHT:
+        return 3.2
+    if item.op is TimelineOpKind.WAIT:
+        return item.wait_time or item.duration
+    return 0.0
 
 
 def _wave(intent: IntentSpec, run: ToolRun) -> AnimationIR:
@@ -197,9 +250,7 @@ def _pid(intent: IntentSpec, run: ToolRun) -> AnimationIR:
             TimelineOp(op=TimelineOpKind.COMPARE, target="responses", duration=8.0),
         ),
         assertions=(AnimAssertion(type=AssertionType.METRIC_MATCH, fields=("overshoot",)),),
-        fallbacks=(
-            AnimFallback(on="continuous_gain", strategy=FallbackStrategy.DISCRETE_SAMPLES),
-        ),
+        fallbacks=(AnimFallback(on="continuous_gain", strategy=FallbackStrategy.DISCRETE_SAMPLES),),
     )
 
 
@@ -223,8 +274,19 @@ def _csv(intent: IntentSpec, run: ToolRun) -> AnimationIR:
             AnimObject(id="pressure", type=ObjectType.TIMESERIES, data_ref="df", color="BLUE"),
             AnimObject(id="anomaly", type=ObjectType.REGION, data_ref="df", color="YELLOW"),
         ),
+        bindings=(
+            AnimBinding(
+                target="temp.data",
+                source=BindingSource(op=BindingOp.SAMPLE, data="df", state="t"),
+            ),
+            AnimBinding(
+                target="pressure.data",
+                source=BindingSource(op=BindingOp.SAMPLE, data="df", state="t"),
+            ),
+        ),
         timeline=(
             TimelineOp(op=TimelineOpKind.REVEAL, targets=("temp", "pressure"), duration=4.0),
+            TimelineOp(op=TimelineOpKind.ANIMATE_STATE, target="t", to=1.0, duration=4.0),
             TimelineOp(op=TimelineOpKind.HIGHLIGHT, target="anomaly", duration=4.0),
         ),
         assertions=(AnimAssertion(type=AssertionType.DATA_FIDELITY, target="temp"),),

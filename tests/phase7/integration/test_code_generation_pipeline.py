@@ -24,10 +24,11 @@ PROJECT_ID = UUID("00000000-0000-0000-0000-000000000002")
 PROMPT_ID = UUID("00000000-0000-0000-0000-000000000003")
 PLAN_ID = UUID("00000000-0000-0000-0000-000000000004")
 VALID_SOURCE = (
-    "from manim import Scene\n\n"
+    "from manim import Scene, Text, Write\n\n"
     "class GeneratedScene(Scene):\n"
     "    def construct(self):\n"
-    "        self.wait(0.1)\n"
+    "        formula = Text('y=kx', font='Noto Sans CJK SC')\n"
+    "        self.play(Write(formula), run_time=60.0)\n"
 )
 
 

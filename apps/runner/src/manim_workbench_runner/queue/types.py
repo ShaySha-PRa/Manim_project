@@ -26,6 +26,7 @@ class JobControl:
 
     active: bool
     cancellation_requested: bool
+    terminal_failed: bool = False
 
 
 @dataclass(frozen=True)

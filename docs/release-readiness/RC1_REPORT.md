@@ -2,9 +2,11 @@
 
 ## 1. 结论
 
-**NO-GO**
+**NO-GO（视频时长与发布质量闭环已关闭；RC1 总门禁尚未全部复测）**
 
-真实 Redis/API/Runner/Web/Docker 能够生成和下载教学、Lorenz、Fourier 与 CSV 视频，但所有真实视频的 QualityReport 都未通过。请求目标为 30 秒时，实际只有 4.2–12 秒，且伴随公式、时间线或画面边界诊断。按 OpenSpec 的 P0 标准，成功渲染不等于可发布。
+本轮已关闭此前的两个决定性代码阻塞：30 秒目标现在贯穿科研 Intent/IR/compiler 与教学源码生成门禁；Runner 完成请求会先生成 QualityReport，`failed` 或缺失报告会把 Job 标记为失败且不注册 Artifact。真实 Docker 复测中，held-out Lorenz 与新 CSV 的 Preview/Final 均为 30.0 秒（CSV 首次 Preview 为 30.07 秒），没有 error 级质量诊断。
+
+当前仍不把整体 RC1 改为 GO：本轮环境没有 `DEEPSEEK_API_KEY`，因此不能在最终修复提交上重跑真实教学 Provider；浏览器 404、双用户 owner 隔离和全部 RC1 门禁也仍需在同一最终 commit 上复测。可以合并本次最小修复，但不得据此创建 RC1 tag。
 
 候选分支为 `release/rc1-readiness`。报告文档内无法自引其所在 Git object SHA；最终证据 SHA 以本报告提交后执行的 `git rev-parse HEAD` 和交付报告为准。代码修复基线为 `a613898`。
 
@@ -16,7 +18,11 @@
 - `package-lock.json`：将 transitive `nanoid` 从 3.3.17 更新到 3.3.18，关闭 High advisory。
 - `apps/api/.../agent/intent_resolver.py`：约束 Provider 只输出严格 IntentSpec JSON，修正缺资产停止语义，禁止伪造 CSV center。
 - `apps/api/.../agent/scientific_planner.py`：移除 CSV benchmark 专属默认参数。
-- `apps/api/.../agent/service.py`：遵循 `MANIM_WORKBENCH_COMPUTE_ROOT`，隔离运行时计算缓存。
+- `apps/api/.../agent/service.py`、`agent/orchestrator.py`：遵循计算缓存目录并把请求目标时长注入 Intent。
+- `apps/api/.../agent/visual_director.py`、`compiler/manim.py`：按目标时长确定性重排 IR；将长动画拆成不超过 3 秒的活跃段；用低内存连续路径实现 CSV 渐进折线，并收紧 Lorenz 画面尺度。
+- `apps/api/.../code_generation/service.py`：在教学源码保存和渲染前执行 ContentPlan 时间线门禁，失败进入既有最多两次的有界修复。
+- `apps/api/.../quality/completion.py`、`quality/orchestration.py`、`jobs/router.py`：区分教学公式与科研 IR 诊断；完成前持久化质量报告；失败或缺证据时拒绝 Artifact 发布。
+- `apps/runner/.../phase5_runtime.py`、`queue/*`：将 API 的质量拒绝终态反馈给 Runner，避免将其误报为成功。
 - `apps/api/.../tools/kernels.py`：支持 `timestamp`，从真实数据确定异常中心和自适应窗口。
 - `tests/agent/test_intent.py`、`tests/agent/test_asset_version.py`：覆盖上述 schema、停止、provenance、参数与缓存边界。
 - `docs/release-readiness/RC1_EXECUTION_LOG.md`、本报告：记录脱敏命令、修复前后证据和 NO-GO 根因。
@@ -35,7 +41,9 @@
 
 - Provider 最初输出过错误 schema/version/tool shape，且会对 CSV 伪造 center；已收紧格式与服务端后校验。
 - CSV planner 将历史 benchmark 的 `350/20` 注入新数据，并因 API 忽略缓存目录环境变量而命中旧 NPZ；两者均已修复。
-- 核心未解根因是“目标时长未贯穿生成与编译时间线”。Agent 的 30 秒 ContentPlan 与编译 IR 的 10–12 秒时间线分离；教学 Provider 也只产生约 4.8 秒源码。现有 QualityReport 正确拒绝这些产物，但发布链没有在质量失败后执行有界修复或阻止交付。
+- 原目标时长未贯穿生成与编译时间线：Agent service 没有把请求时长传入 orchestrator，Visual Director 使用固定 4–12 秒模板；教学服务只检查安全和可渲染性，没有在保存前检查 ContentPlan 时间线。两处均已修复。
+- 原发布顺序先把 Job/Artifact 标记成功，再尝试写 QualityReport，导致失败质量仍可下载。现改为先生成报告，缺失或 `failed` 时 Job 进入失败且不注册 Artifact；科研 `compiled_ir` 不再误用教学公式完整性诊断。
+- CSV 首轮 Final 在 1080p60 下返回 247/SIGKILL：长达 12.9 秒的单个活跃动画在 2 GiB sandbox 内累积过多 Cairo 帧内存。改为最长 3 秒的确定性片段，并将逐帧多 `Line` 的折线改为单 `VMobject` 连续路径后，Final 在 23.08 秒内成功。
 
 ## 4. 验证证据
 
@@ -55,16 +63,23 @@
 | browser | production Chromium Preview/Final/download/refresh | flow pass; quality fail; 404 risk | `browser.json`, PNG |
 | recovery | restart API during Final | unique success, 4 artifacts, attempt_count=2 | `recovery.json` |
 | DeepSeek held-out | ≥8 requests across 4 categories | routing improved; business/quality gate fail | evidence JSON + SQLite metadata |
+| targeted regression | Agent/Phase5/Phase7/Phase9 | 358 passed | pytest output |
+| duration Docker closure | held-out Lorenz + new CSV, Preview/Final | 4/4 passed; 30.0s; no error diagnostics | `/tmp/manim-rc1-duration-quality/report.json` |
+| CSV Final resource regression | 1080p60 real sandbox | passed in 23.08s after 3s chunking | `/tmp/manim-rc1-duration-quality/debug-csv-final-4/` |
+| publication fail-closed | migrated DB API integration | failed report => failed Job, zero Artifact rows | Phase 9 integration test |
+| final pytest candidate | full suite twice | 594 passed / 76.37s; 594 passed / 76.75s | `/tmp/manim-pytest-duration-quality-pass-{1,2}.log` |
+| final static/contracts | Ruff; contract check; diff check | pass | command output |
+| final Web | lint; typecheck; production build | pass | command output |
 
 早期全量套件与部分长耗时真实渲染是修复前 checkpoint。由于已经有决定性 QualityReport 失败，不将不同 checkpoint 拼接成 GO 证据；最终提交上的静态、构建和全量 pytest 复测将单独记录。
 
 ## 5. 未解决风险
 
-1. 所有真实视频 QualityReport 失败；目标时长、IR/compiler 时间线和发布质量闭环未对齐。
+1. 最终修复提交尚未重跑真实 DeepSeek 教学与科研 held-out；当前 shell 没有 Provider key。
 2. 浏览器 console 有未定位 URL 的 404，尚未证明是无害的质量报告轮询。
 3. 本地 auth-disabled 模式无法提供两个真实浏览器用户；多用户 owner/Artifact 隔离本轮只有自动化证据。
 4. API 停机跨过 sandbox 完成点时会在 lease 恢复后重试；终态与产物唯一，但计算成本可翻倍。
-5. 真实 Provider 初始出现过 JSON 合法性和业务语义错误；当前修复需在下一候选提交上重跑全部长耗时视频门禁。
+5. 质量报告写入与 Job 终态转换是顺序事务；取消/完成极端竞态已保持 fail-closed，但后续仍可收敛为单事务状态转换。
 
 ## 6. Git 状态与提交
 
@@ -79,8 +94,7 @@
 
 ## 7. 最小阻塞项关闭顺序
 
-1. 将 `target_duration_seconds` 从 ContentPlan/Agent request 贯穿到 AnimationIR timeline 和教学源码，不再使用与请求分离的 10–12 秒硬编码窗口。
-2. 将 QualityReport 的有界修复/拒绝发布策略接入真实完成链，分开教学公式诊断与科研 IR 诊断。
-3. 为上述两点增加聚焦回归，重跑教学/Lorenz/Fourier/CSV 的真实 Preview/Final 和 QualityReport。
-4. 记录并修复浏览器 404 URL，在 auth-enabled 隔离环境执行双用户 Cookie/CSRF/owner/Artifact 验收。
-5. 在单一新提交上重跑所有 P0 门禁；只有全绿才能改为 GO 并由用户决定是否创建 `v0.1.0-rc1`。
+1. 在有 DeepSeek key 的环境重跑教学、科研和资产 held-out，确认 Provider 生成也满足新时间线门禁。
+2. 记录并修复浏览器 404 URL，在 auth-enabled 隔离环境执行双用户 Cookie/CSRF/owner/Artifact 验收。
+3. 在单一候选提交上重跑 Web、迁移、契约、全量 pytest 两次和全部真实 P0 门禁。
+4. 只有全部门禁全绿才能改为 GO，并由用户决定是否创建 `v0.1.0-rc1`。

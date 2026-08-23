@@ -30,6 +30,7 @@ from manim_workbench_api.tools.registry import invoke
 def run_agent(
     prompt: str,
     *,
+    target_duration_seconds: float | None = None,
     csv_text: str | None = None,
     paper_text: str | None = None,
     output_root: Path | None = None,
@@ -42,9 +43,13 @@ def run_agent(
     events: list[AgentEvent] = [
         AgentEvent(stage="intent_resolver", status="started", message="解析一句话意图")
     ]
-    intent = resolve_intent(
-        prompt, csv_text=csv_text, paper_text=paper_text, provider=provider
-    )
+    intent = resolve_intent(prompt, csv_text=csv_text, paper_text=paper_text, provider=provider)
+    if target_duration_seconds is not None:
+        if not 0 < target_duration_seconds <= 180:
+            raise ValueError("target_duration_seconds must be in the range (0, 180]")
+        intent = intent.model_copy(
+            update={"output_duration_seconds": float(target_duration_seconds)}
+        )
     events.append(
         AgentEvent(stage="intent_resolver", status="succeeded", message=intent.domain.value)
     )
@@ -99,9 +104,7 @@ def run_agent(
                 error_code="asset_invalid",
                 message=str(error),
             )
-        events.append(
-            AgentEvent(stage="tool_executor", status="succeeded", message=need.op.value)
-        )
+        events.append(AgentEvent(stage="tool_executor", status="succeeded", message=need.op.value))
     ir = direct_ir(intent, tuple(tool_runs))
     events.append(AgentEvent(stage="visual_director", status="succeeded", message=ir.pattern.value))
     try:
@@ -123,9 +126,7 @@ def run_agent(
         )
     events.append(AgentEvent(stage="compiler", status="succeeded", message="deterministic manim"))
     source = compiled.segments[0].source
-    critic = evaluate_expression(
-        ir, tuple(tool_runs), source, provider=critic_provider
-    )
+    critic = evaluate_expression(ir, tuple(tool_runs), source, provider=critic_provider)
     events.append(
         AgentEvent(
             stage="critic",
@@ -144,9 +145,7 @@ def run_agent(
         else:
             ir = repaired
             source = compiled.segments[0].source
-            critic = evaluate_expression(
-                ir, tuple(tool_runs), source, provider=critic_provider
-            )
+            critic = evaluate_expression(ir, tuple(tool_runs), source, provider=critic_provider)
             repair_count = 1
             events.append(AgentEvent(stage="ir_repair", status="succeeded", message="ir_repair"))
     return AgentRunResponse(
