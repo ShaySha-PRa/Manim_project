@@ -133,3 +133,141 @@
 - 临时截图：`/tmp/manim-rc1-workbench-desktop.png`、`/tmp/manim-rc1-workbench-mobile.png`
 - 已知说明：此阶段未启动 API，因此工作台按预期显示“无法恢复会话”；完整业务页面留待真实运行阶段验证
 - Production server 已用 SIGINT 停止；未保留后台 Web 进程
+
+### 阶段 2 提交
+
+- Commit：`3999199 fix: remove web build-time font network dependency`
+- 推送：否
+
+## 2026-08-23 — 阶段 3/4：pytest 长耗时诊断与重复性
+
+### 收集与首轮诊断
+
+- 收集命令：`uv run pytest --collect-only -q 2>&1 | tee /tmp/manim-pytest-collect.log`
+- 收集结果：退出码 `0`，当前 commit 收集 `582` 项；比任务包的约数多 1 项，来自本次新增的字体网络依赖回归测试
+- 诊断命令：`uv run pytest -vv --durations=50 -o faulthandler_timeout=60 2>&1 | tee /tmp/manim-pytest-full.log`
+- 首轮结果：退出码 `0`，`582 passed in 133.18s`
+- 首轮证据：`/tmp/manim-pytest-full-run-1.log`
+
+### 长时间无输出的根因
+
+- 最后开始但暂未完成的 node id：`tests/agent/test_docker_p0.py::test_p0_gold_meets_first_render_and_science_rates`
+- faulthandler 栈：位于 `SandboxExecutor` 的受控 `Popen` 轮询，并由 `_render_preview` 调用；不是 Redis、SQLite、event loop 或无 deadline 的后台循环
+- 运行中检查：内存、磁盘充足；没有等待中的 Redis 请求；未发现冲突端口或同名 Manim sandbox 容器
+- 该测试顺序执行当前 P0 gold set 的真实 Docker preview 渲染，测试内部不输出逐 case 进度；CI/历史 `pytest -q` 因此会出现约 83 秒静默窗口
+- 每个 preview 已由 `PROFILE_CONFIGS` 的 `60s` sandbox deadline 保护；timeout 会映射为明确的 `SANDBOX_TIMEOUT`，已有 unit/failure-path 测试覆盖
+- 结论：复现的是“真实渲染长耗时且无中间输出”，不是永久挂起、资源泄漏或退出缺陷；不通过 skip、放宽 timeout、删测试或降低断言处理
+
+### 隔离复测
+
+- 命令：`uv run pytest tests/agent/test_docker_p0.py::test_p0_gold_meets_first_render_and_science_rates -vv -s --setup-show -o faulthandler_timeout=30`
+- Docker 不可见的受限 shell 运行：按测试既有条件 skip，仅用于确认环境边界，不作为通过证据
+- Docker daemon 可用环境运行：退出码 `0`，`1 passed in 83.83s`
+- 30 秒诊断栈仍显示有界 `SandboxExecutor` 子进程轮询；测试随后自行完成
+- 证据：`/tmp/manim-pytest-docker-p0-isolated.log`
+
+### 连续两次完整结果
+
+- Run 1：`582 passed in 133.18s`，最慢项 `82.68s`
+- Run 2：`582 passed in 128.97s`，同一 commit、Python 3.10.20、同一依赖配置
+- Run 2 命令：`uv run pytest -vv --durations=50 2>&1 | tee /tmp/manim-pytest-full-run-2.log`
+- Run 2 退出码：`0`
+- 两轮均未人工中止，pytest 正常退出
+- 两轮结束后检查：无 `manim-wb-*`/Manim workbench 容器残留；无 API/Runner/pytest 后台进程残留
+- 未清理或修改系统中与本项目无关的其他容器、Redis 或用户数据
+- CI 核心命令为 `uv run pytest -q`，测试范围与本地一致；本地 release 诊断命令增加可见性与慢测试证据，未降低 CI 门禁
+- 当前代码无需 pytest 修复提交；根因是对真实 Docker 验收的静默耗时误判，修改执行日志即可准确区分
+
+## 2026-08-23 — 阶段 5：契约、迁移与锁定依赖复现
+
+### 空数据库 migration
+
+- 隔离目录：`/tmp/manim-rc1-migration.lb3Ax1/`，仅包含本次新建的临时 SQLite 数据库
+- 命令：以 `MANIM_WORKBENCH_DATABASE_URL=sqlite:////tmp/manim-rc1-migration.lb3Ax1/empty.db` 执行 `uv run alembic upgrade head`
+- 退出码：`0`
+- 结果：从空库顺序应用 `0001_phase3` 至 `0008_asset_versions`；`alembic current` 为 `0008_asset_versions (head)`
+- 结构核验：`asset_versions` 表存在，append-only update/delete 两个 trigger 均存在
+- 证据：`/tmp/manim-rc1-alembic-empty-upgrade.log` 与临时数据库
+
+### downgrade/upgrade 与 migration tests
+
+- 临时库回归：`0008_asset_versions -> 0007_phase10_ir -> 0008_asset_versions`
+- 退出码：两步均为 `0`；最终 current 仍为 `0008_asset_versions (head)`
+- 聚焦测试：IR migration、AssetVersion DB、Phase 5–9 migration tests
+- 结果：`15 passed in 4.57s`；退出码 `0`
+
+### 契约与依赖
+
+- `uv run python scripts/generate_contracts.py --check`：退出码 `0`，无生成漂移
+- Python/Pydantic 常量、JSON Schema `$id`/extension 与 TypeScript 常量均为 contract `1.10`
+- `uv sync --frozen --python 3.10 --offline`：退出码 `0`，锁定的 50 个包可由当前缓存复现
+- `npm ci --ignore-scripts --offline`：退出码 `0`，安装 356 个包；audit 为 0 vulnerabilities
+- 当前 `uv.lock` SHA-256：`b06b5bf8282180ab0e384f65c7da9f9c448e4fff11686559df148506bfd70d17`
+- 当前 `package-lock.json` SHA-256：`1edd3fe6e59cc96b4fe601b5ba60aa6caa6318b315daa6ed57fc4d1392f02d85`
+- 锁文件变化仅为已记录的 `nanoid 3.3.18` production security patch
+
+## 2026-08-23 — 阶段 6：真实运行环境与 held-out 验收
+
+### 环境
+
+- Redis：隔离容器 `manim-rc1-redis`，端口 `6381`
+- API：`127.0.0.1:8011`，隔离 SQLite `/tmp/manim-rc1-runtime/rc1.db`
+- Runner：`rc1-readiness-runner`，真实 Docker sandbox
+- Web：离线 production build，`127.0.0.1:3011`
+- Provider：真实 DeepSeek，观测模型 `deepseek-v4-flash`
+- 本地工作台按项目设计使用 `auth_disabled=true`；`/login` 重定向 `/workbench`，并签发 `dev@local.test` session
+- 脱敏 JSON 与截图：`/tmp/manim-rc1-runtime/evidence/`；未记录 API key、Cookie 或完整请求头
+
+### 教学旧路径
+
+- held-out 圆面积扇形重排 Prompt：ContentPlan `ready` 5.551s，CodeVersion `ready` 9.461s，各 1 次 Provider attempt
+- Preview：`succeeded`，16.219s，74 frames，854x480@15，4 个产物，MP4 可解码，下载 hash 与 descriptor 一致
+- Final：`succeeded`，38.493s，288 frames，1920x1080@60，4 个产物，MP4 可解码，下载 hash 一致
+- 阻塞：Preview/Final QualityReport 均为 `failed` / `0`；实际时长 4.93s/4.80s，目标 30s，同时有 `key_formula_missing` 与 timeline 诊断
+- 额外 held-out 等比数列 Prompt 被 Provider 错误地要求已经明确的推导目标，保留为语义失败证据
+- 证据：`/tmp/manim-rc1-runtime/evidence/teaching.json` 与 `teaching-attempt-1.json`
+
+### 科研无资产路径
+
+- held-out Lorenz Prompt：Intent 忠实，假设显式，`lorenz_ensemble(delta=1e-5)` 的 trajectory/divergence 断言为真
+- Critic：5.0，repair 0；AnimationIR 与确定性 compiler 产物存在
+- Preview：`succeeded` / 44.521s / 180 frames；Final：`succeeded` / 167.958s / 720 frames；均为真实 Docker 且 hash 一致
+- 阻塞：两份 QualityReport 均 `failed` / `0`；请求目标 30s，实际为 12s，还有公式、边界和重叠诊断
+- 浏览器中的第二个 held-out Fourier 任务也完成 Preview/Final，但目标 30s/实际 11.4s，QualityReport `failed` / `0`
+- 证据：`research.json`、`browser.json`、`browser-final.png`
+
+### CSV / AssetVersion 路径及修复
+
+- 首轮发现 `timestamp` 不被接受；修复为允许 `time|timestamp`，但不改写原 AssetVersion 列 provenance
+- 第二轮发现 Provider 虚构 `center=0`；改为仅从用户明确时间表达中提取 center，否则由内核从真实数据检测
+- 第三轮发现 planner 仍注入 benchmark 专属 `center=350,width=20`；移除该默认，并让未显式给 width 的任务按当前数据时间间隔适配
+- 还发现 API `AgentService` 忽略 `MANIM_WORKBENCH_COMPUTE_ROOT`，导致命中旧工作树缓存；已改为遵循环境隔离路径
+- 最终 held-out `timestamp,temperature,pressure` CSV：6 行，异常 center=3，count=1；input/output AssetVersion `derived_from` hash 一致；Preview/Final 真实渲染成功
+- 第二个 held-out `time=2` CSV：Intent params `center=2.0`，5 行，anomaly_count=1，provenance 完整
+- 阻塞：首个资产视频 QualityReport 为 `failed` / `17`，实际 4.2s 低于 30s 目标
+- 修复提交：`a613898 fix: harden held-out intent and CSV handling`
+- 证据：`csv.json`、`csv-explicit-center-provider.json`，以及保留的修复前 JSON
+
+### 安全停止
+
+- 缺少 CSV：`asset_required`，`needs_confirmation=false`，0 ToolRun，无 CodeVersion
+- 未提供正文的论文：`needs_confirmation`，0 ToolRun，无 CodeVersion
+- 直接查询该项目权威 SQLite：0 RenderJob，0 CodeVersion，没有进入 sandbox
+- 证据：`safety.json`
+
+### 浏览器与恢复性
+
+- Chromium production Web：创建项目、DeepSeek 生成、Preview、Final、视频预览、485,374-byte 下载、刷新后 job/video 恢复均成功
+- 页面明确呈现质量失败，没有将渲染成功伪报为质量通过
+- 浏览器 console 记录 18 次 404；本轮脚本未记录 URL，无法将其关闭为良性轮询，列入未解风险
+- 恢复测试：Final 在 `running` 时停止 API，客户端观测 63 次暂时请求失败；API 重启后最终唯一 `succeeded`，4 个产物，无部分发布
+- 首次 sandbox 完成时 API 不可用，无法确认完成；租约恢复后发生第 2 次 attempt，总耗时 166.997s。这是条件性 at-least-once 恢复，不是无条件重复，但仍是 RC1 成本风险
+- 本地模式无交互登录/退出，也无法在同一 production 浏览器会话创建第二真实用户；Cookie/CSRF/owner 边界仅有自动化套件证据，不计为本轮多用户真实浏览器验收
+
+## 阶段 7/8 当前结论
+
+- held-out 覆盖至少 8 个真实 Provider 请求：教学≥2、无资产科研≥2、CSV≥2、模糊/缺资料≥2
+- 初始失败被保留：教学错误澄清、IntentSpec schema/shape 错误、CSV 列名/伪 center/历史默认错误
+- 所有真实视频的质量门禁均失败；因此结论已被确定性固定为 `NO-GO`
+- 修复质量门禁需让 ContentPlan/Agent target duration 真正约束时间线，并将修复循环接入发布链；这不是可用删测试、改 benchmark 或虚报渲染成功替代的问题
+- 不创建 tag，不推送；外部小范围试用阶段已按用户指示从计划中取消
