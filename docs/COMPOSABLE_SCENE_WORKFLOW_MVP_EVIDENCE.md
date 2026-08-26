@@ -44,8 +44,8 @@ to one candidate SHA.
 
 | Gate | Command | Expected/recorded result |
 | --- | --- | --- |
-| Workflow suite | `uv run pytest -q tests/workflows tests/web/workflow -o faulthandler_timeout=60` | 108 passed in 91.40s; includes real Docker cases |
-| Real workflow Docker black box | full-suite case `tests/workflows/test_workflow_docker_acceptance.py` | passed in 51.80s: teaching + Lorenz 3D + CSV anomaly, all generated segments rendered, ordered manifest and final MP4 decoded |
+| Workflow suite | `uv run pytest -q tests/workflows tests/web/workflow -o faulthandler_timeout=60` | 109 passed in 91.20s; includes real Docker cases |
+| Real workflow Docker black box | full-suite case `tests/workflows/test_workflow_docker_acceptance.py` | passed in 51.50s: teaching + Lorenz 3D + CSV anomaly, all generated segments rendered, ordered manifest and final MP4 decoded |
 | Scene cache, bound CSV and provenance | focused workflow executor tests plus the full suite | same-key retry reused the verified clip with no new RenderJob; bound CSV reached the scientific adapter and Intent/IR provenance refs remained visible |
 | API/auth/Workflow HTTP | `uv run pytest -q tests/workflows/test_api.py tests/workflows/test_api_runner_integration.py tests/phase8 tests/phase9` | 157 passed in 20.87s |
 | Protected migrations | `uv run pytest -q tests/workflows/test_migration.py tests/workflows/test_protected_render_job_migration.py tests/workflows/test_render_job_shadow_migration.py tests/workflows/test_typed_render_jobs.py` | 19 passed in 4.01s |
