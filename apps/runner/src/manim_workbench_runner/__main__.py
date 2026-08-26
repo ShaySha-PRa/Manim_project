@@ -12,6 +12,7 @@ from redis import Redis
 from manim_workbench_runner.phase5_runtime import build_runtime_components
 from manim_workbench_runner.queue import RedisSignalQueue, RunnerCoordinator
 from manim_workbench_runner.queue.types import LifecycleUnavailable
+from manim_workbench_runner.workflow_runtime import build_workflow_worker
 
 
 def _print_idle() -> None:
@@ -53,12 +54,14 @@ def _run_worker(*, once: bool) -> None:
         sandbox=sandbox,
         runner_id=_runner_id(),
     )
-    _serve_coordinator(coordinator, once=once)
+    workflow_worker = build_workflow_worker(redis_client, runner_id=_runner_id())
+    _serve_coordinator(coordinator, workflow_worker=workflow_worker, once=once)
 
 
 def _serve_coordinator(
     coordinator: RunnerCoordinator,
     *,
+    workflow_worker=None,  # type: ignore[no-untyped-def]
     once: bool,
     sleep: Callable[[float], None] = default_sleep,
 ) -> None:
@@ -74,7 +77,9 @@ def _serve_coordinator(
         }, separators=(",", ":")))
     while True:
         try:
-            outcome = coordinator.run_once(timeout_seconds=1.0 if once else 5.0)
+            outcome = coordinator.run_once(
+                timeout_seconds=1.0 if once or workflow_worker is not None else 5.0
+            )
         except LifecycleUnavailable:
             _print_event("api_unavailable")
             if once:
@@ -86,6 +91,19 @@ def _serve_coordinator(
                 {"event": "runner_outcome", "outcome": outcome.value}, separators=(",", ":")
             )
         )
+        if workflow_worker is not None:
+            workflow_outcome = workflow_worker.run_once(
+                timeout_seconds=0.1 if once else 1.0
+            )
+            print(
+                json.dumps(
+                    {
+                        "event": "workflow_runner_outcome",
+                        "outcome": workflow_outcome.value,
+                    },
+                    separators=(",", ":"),
+                )
+            )
         if once:
             return
 

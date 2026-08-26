@@ -8,8 +8,6 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from manim_workbench_api.auth.dependencies import get_auth_engine, get_auth_settings
@@ -34,7 +32,8 @@ from manim_workbench_api.workspace.dependencies import get_workspace_engine
 from manim_workbench_api.workspace.router import router as workspace_router
 from sqlalchemy import Engine, create_engine, text
 
-ROOT = Path(__file__).resolve().parents[3]
+from tests.workflows.migration_support import upgrade_workflow_database
+
 ORIGIN = "http://testserver"
 INITIAL_PASSWORD = "initial-correct-horse-battery"
 READY_PASSWORD = "ready-correct-horse-battery"
@@ -138,9 +137,7 @@ def _safe_generated_scene() -> str:
 def _migrated_engine(tmp_path: Path) -> Engine:
     tmp_path.mkdir(parents=True, exist_ok=True)
     database_path = tmp_path / "phase8-blackbox.db"
-    config = Config(str(ROOT / "alembic.ini"))
-    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    upgrade_workflow_database(database_path)
     return create_engine(f"sqlite:///{database_path}")
 
 

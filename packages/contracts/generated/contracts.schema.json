@@ -1445,6 +1445,191 @@
       "title": "CodeVersion",
       "type": "object"
     },
+    "CompositionManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "clips": {
+          "items": {
+            "$ref": "#/$defs/CompositionManifestClip"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Clips",
+          "type": "array"
+        },
+        "composer_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Composer Version",
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/RenderProfile"
+        },
+        "total_duration_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 600,
+          "title": "Total Duration Seconds",
+          "type": "number"
+        },
+        "workflow_version_id": {
+          "format": "uuid",
+          "title": "Workflow Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workflow_version_id",
+        "profile",
+        "clips",
+        "total_duration_seconds",
+        "composer_version"
+      ],
+      "title": "CompositionManifest",
+      "type": "object"
+    },
+    "CompositionManifestClip": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Artifact Sha256",
+          "type": "string"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 120,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "position": {
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Position",
+          "type": "integer"
+        },
+        "scene_block_version_id": {
+          "format": "uuid",
+          "title": "Scene Block Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_block_version_id",
+        "artifact_sha256",
+        "duration_seconds",
+        "position"
+      ],
+      "title": "CompositionManifestClip",
+      "type": "object"
+    },
+    "CompositionRun": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Id"
+        },
+        "cache_key": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Cache Key",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{1,99}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "manifest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CompositionManifest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/RenderProfile"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "state_version": {
+          "default": 0,
+          "minimum": 0,
+          "title": "State Version",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/CompositionRunStatus"
+        },
+        "workflow_version_id": {
+          "format": "uuid",
+          "title": "Workflow Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "workflow_version_id",
+        "project_id",
+        "owner_id",
+        "profile",
+        "status",
+        "cache_key",
+        "created_at"
+      ],
+      "title": "CompositionRun",
+      "type": "object"
+    },
+    "CompositionRunStatus": {
+      "enum": [
+        "queued",
+        "composing",
+        "not_ready_to_compose",
+        "succeeded",
+        "failed"
+      ],
+      "title": "CompositionRunStatus",
+      "type": "string"
+    },
     "ContentPlanDraft": {
       "additionalProperties": false,
       "properties": {
@@ -1507,7 +1692,7 @@
         },
         "target_duration_seconds": {
           "maximum": 180,
-          "minimum": 30,
+          "minimum": 15,
           "title": "Target Duration Seconds",
           "type": "integer"
         },
@@ -1591,7 +1776,7 @@
           "anyOf": [
             {
               "maximum": 180,
-              "minimum": 30,
+              "minimum": 15,
               "type": "integer"
             },
             {
@@ -2451,6 +2636,78 @@
         "visual_clear"
       ],
       "title": "GeometryProofRating",
+      "type": "object"
+    },
+    "GlobalBrief": {
+      "additionalProperties": false,
+      "properties": {
+        "aspect_ratio": {
+          "const": "16:9",
+          "default": "16:9",
+          "title": "Aspect Ratio",
+          "type": "string"
+        },
+        "background": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Background",
+          "type": "string"
+        },
+        "language": {
+          "$ref": "#/$defs/Language"
+        },
+        "notation": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 32,
+          "title": "Notation",
+          "type": "object"
+        },
+        "palette": {
+          "items": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Palette",
+          "type": "array"
+        },
+        "scientific_parameters": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "maxProperties": 32,
+          "title": "Scientific Parameters",
+          "type": "object"
+        },
+        "style_preset": {
+          "$ref": "#/$defs/WorkflowStylePreset"
+        },
+        "target_duration_seconds": {
+          "maximum": 600,
+          "minimum": 30,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "language",
+        "target_duration_seconds",
+        "style_preset",
+        "background",
+        "palette"
+      ],
+      "title": "GlobalBrief",
       "type": "object"
     },
     "IntentDomain": {
@@ -3494,9 +3751,17 @@
           "title": "Cancellation Requested At"
         },
         "code_version_id": {
-          "format": "uuid",
-          "title": "Code Version Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code Version Id"
         },
         "concat_group_id": {
           "anyOf": [
@@ -3615,6 +3880,19 @@
         "profile": {
           "$ref": "#/$defs/RenderProfile"
         },
+        "program_render_segment_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Program Render Segment Id"
+        },
         "project_id": {
           "format": "uuid",
           "title": "Project Id",
@@ -3661,7 +3939,6 @@
         "id",
         "project_id",
         "owner_id",
-        "code_version_id",
         "profile",
         "status",
         "idempotency_key",
@@ -3761,14 +4038,30 @@
           "type": "integer"
         },
         "code_version_id": {
-          "format": "uuid",
-          "title": "Code Version Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code Version Id"
         },
         "content_plan_version_id": {
-          "format": "uuid",
-          "title": "Content Plan Version Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Plan Version Id"
         },
         "job_id": {
           "format": "uuid",
@@ -3787,6 +4080,19 @@
         },
         "profile": {
           "$ref": "#/$defs/RenderProfile"
+        },
+        "program_render_segment_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Program Render Segment Id"
         },
         "scene_class": {
           "pattern": "^[A-Z][A-Za-z0-9]{1,99}$",
@@ -3813,8 +4119,6 @@
       },
       "required": [
         "job_id",
-        "code_version_id",
-        "content_plan_version_id",
         "target_duration_seconds",
         "profile",
         "scene_class",
@@ -3865,9 +4169,30 @@
       "additionalProperties": false,
       "properties": {
         "code_version_id": {
-          "format": "uuid",
-          "title": "Code Version Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code Version Id"
+        },
+        "concat_group_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Concat Group Id"
         },
         "idempotency_key": {
           "maxLength": 128,
@@ -3883,16 +4208,42 @@
         "profile": {
           "$ref": "#/$defs/RenderProfile"
         },
+        "program_render_segment_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Program Render Segment Id"
+        },
         "project_id": {
           "format": "uuid",
           "title": "Project Id",
           "type": "string"
+        },
+        "segment_index": {
+          "anyOf": [
+            {
+              "maximum": 24,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Segment Index"
         }
       },
       "required": [
         "project_id",
         "owner_id",
-        "code_version_id",
         "profile",
         "idempotency_key"
       ],
@@ -3906,6 +4257,257 @@
       ],
       "title": "RenderProfile",
       "type": "string"
+    },
+    "SceneBlockRun": {
+      "additionalProperties": false,
+      "properties": {
+        "animation_ir_ref": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Animation Ir Ref"
+        },
+        "cache_key": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Cache Key",
+          "type": "string"
+        },
+        "compiled_program_ref": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compiled Program Ref"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{1,99}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "final_artifact_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Artifact Id"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "intent_ref": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intent Ref"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "pipeline_used": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScenePipeline"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "preview_artifact_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preview Artifact Id"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "scene_block_version_id": {
+          "format": "uuid",
+          "title": "Scene Block Version Id",
+          "type": "string"
+        },
+        "state_version": {
+          "default": 0,
+          "minimum": 0,
+          "title": "State Version",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/SceneBlockRunStatus"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "scene_block_version_id",
+        "status",
+        "cache_key",
+        "created_at"
+      ],
+      "title": "SceneBlockRun",
+      "type": "object"
+    },
+    "SceneBlockRunStatus": {
+      "enum": [
+        "queued",
+        "planning",
+        "needs_confirmation",
+        "asset_required",
+        "compiling",
+        "rendering",
+        "succeeded",
+        "failed"
+      ],
+      "title": "SceneBlockRunStatus",
+      "type": "string"
+    },
+    "SceneBlockVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_version_ids": {
+          "default": [],
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Asset Version Ids",
+          "type": "array"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "parent_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Version Id"
+        },
+        "pipeline_mode": {
+          "$ref": "#/$defs/ScenePipelineMode"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "target_duration_seconds": {
+          "maximum": 120,
+          "minimum": 15,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "workflow_id": {
+          "format": "uuid",
+          "title": "Workflow Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "workflow_id",
+        "owner_id",
+        "version",
+        "parent_version_id",
+        "title",
+        "prompt",
+        "pipeline_mode",
+        "target_duration_seconds",
+        "created_at"
+      ],
+      "title": "SceneBlockVersion",
+      "type": "object"
     },
     "SceneHint": {
       "additionalProperties": false,
@@ -4084,6 +4686,23 @@
       ],
       "title": "SceneObject",
       "type": "object"
+    },
+    "ScenePipeline": {
+      "enum": [
+        "teaching",
+        "scientific"
+      ],
+      "title": "ScenePipeline",
+      "type": "string"
+    },
+    "ScenePipelineMode": {
+      "enum": [
+        "auto",
+        "teaching",
+        "scientific"
+      ],
+      "title": "ScenePipelineMode",
+      "type": "string"
     },
     "SceneStep": {
       "additionalProperties": false,
@@ -4730,6 +5349,88 @@
       "title": "UserAssetKind",
       "type": "string"
     },
+    "VideoWorkflowVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/WorkflowEdge"
+          },
+          "maxItems": 9,
+          "minItems": 3,
+          "title": "Edges",
+          "type": "array"
+        },
+        "global_brief": {
+          "$ref": "#/$defs/GlobalBrief"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/WorkflowNode"
+          },
+          "maxItems": 10,
+          "minItems": 4,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "parent_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Version Id"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "workflow_id": {
+          "format": "uuid",
+          "title": "Workflow Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "workflow_id",
+        "project_id",
+        "owner_id",
+        "version",
+        "parent_version_id",
+        "global_brief",
+        "nodes",
+        "edges",
+        "created_at"
+      ],
+      "title": "VideoWorkflowVersion",
+      "type": "object"
+    },
     "VisualKind": {
       "enum": [
         "formula",
@@ -4751,6 +5452,78 @@
         "data_anomaly"
       ],
       "title": "VisualPattern",
+      "type": "string"
+    },
+    "WorkflowEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "source_node_id": {
+          "format": "uuid",
+          "title": "Source Node Id",
+          "type": "string"
+        },
+        "target_node_id": {
+          "format": "uuid",
+          "title": "Target Node Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_node_id",
+        "target_node_id"
+      ],
+      "title": "WorkflowEdge",
+      "type": "object"
+    },
+    "WorkflowNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/WorkflowNodeKind"
+        },
+        "scene_block_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Block Version Id"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "title": "WorkflowNode",
+      "type": "object"
+    },
+    "WorkflowNodeKind": {
+      "enum": [
+        "scene",
+        "compose",
+        "export"
+      ],
+      "title": "WorkflowNodeKind",
+      "type": "string"
+    },
+    "WorkflowStylePreset": {
+      "enum": [
+        "dark_scientific",
+        "light_academic",
+        "minimal_math",
+        "presentation"
+      ],
+      "title": "WorkflowStylePreset",
       "type": "string"
     },
     "WorkspaceAgentRunRequest": {
@@ -4889,7 +5662,7 @@
           "anyOf": [
             {
               "maximum": 180,
-              "minimum": 30,
+              "minimum": 15,
               "type": "integer"
             },
             {
@@ -4933,7 +5706,7 @@
       "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.10",
+  "$id": "https://manim-workbench.local/contracts/1.11",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
@@ -4961,6 +5734,9 @@
     "CodeGenerationResponse",
     "CodeModelResponse",
     "CodeVersion",
+    "CompositionManifest",
+    "CompositionManifestClip",
+    "CompositionRun",
     "ContentPlanDraft",
     "ContentPlanGenerationRequest",
     "ContentPlanGenerationResponse",
@@ -4976,6 +5752,7 @@
     "GenerationAttempt",
     "GeometryConstruction",
     "GeometryProofRating",
+    "GlobalBrief",
     "IntentSpec",
     "JobEvent",
     "LoginRequest",
@@ -5003,6 +5780,8 @@
     "RenderJobLease",
     "RenderJobLeaseRequest",
     "RenderJobSubmission",
+    "SceneBlockRun",
+    "SceneBlockVersion",
     "SceneHint",
     "SceneObject",
     "SceneStep",
@@ -5015,10 +5794,13 @@
     "TrackerSpec",
     "User",
     "UserAsset",
+    "VideoWorkflowVersion",
+    "WorkflowEdge",
+    "WorkflowNode",
     "WorkspaceAgentRunRequest",
     "WorkspaceCodeGenerationRequest",
     "WorkspaceContentPlanGenerationRequest",
     "WorkspaceRenderJobSubmission"
   ],
-  "x-contract-schema-version": "1.10"
+  "x-contract-schema-version": "1.11"
 }

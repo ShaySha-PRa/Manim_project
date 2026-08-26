@@ -22,7 +22,7 @@ def _migrated_engine(tmp_path: Path) -> Engine:
     database_path = tmp_path / "projects.db"
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0005_phase8")
     engine = create_engine(f"sqlite:///{database_path}")
     with engine.begin() as connection:
         users = ((OWNER_A, "owner-a@example.test"), (OWNER_B, "owner-b@example.test"))

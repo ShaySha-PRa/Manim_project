@@ -8,7 +8,7 @@ def test_phase10_migration_adds_assets_and_allows_021(tmp_path: Path) -> None:
     config = Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
     db = tmp_path / "ir.db"
     config.set_main_option("sqlalchemy.url", f"sqlite:///{db}")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0008_asset_versions")
     import sqlite3
 
     connection = sqlite3.connect(db)

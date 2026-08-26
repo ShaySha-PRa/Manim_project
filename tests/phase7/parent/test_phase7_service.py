@@ -6,6 +6,10 @@ from uuid import uuid4
 
 import pytest
 from manim_workbench_api.code_generation.errors import CodeGenerationError
+from manim_workbench_api.code_generation.gallery_fixtures import (
+    fixed_in_frame_storyboard,
+    opening_manim_formula_storyboard,
+)
 from manim_workbench_api.code_generation.models import (
     CandidateRenderResult,
     LoadedCodeGenerationInput,
@@ -29,6 +33,7 @@ from manim_workbench_contracts import (
     FormulaStep,
     Language,
 )
+from manim_workbench_contracts.ir import SceneStoryboard
 
 VALID_SOURCE = (
     "from manim import Scene, Text, Write\n\n"
@@ -224,6 +229,60 @@ def test_default_geometry_path_requires_a_validated_storyboard_instead_of_placeh
     assert caught.value.code is CodeGenerationErrorCode.INVALID_MODEL_RESPONSE
     assert "requires a validated SceneStoryboard" in str(caught.value)
     assert provider.calls == 0
+    assert renderer.calls == 0
+    assert repository.saved == []
+
+
+def test_teaching_service_exposes_every_compiled_segment_without_rendering_or_truncation() -> None:
+    base_plan = content_plan()
+    formula = opening_manim_formula_storyboard().steps[0]
+    surface = fixed_in_frame_storyboard().steps[0]
+    summary = formula.model_copy(update={"goal": "Summarize the result"})
+    plan = base_plan.model_copy(
+        update={
+            "schema_version": "1.6",
+            "storyboard": SceneStoryboard(
+                target_duration_seconds=48,
+                steps=(formula, surface, summary),
+            ),
+        }
+    )
+    repository = FakeRepository(plan)
+    renderer = FakeRenderer([])
+    service = CodeGenerationService(repository, FakeProvider([]), renderer)
+
+    program = service.compile_program(request_for(plan, CodeGenerationCategory.MIXED))
+
+    assert [segment.scene_base for segment in program.segments] == [
+        "Scene",
+        "ThreeDScene",
+        "Scene",
+    ]
+    assert renderer.calls == 0
+    assert repository.saved == []
+
+
+def test_legacy_teaching_response_rejects_multi_segment_program_explicitly() -> None:
+    base_plan = content_plan()
+    formula = opening_manim_formula_storyboard().steps[0]
+    surface = fixed_in_frame_storyboard().steps[0]
+    plan = base_plan.model_copy(
+        update={
+            "schema_version": "1.6",
+            "storyboard": SceneStoryboard(
+                target_duration_seconds=48,
+                steps=(formula, surface, formula),
+            ),
+        }
+    )
+    repository = FakeRepository(plan)
+    renderer = FakeRenderer([])
+
+    with pytest.raises(CodeGenerationError, match="ProgramRenderService"):
+        CodeGenerationService(repository, FakeProvider([]), renderer).generate(
+            request_for(plan, CodeGenerationCategory.MIXED)
+        )
+
     assert renderer.calls == 0
     assert repository.saved == []
 

@@ -13,6 +13,7 @@ from manim_workbench_api.jobs.router import router as jobs_router
 from manim_workbench_api.projects.router import router as projects_router
 from manim_workbench_api.quality.router import router as quality_router
 from manim_workbench_api.web_security import configure_web_security
+from manim_workbench_api.workflows.router import router as workflows_router
 from manim_workbench_api.workspace.router import router as workspace_router
 
 
@@ -21,7 +22,7 @@ class HealthResponse(BaseModel):
 
     status: Literal["ok"]
     service: Literal["api"]
-    contract_schema_version: Literal["1.10"]
+    contract_schema_version: Literal["1.11"]
 
 
 app = FastAPI(title="Manim Workbench API", version="0.1.0")
@@ -35,6 +36,7 @@ app.include_router(jobs_router, prefix="/api/v1")
 app.include_router(content_plans_router, prefix="/api/v1")
 app.include_router(code_generation_router, prefix="/api/v1")
 app.include_router(quality_router, prefix="/api/v1")
+app.include_router(workflows_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)

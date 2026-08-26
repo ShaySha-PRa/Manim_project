@@ -75,7 +75,7 @@ def migrated_engine(tmp_path: Path) -> Engine:
     database_path = tmp_path / "phase6-integration.db"
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0003_phase6")
     engine = create_engine(f"sqlite:///{database_path}")
     with engine.begin() as connection:
         connection.execute(

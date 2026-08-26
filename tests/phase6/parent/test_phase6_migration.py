@@ -16,7 +16,7 @@ def alembic_config(database_path: Path) -> Config:
 def test_phase6_migration_accepts_1_1_and_adds_redacted_usage(tmp_path: Path) -> None:
     database_path = tmp_path / "phase6.db"
     config = alembic_config(database_path)
-    command.upgrade(config, "head")
+    command.upgrade(config, "0003_phase6")
 
     connection = sqlite3.connect(database_path)
     columns = {row[1] for row in connection.execute("PRAGMA table_info(generation_attempts)")}
@@ -35,7 +35,7 @@ def test_phase6_migration_accepts_1_1_and_adds_redacted_usage(tmp_path: Path) ->
 def test_phase6_migration_downgrades_to_phase5(tmp_path: Path) -> None:
     database_path = tmp_path / "phase6-downgrade.db"
     config = alembic_config(database_path)
-    command.upgrade(config, "head")
+    command.upgrade(config, "0003_phase6")
     command.downgrade(config, "0002_phase5")
 
     connection = sqlite3.connect(database_path)

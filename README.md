@@ -84,8 +84,19 @@ MANIM_WORKBENCH_COOKIE_SECURE=false
 
 ```bash
 docker compose -f infra/compose.yaml up -d redis
+uv run --env-file .env alembic upgrade 0008_asset_versions
+uv run --env-file .env python scripts/migrate_render_job_typed_sources.py \
+  --database data/manim_workbench.db \
+  --backup data/migration-backups/manim_workbench.pre-0009.db \
+  --mode upgrade \
+  --confirm-services-stopped
 uv run --env-file .env alembic upgrade head
 ```
+
+`0009_render_job_typed_sources` 是受保护的 SQLite 父表重建边界。执行维护命令时 API
+和 Runner 必须已停止；备份路径必须不存在，命令不会覆盖旧备份。普通 Alembic 从未预处理的
+0008 数据库进入 0009 会明确拒绝。维护命令成功标记 0009 后，0010 及后续 revision 才继续使用
+常规 `alembic upgrade head`。如果 `.env` 使用其他数据库文件，`--database` 必须指向同一个文件。
 
 不要提交 `.env`、密钥、`data/`、`runtime/`。
 
@@ -184,7 +195,8 @@ uv run python scripts/agent_p1_acceptance.py
 uv run python scripts/agent_p2_acceptance.py
 ```
 
-改契约源文件后：`uv run python scripts/generate_contracts.py`。改 schema 后：`uv run alembic upgrade head`。
+改契约源文件后：`uv run python scripts/generate_contracts.py`。跨越 0008 → 0009 时使用上面的受保护
+维护命令；数据库已在 0009 或更高版本时，后续 schema 变更使用 `uv run alembic upgrade head`。
 
 ## 常见问题
 

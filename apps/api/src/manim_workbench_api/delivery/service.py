@@ -167,6 +167,21 @@ class DeliveryService:
                 .mappings()
                 .first()
             )
+            if row is None:
+                row = (
+                    connection.execute(
+                        text(
+                            "SELECT 'video' AS kind, w.relative_path, w.sha256, w.byte_size "
+                            "FROM workflow_artifacts w JOIN projects p ON p.id=w.project_id "
+                            "WHERE w.id=:artifact_id AND w.owner_id=:owner_id "
+                            "AND p.owner_id=:owner_id AND p.archived_at IS NULL "
+                            "AND w.media_type='video/mp4'"
+                        ),
+                        {"artifact_id": str(artifact_id), "owner_id": str(owner_id)},
+                    )
+                    .mappings()
+                    .first()
+                )
         if row is None:
             raise DeliveryNotFound("artifact")
         try:

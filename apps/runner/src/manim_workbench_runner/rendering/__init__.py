@@ -1,4 +1,13 @@
 from .cache import build_cache_key
+from .concat import (
+    ClipInput,
+    CompositionResult,
+    ConcatError,
+    MediaDescriptor,
+    compose_mp4s,
+    concat_mp4s,
+    inspect_clip,
+)
 from .engine import RenderEngine, validate_probe
 from .executor import CommandResult, CommandRunner, CommandTimedOut, SubprocessCommandRunner
 from .models import (
@@ -24,13 +33,17 @@ from .models import (
 
 __all__ = [
     "ArtifactInfo",
+    "ClipInput",
     "CommandResult",
     "CommandRunner",
     "CommandTimedOut",
+    "CompositionResult",
+    "ConcatError",
     "FINAL_PROFILE",
     "MANIM_IMAGE",
     "MANIM_IMAGE_DIGEST",
     "MANIM_VERSION",
+    "MediaDescriptor",
     "PREVIEW_PROFILE",
     "PROFILE_CONFIGS",
     "RENDER_CONTRACT_VERSION",
@@ -47,5 +60,8 @@ __all__ = [
     "SubprocessCommandRunner",
     "VideoProbe",
     "build_cache_key",
+    "compose_mp4s",
+    "concat_mp4s",
+    "inspect_clip",
     "validate_probe",
 ]

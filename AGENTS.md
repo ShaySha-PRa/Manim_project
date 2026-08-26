@@ -45,7 +45,7 @@ uv run python -m manim_workbench_runner run
 npm run dev:web
 ```
 
-Apply schema changes with `uv run alembic upgrade head`. Use `scripts/phase8_acceptance.py` and `scripts/phase9_acceptance.py` for focused acceptance gates. Use `uv run python scripts/agent_p0_acceptance.py` for Animation Agent V2 P0 gold-set rates (add `--skip-render` without the Manim image). Use `uv run python scripts/agent_p1_acceptance.py` for P1 expression / repair / provenance gates. Use `uv run python scripts/agent_p2_acceptance.py` for P2 science / fail / cross-backend gates.
+Cross the SQLite `0008_asset_versions` → `0009_render_job_typed_sources` boundary only with `scripts/migrate_render_job_typed_sources.py` while API/Runner writes are stopped and a fresh backup path is supplied; plain Alembic intentionally rejects an unprepared 0008 database. After the protected command reaches 0009, apply 0010 and later schema changes with `uv run alembic upgrade head`. Use `scripts/phase8_acceptance.py` and `scripts/phase9_acceptance.py` for focused acceptance gates. Use `uv run python scripts/agent_p0_acceptance.py` for Animation Agent V2 P0 gold-set rates (add `--skip-render` without the Manim image). Use `uv run python scripts/agent_p1_acceptance.py` for P1 expression / repair / provenance gates. Use `uv run python scripts/agent_p2_acceptance.py` for P2 science / fail / cross-backend gates.
 
 ## Coding Style & Naming Conventions
 

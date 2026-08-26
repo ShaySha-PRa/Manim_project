@@ -66,6 +66,8 @@ def _typescript_type(schema: dict[str, Any]) -> str:
         if items is True:
             return "ReadonlyArray<unknown>"
         return f"ReadonlyArray<{_typescript_type(items)}>"
+    if schema_type == "object" and isinstance(schema.get("additionalProperties"), dict):
+        return f"Readonly<Record<string, {_typescript_type(schema['additionalProperties'])}>>"
     if schema_type == "object" or schema.get("properties") or schema.get("additionalProperties"):
         return "Record<string, unknown>"
     if not schema:

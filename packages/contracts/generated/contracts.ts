@@ -1,5 +1,5 @@
 // Generated from Pydantic contracts. Do not edit.
-export const CONTRACT_SCHEMA_VERSION = "1.10" as const;
+export const CONTRACT_SCHEMA_VERSION = "1.11" as const;
 
 export interface AgentEvent {
   readonly stage: string;
@@ -239,6 +239,38 @@ export interface CodeVersion {
   readonly assumptions?: ReadonlyArray<string>;
 }
 
+export interface CompositionManifest {
+  readonly workflow_version_id: string;
+  readonly profile: RenderProfile;
+  readonly clips: ReadonlyArray<CompositionManifestClip>;
+  readonly total_duration_seconds: number;
+  readonly composer_version: string;
+}
+
+export interface CompositionManifestClip {
+  readonly scene_block_version_id: string;
+  readonly artifact_sha256: string;
+  readonly duration_seconds: number;
+  readonly position: number;
+}
+
+export interface CompositionRun {
+  readonly id: string;
+  readonly workflow_version_id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly profile: RenderProfile;
+  readonly status: CompositionRunStatus;
+  readonly cache_key: string;
+  readonly manifest?: CompositionManifest | null;
+  readonly artifact_id?: string | null;
+  readonly error_code?: string | null;
+  readonly state_version?: number;
+  readonly created_at: string;
+}
+
+export type CompositionRunStatus = "queued" | "composing" | "not_ready_to_compose" | "succeeded" | "failed";
+
 export interface ContentPlanDraft {
   readonly schema_version: "1.1" | "1.6";
   readonly title: string;
@@ -401,6 +433,18 @@ export interface GeometryProofRating {
   readonly math_correct: number;
   readonly visual_clear: number;
   readonly notes?: string | null;
+}
+
+export interface GlobalBrief {
+  readonly title: string;
+  readonly language: Language;
+  readonly target_duration_seconds: number;
+  readonly aspect_ratio?: "16:9";
+  readonly style_preset: WorkflowStylePreset;
+  readonly background: string;
+  readonly palette: ReadonlyArray<string>;
+  readonly notation?: Readonly<Record<string, string>>;
+  readonly scientific_parameters?: Readonly<Record<string, number>>;
 }
 
 export type IntentDomain = "physics.wave" | "math.signal" | "dynamical_systems" | "control" | "data_analysis" | "geometry.diff3d" | "scientific_reproduction" | "teaching";
@@ -574,7 +618,8 @@ export interface RenderJob {
   readonly id: string;
   readonly project_id: string;
   readonly owner_id: string;
-  readonly code_version_id: string;
+  readonly code_version_id?: string | null;
+  readonly program_render_segment_id?: string | null;
   readonly profile: RenderProfile;
   readonly status: RenderJobStatus;
   readonly idempotency_key: string;
@@ -612,8 +657,9 @@ export interface RenderJobHeartbeat {
 
 export interface RenderJobLease {
   readonly job_id: string;
-  readonly code_version_id: string;
-  readonly content_plan_version_id: string;
+  readonly code_version_id?: string | null;
+  readonly program_render_segment_id?: string | null;
+  readonly content_plan_version_id?: string | null;
   readonly target_duration_seconds: number;
   readonly profile: RenderProfile;
   readonly scene_class: string;
@@ -634,12 +680,50 @@ export type RenderJobStatus = "queued" | "claimed" | "running" | "succeeded" | "
 export interface RenderJobSubmission {
   readonly project_id: string;
   readonly owner_id: string;
-  readonly code_version_id: string;
+  readonly code_version_id?: string | null;
+  readonly program_render_segment_id?: string | null;
   readonly profile: RenderProfile;
   readonly idempotency_key: string;
+  readonly concat_group_id?: string | null;
+  readonly segment_index?: number | null;
 }
 
 export type RenderProfile = "preview" | "final";
+
+export interface SceneBlockRun {
+  readonly id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly scene_block_version_id: string;
+  readonly status: SceneBlockRunStatus;
+  readonly pipeline_used?: ScenePipeline | null;
+  readonly intent_ref?: string | null;
+  readonly animation_ir_ref?: string | null;
+  readonly compiled_program_ref?: string | null;
+  readonly preview_artifact_id?: string | null;
+  readonly final_artifact_id?: string | null;
+  readonly cache_key: string;
+  readonly error_code?: string | null;
+  readonly state_version?: number;
+  readonly created_at: string;
+}
+
+export type SceneBlockRunStatus = "queued" | "planning" | "needs_confirmation" | "asset_required" | "compiling" | "rendering" | "succeeded" | "failed";
+
+export interface SceneBlockVersion {
+  readonly id: string;
+  readonly project_id: string;
+  readonly workflow_id: string;
+  readonly owner_id: string;
+  readonly version: number;
+  readonly parent_version_id: string | null;
+  readonly title: string;
+  readonly prompt: string;
+  readonly pipeline_mode: ScenePipelineMode;
+  readonly target_duration_seconds: number;
+  readonly asset_version_ids?: ReadonlyArray<string>;
+  readonly created_at: string;
+}
 
 export interface SceneHint {
   readonly dimension?: "2d" | "3d";
@@ -660,6 +744,10 @@ export interface SceneObject {
   readonly parent_id?: string | null;
   readonly formula?: string | null;
 }
+
+export type ScenePipeline = "teaching" | "scientific";
+
+export type ScenePipelineMode = "auto" | "teaching" | "scientific";
 
 export interface SceneStep {
   readonly goal: string;
@@ -715,7 +803,7 @@ export type TimelineOpKind = "create" | "animate_state" | "trace" | "compare" | 
 
 export interface ToolNeed {
   readonly op: ToolOp;
-  readonly params?: Record<string, unknown>;
+  readonly params?: Readonly<Record<string, number | number | string | boolean>>;
 }
 
 export type ToolOp = "wave2d_superposition" | "fourier_square_wave" | "lorenz_ensemble" | "pid_step_response" | "csv_anomaly" | "frenet_frame" | "ode_compare";
@@ -728,7 +816,7 @@ export interface ToolRun {
   readonly output_sha256: string;
   readonly artifact_ref: string;
   readonly artifact_path: string;
-  readonly assertions?: Record<string, unknown>;
+  readonly assertions?: Readonly<Record<string, number | number | boolean | string>>;
   readonly asset_version?: AssetVersion | null;
   readonly input_asset_version?: AssetVersion | null;
 }
@@ -759,9 +847,37 @@ export interface UserAsset {
 
 export type UserAssetKind = "image" | "construction_json";
 
+export interface VideoWorkflowVersion {
+  readonly id: string;
+  readonly workflow_id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly version: number;
+  readonly parent_version_id: string | null;
+  readonly global_brief: GlobalBrief;
+  readonly nodes: ReadonlyArray<WorkflowNode>;
+  readonly edges: ReadonlyArray<WorkflowEdge>;
+  readonly created_at: string;
+}
+
 export type VisualKind = "formula" | "function" | "plane_geometry" | "geometry_proof" | "three_d";
 
 export type VisualPattern = "field_evolution" | "formula_morph" | "trajectory_trace" | "3d_orbit" | "comparison" | "data_anomaly";
+
+export interface WorkflowEdge {
+  readonly source_node_id: string;
+  readonly target_node_id: string;
+}
+
+export interface WorkflowNode {
+  readonly id: string;
+  readonly kind: WorkflowNodeKind;
+  readonly scene_block_version_id?: string | null;
+}
+
+export type WorkflowNodeKind = "scene" | "compose" | "export";
+
+export type WorkflowStylePreset = "dark_scientific" | "light_academic" | "minimal_math" | "presentation";
 
 export interface WorkspaceAgentRunRequest {
   readonly prompt: string;

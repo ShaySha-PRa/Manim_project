@@ -28,7 +28,7 @@ def auth_client(tmp_path: Path) -> tuple[TestClient, Engine]:
     database_path = tmp_path / "auth.db"
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0005_phase8")
     engine = create_engine(f"sqlite:///{database_path}")
     service = AuthService(engine)
     service.create_user("teacher@example.test", PASSWORD)

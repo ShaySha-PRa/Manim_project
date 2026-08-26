@@ -23,7 +23,7 @@ DOMAIN_TABLES = {
 def migrate(database_url: str) -> None:
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", database_url)
-    command.upgrade(config, "head")
+    command.upgrade(config, "0001_phase3")
 
 
 def test_initial_migration_creates_domain_schema(tmp_path: Path) -> None:

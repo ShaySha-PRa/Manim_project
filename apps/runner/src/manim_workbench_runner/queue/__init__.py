@@ -10,6 +10,22 @@ from .types import (
     SandboxExecutionResult,
     SandboxWorkItem,
 )
+from .workflow_coordinator import (
+    WorkflowCoordinatorOutcome,
+    WorkflowTaskCoordinator,
+    WorkflowTaskExecution,
+    WorkflowTaskLease,
+)
+from .workflow_executor import (
+    PersistentWorkflowTaskExecutor,
+    SqliteWorkflowTaskLifecycle,
+)
+from .workflow_redis import (
+    PersistentWorkflowWorker,
+    RedisWorkflowSignalQueue,
+    WorkflowSignalQueueUnavailable,
+    WorkflowWakeSignal,
+)
 
 __all__ = [
     "CoordinatorOutcome",
@@ -24,6 +40,16 @@ __all__ = [
     "SandboxExecutionResult",
     "SandboxWorkItem",
     "SignalQueueUnavailable",
+    "WorkflowCoordinatorOutcome",
+    "PersistentWorkflowTaskExecutor",
+    "PersistentWorkflowWorker",
+    "RedisWorkflowSignalQueue",
+    "SqliteWorkflowTaskLifecycle",
+    "WorkflowSignalQueueUnavailable",
+    "WorkflowWakeSignal",
+    "WorkflowTaskCoordinator",
+    "WorkflowTaskExecution",
+    "WorkflowTaskLease",
     "decode_job_signal",
     "encode_job_signal",
 ]

@@ -41,7 +41,10 @@ class JobService:
             record.project_id != submission.project_id
             or record.owner_id != submission.owner_id
             or record.code_version_id != submission.code_version_id
+            or record.program_render_segment_id != submission.program_render_segment_id
             or record.profile != submission.profile
+            or record.concat_group_id != submission.concat_group_id
+            or record.segment_index != submission.segment_index
         ):
             raise IDENTITY_CONFLICT
         if created:
@@ -74,6 +77,7 @@ class JobService:
         return RenderJobLease(
             job_id=record.id,
             code_version_id=record.code_version_id,
+            program_render_segment_id=record.program_render_segment_id,
             content_plan_version_id=claim.work_item.content_plan_version_id,
             target_duration_seconds=claim.work_item.target_duration_seconds,
             profile=record.profile,
@@ -177,6 +181,7 @@ class JobService:
             project_id=record.project_id,
             owner_id=record.owner_id,
             code_version_id=record.code_version_id,
+            program_render_segment_id=record.program_render_segment_id,
             profile=record.profile,
             status=record.status,
             created_at=record.created_at,
@@ -186,4 +191,6 @@ class JobService:
             attempt_count=record.attempt_count,
             cancellation_requested_at=record.cancellation_requested_at,
             state_version=record.state_version,
+            concat_group_id=record.concat_group_id,
+            segment_index=record.segment_index,
         )

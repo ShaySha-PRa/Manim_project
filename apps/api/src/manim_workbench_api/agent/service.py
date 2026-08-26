@@ -20,7 +20,7 @@ from manim_workbench_contracts import (
 )
 from manim_workbench_contracts.intent import AgentRunOutcome
 
-from manim_workbench_api.agent.orchestrator import run_agent
+from manim_workbench_api.agent.orchestrator import run_agent_with_program
 from manim_workbench_api.code_generation.repository import CodeGenerationRepository
 from manim_workbench_api.code_generation.security import validate_source_security
 from manim_workbench_api.compiler.manim import compile_animation_ir
@@ -49,7 +49,7 @@ class AgentService:
 
     def run(self, request: AgentRunRequest) -> AgentRunResponse:
         self._projects.get_project(request.project_id, request.owner_id)
-        generated = run_agent(
+        execution = run_agent_with_program(
             request.prompt,
             target_duration_seconds=request.target_duration_seconds,
             csv_text=request.csv_text,
@@ -60,6 +60,7 @@ class AgentService:
             owner_id=request.owner_id,
             project_id=request.project_id,
         )
+        generated = execution.response
         prompt = self._projects.append_prompt_version(
             request.project_id,
             request.owner_id,
@@ -114,11 +115,16 @@ class AgentService:
                 model="animation-agent-v2",
             ),
         )
-        compiled = compile_animation_ir(generated.animation_ir, generated.tool_runs)
-        source = compiled.segments[0].source
-        report = validate_source_security(source)
-        if not report.allowed:
-            codes = ",".join(item.code for item in report.findings[:8])
+        compiled = execution.compiled_program or compile_animation_ir(
+            generated.animation_ir, generated.tool_runs
+        )
+        security_findings = tuple(
+            finding
+            for segment in compiled.segments
+            for finding in validate_source_security(segment.source).findings
+        )
+        if security_findings:
+            codes = ",".join(item.code for item in security_findings[:8])
             return generated.model_copy(
                 update={
                     "outcome": AgentRunOutcome.FAILED,
@@ -128,6 +134,17 @@ class AgentService:
                     "content_plan_version": plan,
                 }
             )
+        if compiled.requires_concat:
+            return generated.model_copy(
+                update={
+                    "outcome": AgentRunOutcome.FAILED,
+                    "error_code": "program_render_required",
+                    "message": "Multi-segment programs require ProgramRenderService.",
+                    "prompt_version": prompt,
+                    "content_plan_version": plan,
+                }
+            )
+        (segment,) = compiled.segments
         code = self._code_versions.save_success(
             CodeGenerationRequest(
                 project_id=request.project_id,
@@ -138,7 +155,7 @@ class AgentService:
             ),
             response=CodeModelResponse(
                 scene_class="GeneratedScene",
-                code=source,
+                code=segment.source,
                 assumptions=generated.intent.assumptions,
             ),
             attempt_number=1,

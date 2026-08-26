@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 
 from manim_workbench_contracts import (
     CodeGenerationCategory,
@@ -13,12 +14,18 @@ from manim_workbench_contracts import (
     QualitySeverity,
 )
 
+from manim_workbench_api.compiler.base import CompiledProgram
 from manim_workbench_api.content_plans.errors import ContentPlanError, ContentPlanErrorCode
 from manim_workbench_api.content_plans.models import ProviderMessage, ProviderResult
 from manim_workbench_api.quality.orchestration import diagnose_content_plan_timeline
 
 from .errors import CodeGenerationError
-from .ir_compiler import IrCompileError, compile_storyboard, synthesize_storyboard
+from .ir_compiler import (
+    IrCompileError,
+    compile_storyboard,
+    compiled_segment_as_response,
+    synthesize_storyboard,
+)
 from .models import CandidateRenderer, CodeGenerationProvider
 from .prompts import (
     PROMPT_TEMPLATE_VERSION,
@@ -86,6 +93,11 @@ class CodeGenerationService:
         self._provider = provider
         self._renderer = renderer
         self._allow_legacy_free_python = allow_legacy_free_python
+
+    def compile_program(self, request: CodeGenerationRequest) -> CompiledProgram:
+        """Compile and validate every teaching segment without selecting a canonical one."""
+        loaded = self._repository.load_input(request)
+        return self._compile_content_plan_program(request, loaded.content_plan)
 
     def generate(self, request: CodeGenerationRequest) -> CodeGenerationResponse:
         loaded = self._repository.load_input(request)
@@ -380,6 +392,40 @@ class CodeGenerationService:
         raise AssertionError("three-attempt loop must return or raise")
 
     def _generate_compiled_ir(self, request, plan):  # type: ignore[no-untyped-def]
+        program = self._compile_content_plan_program(request, plan)
+        if program.requires_concat:
+            raise CodeGenerationError(
+                CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
+                "Multi-segment teaching programs require ProgramRenderService.",
+            )
+        (segment,) = program.segments
+        candidate = compiled_segment_as_response(segment)
+        render = self._renderer.render(candidate.code, candidate.scene_class)
+        if not render.succeeded:
+            raise CodeGenerationError(
+                _render_error_code(render.error_code),
+                "Compiled IR render failed.",
+            )
+        version = self._repository.save_success(
+            request,
+            response=candidate,
+            attempt_number=1,
+            mode=CodeGenerationMode.COMPILED_IR,
+            prompt_template_version="teaching-storyboard-v1",
+            provider_model=None,
+        )
+        return CodeGenerationResponse(
+            outcome=CodeGenerationOutcome.READY,
+            code_version=version,
+            attempts_used=1,
+            mode=CodeGenerationMode.COMPILED_IR,
+        )
+
+    def _compile_content_plan_program(
+        self,
+        request: CodeGenerationRequest,
+        plan,  # type: ignore[no-untyped-def]
+    ) -> CompiledProgram:
         expressions = tuple(
             step.expression for scene in plan.scenes for step in scene.formula_steps
         )
@@ -406,59 +452,44 @@ class CodeGenerationService:
                 CodeGenerationErrorCode.INVALID_MODEL_RESPONSE,
                 f"Scene IR could not be compiled: {error}",
             ) from error
-        candidate = program.segments[0].as_response()
-        security = validate_source_security(candidate.code)
-        normalized = complete_allowlisted_manim_imports(candidate.code, security)
-        if normalized != candidate.code:
-            candidate = candidate.model_copy(update={"code": normalized})
+        normalized_segments = []
+        for segment in program.segments:
+            candidate = compiled_segment_as_response(segment)
             security = validate_source_security(candidate.code)
-        if not security.allowed:
-            raise CodeGenerationError(
-                CodeGenerationErrorCode.SECURITY_POLICY_VIOLATION,
-                "Compiled IR did not satisfy the security policy.",
-            )
-        preflight = preflight_source(candidate.code)
-        if not preflight.ok:
-            raise CodeGenerationError(
-                CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
-                "Compiled IR failed scene preflight.",
-            )
-        if request.category in _DETERMINISTIC_TEACHING_CATEGORIES:
-            _temporal, diagnostics = diagnose_content_plan_timeline(
-                source_code=candidate.code,
-                content_plan=plan,
-            )
-            blocking = tuple(
-                diagnostic
-                for diagnostic in diagnostics
-                if diagnostic.severity is QualitySeverity.ERROR
-            )
-            if blocking:
-                codes = ",".join(sorted({item.code.value for item in blocking}))
+            normalized = complete_allowlisted_manim_imports(candidate.code, security)
+            if normalized != candidate.code:
+                candidate = candidate.model_copy(update={"code": normalized})
+                security = validate_source_security(candidate.code)
+            if not security.allowed:
+                raise CodeGenerationError(
+                    CodeGenerationErrorCode.SECURITY_POLICY_VIOLATION,
+                    "Compiled IR did not satisfy the security policy.",
+                )
+            if not preflight_source(candidate.code).ok:
                 raise CodeGenerationError(
                     CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
-                    f"Compiled teaching scene failed quality validation: {codes}",
+                    "Compiled IR failed scene preflight.",
                 )
-        render = self._renderer.render(candidate.code, candidate.scene_class)
-        if not render.succeeded:
-            raise CodeGenerationError(
-                _render_error_code(render.error_code),
-                "Compiled IR render failed.",
-            )
-        version = self._repository.save_success(
-            request,
-            response=candidate,
-            attempt_number=1,
-            mode=CodeGenerationMode.COMPILED_IR,
-            prompt_template_version="teaching-storyboard-v1",
-            provider_model=None,
-        )
-        return CodeGenerationResponse(
-            outcome=CodeGenerationOutcome.READY,
-            code_version=version,
-            attempts_used=1,
-            mode=CodeGenerationMode.COMPILED_IR,
-        )
+            normalized_segments.append(replace(segment, source=candidate.code))
+        program = replace(program, segments=tuple(normalized_segments))
+        if request.category in _DETERMINISTIC_TEACHING_CATEGORIES:
+            for segment in program.segments:
+                _temporal, diagnostics = diagnose_content_plan_timeline(
+                    source_code=segment.source,
+                    content_plan=plan,
+                )
+                blocking = tuple(
+                    diagnostic
+                    for diagnostic in diagnostics
+                    if diagnostic.severity is QualitySeverity.ERROR
+                )
+                if blocking:
+                    codes = ",".join(sorted({item.code.value for item in blocking}))
+                    raise CodeGenerationError(
+                        CodeGenerationErrorCode.SCENE_STRUCTURE_INVALID,
+                        f"Compiled teaching scene failed quality validation: {codes}",
+                    )
+        return program
 
     def _try_latex_text_degraded(
         self,

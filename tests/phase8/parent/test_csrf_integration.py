@@ -20,7 +20,7 @@ def _app(tmp_path: Path) -> tuple[TestClient, Engine]:
     path = tmp_path / "csrf.db"
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{path}")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0005_phase8")
     engine = create_engine(f"sqlite:///{path}")
     AuthService(engine).create_user("teacher@example.test", "initial password 123")
     settings = AuthSettings(allowed_origins=frozenset({ORIGIN}), cookie_secure=False)

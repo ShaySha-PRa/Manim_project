@@ -11,7 +11,7 @@ def test_0006_creates_append_only_quality_schema(tmp_path: Path) -> None:
     database = tmp_path / "phase9.db"
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database}")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0006_phase9")
     inspector = inspect(create_engine(f"sqlite:///{database}"))
     assert {"quality_reports", "quality_diagnostics", "quality_ratings"} <= set(
         inspector.get_table_names()

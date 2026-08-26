@@ -135,6 +135,51 @@ class CodeGenerationRepository:
                 "Stored code version could not be loaded.",
             ) from error
 
+    def find_compiled_segment(
+        self,
+        request: CodeGenerationRequest,
+        *,
+        source_sha256: str,
+        prompt_template_version: str,
+    ) -> CodeVersion | None:
+        """Return an exact immutable segment version for idempotent program submission."""
+        with self._engine.connect() as connection:
+            version_id = connection.execute(
+                text(
+                    """
+                    SELECT id
+                    FROM code_versions
+                    WHERE project_id = :project_id
+                      AND owner_id = :owner_id
+                      AND prompt_version_id = :prompt_version_id
+                      AND content_plan_version_id = :content_plan_version_id
+                      AND source_sha256 = :source_sha256
+                      AND category = :category
+                      AND generation_mode = :generation_mode
+                      AND prompt_template_version = :prompt_template_version
+                    ORDER BY version DESC
+                    LIMIT 1
+                    """
+                ),
+                {
+                    "project_id": str(request.project_id),
+                    "owner_id": str(request.owner_id),
+                    "prompt_version_id": str(request.prompt_version_id),
+                    "content_plan_version_id": str(request.content_plan_version_id),
+                    "source_sha256": source_sha256,
+                    "category": request.category.value,
+                    "generation_mode": CodeGenerationMode.COMPILED_IR.value,
+                    "prompt_template_version": prompt_template_version,
+                },
+            ).scalar_one_or_none()
+        if version_id is None:
+            return None
+        return self.get_version(
+            UUID(str(version_id)),
+            project_id=request.project_id,
+            owner_id=request.owner_id,
+        )
+
     def load_category_policies(self) -> dict[CodeGenerationCategory, CategoryPolicy]:
         policies = {category: CategoryPolicy() for category in CodeGenerationCategory}
         with self._engine.connect() as connection:

@@ -61,6 +61,41 @@ def test_submit_is_idempotent_and_signals_only_once(
     assert publisher.job_ids[0] == UUID(first.json()["id"])
 
 
+def test_segment_submission_persists_concat_group_and_order_identity(
+    api_client: tuple[TestClient, Engine, RecordingPublisher],
+) -> None:
+    client, engine, _publisher = api_client
+    payload = _submission_payload()
+    payload.update(
+        {
+            "concat_group_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "segment_index": 2,
+        }
+    )
+
+    created = client.post("/api/v1/render-jobs", json=payload, headers=_token_headers())
+    duplicate = client.post("/api/v1/render-jobs", json=payload, headers=_token_headers())
+    conflict_payload = {**payload, "segment_index": 3}
+    conflict = client.post(
+        "/api/v1/render-jobs", json=conflict_payload, headers=_token_headers()
+    )
+
+    assert created.status_code == 201
+    assert duplicate.status_code == 200
+    assert created.json()["concat_group_id"] == payload["concat_group_id"]
+    assert created.json()["segment_index"] == 2
+    assert conflict.status_code == 409
+    with engine.connect() as connection:
+        row = connection.execute(
+            text(
+                "SELECT concat_group_id, segment_index FROM render_jobs "
+                "WHERE id = :job_id"
+            ),
+            {"job_id": created.json()["id"]},
+        ).one()
+    assert row == (payload["concat_group_id"], 2)
+
+
 def test_claim_is_single_winner_and_old_lease_cannot_mutate(
     api_client: tuple[TestClient, Engine, RecordingPublisher],
 ) -> None:
@@ -541,7 +576,8 @@ def _create_schema(engine: Engine) -> None:
                     started_at TEXT, finished_at TEXT, failure_code TEXT,
                     attempt_count INTEGER NOT NULL DEFAULT 0, lease_owner TEXT,
                     lease_token TEXT, lease_expires_at TEXT, heartbeat_at TEXT,
-                    cancellation_requested_at TEXT, state_version INTEGER NOT NULL DEFAULT 0
+                    cancellation_requested_at TEXT, state_version INTEGER NOT NULL DEFAULT 0,
+                    concat_group_id TEXT, segment_index INTEGER
                 )
                 """
             )

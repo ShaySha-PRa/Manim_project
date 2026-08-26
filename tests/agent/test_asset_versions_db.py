@@ -14,7 +14,7 @@ def test_asset_versions_table_is_append_only(tmp_path: Path) -> None:
     config = Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
     db = tmp_path / "assets.db"
     config.set_main_option("sqlalchemy.url", f"sqlite:///{db}")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0008_asset_versions")
     engine = create_engine(f"sqlite:///{db}")
     csv = ingest_csv_text("time,temperature,pressure\n1,2,3\n")
     persist_asset_version(engine, csv)

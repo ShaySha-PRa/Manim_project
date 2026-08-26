@@ -19,7 +19,7 @@ def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
 
 def test_phase8_migration_adds_sessions_rate_limits_and_job_events(tmp_path: Path) -> None:
     path = tmp_path / "phase8.db"
-    command.upgrade(_config(path), "head")
+    command.upgrade(_config(path), "0005_phase8")
     connection = sqlite3.connect(path)
 
     assert {"password_hash", "must_change_password", "disabled_at"} <= _columns(connection, "users")
@@ -37,7 +37,7 @@ def test_phase8_migration_adds_sessions_rate_limits_and_job_events(tmp_path: Pat
 def test_phase8_migration_downgrades_to_phase7(tmp_path: Path) -> None:
     path = tmp_path / "phase8-down.db"
     config = _config(path)
-    command.upgrade(config, "head")
+    command.upgrade(config, "0005_phase8")
     command.downgrade(config, "0004_phase7")
     connection = sqlite3.connect(path)
 
@@ -50,7 +50,7 @@ def test_phase8_migration_downgrades_to_phase7(tmp_path: Path) -> None:
 
 def test_phase8_migration_records_durable_job_events(tmp_path: Path) -> None:
     path = tmp_path / "phase8-events.db"
-    command.upgrade(_config(path), "head")
+    command.upgrade(_config(path), "0005_phase8")
     connection = sqlite3.connect(path)
     identifiers = {
         "user": "00000000-0000-0000-0000-000000000001",

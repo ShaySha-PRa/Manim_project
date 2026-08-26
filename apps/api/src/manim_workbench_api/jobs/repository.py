@@ -23,7 +23,8 @@ class JobRecord:
     id: UUID
     project_id: UUID
     owner_id: UUID
-    code_version_id: UUID
+    code_version_id: UUID | None
+    program_render_segment_id: UUID | None
     profile: RenderProfile
     status: RenderJobStatus
     created_at: datetime
@@ -37,6 +38,8 @@ class JobRecord:
     heartbeat_at: datetime | None
     cancellation_requested_at: datetime | None
     state_version: int
+    concat_group_id: UUID | None
+    segment_index: int | None
 
 
 @dataclass(frozen=True)
@@ -44,7 +47,7 @@ class WorkItem:
     scene_class: str
     source_code: str
     source_sha256: str
-    content_plan_version_id: UUID
+    content_plan_version_id: UUID | None
     target_duration_seconds: float
 
 
@@ -86,27 +89,60 @@ class JobRepository:
         now = utc_now()
         job_id = uuid4()
         with self._engine.begin() as connection:
-            inserted = connection.execute(
-                text(
+            typed_sources = self._has_typed_sources(connection)
+            if not typed_sources and submission.program_render_segment_id is not None:
+                raise ValueError("ProgramRenderSegment jobs require migration 0009")
+            if submission.program_render_segment_id is not None:
+                self._validate_program_source_submission(connection, submission)
+            if typed_sources:
+                insert_statement = text(
+                    """
+                    INSERT INTO render_jobs (
+                        id, project_id, owner_id, code_version_id,
+                        program_render_segment_id, profile, status, idempotency_key,
+                        created_at, attempt_count, state_version, concat_group_id, segment_index
+                    ) VALUES (
+                        :id, :project_id, :owner_id, :code_version_id,
+                        :program_render_segment_id, :profile, :status, :idempotency_key,
+                        :created_at, 0, 0, :concat_group_id, :segment_index
+                    ) ON CONFLICT(idempotency_key) DO NOTHING
+                    """
+                )
+            else:
+                insert_statement = text(
                     """
                     INSERT INTO render_jobs (
                         id, project_id, owner_id, code_version_id, profile, status,
-                        idempotency_key, created_at, attempt_count, state_version
+                        idempotency_key, created_at, attempt_count, state_version,
+                        concat_group_id, segment_index
                     ) VALUES (
                         :id, :project_id, :owner_id, :code_version_id, :profile, :status,
-                        :idempotency_key, :created_at, 0, 0
+                        :idempotency_key, :created_at, 0, 0, :concat_group_id, :segment_index
                     ) ON CONFLICT(idempotency_key) DO NOTHING
                     """
-                ),
+                )
+            inserted = connection.execute(
+                insert_statement,
                 {
                     "id": str(job_id),
                     "project_id": str(submission.project_id),
                     "owner_id": str(submission.owner_id),
-                    "code_version_id": str(submission.code_version_id),
+                    "code_version_id": (
+                        str(submission.code_version_id) if submission.code_version_id else None
+                    ),
+                    "program_render_segment_id": (
+                        str(submission.program_render_segment_id)
+                        if submission.program_render_segment_id
+                        else None
+                    ),
                     "profile": submission.profile.value,
                     "status": RenderJobStatus.QUEUED.value,
                     "idempotency_key": submission.idempotency_key,
                     "created_at": as_timestamp(now),
+                    "concat_group_id": (
+                        str(submission.concat_group_id) if submission.concat_group_id else None
+                    ),
+                    "segment_index": submission.segment_index,
                 },
             )
             if inserted.rowcount == 1:
@@ -120,6 +156,44 @@ class JobRepository:
             record = self._get(connection, UUID(existing))
             assert record is not None
             return record, False
+
+    @staticmethod
+    def _has_typed_sources(connection: Connection) -> bool:
+        return any(
+            row[1] == "program_render_segment_id"
+            for row in connection.exec_driver_sql("PRAGMA table_info(render_jobs)")
+        )
+
+    @staticmethod
+    def _validate_program_source_submission(
+        connection: Connection, submission: RenderJobSubmission
+    ) -> None:
+        if not JobRepository._has_program_render_segments(connection):
+            raise ValueError("ProgramRenderSegment jobs require migration 0010")
+        row = (
+            connection.execute(
+                text(
+                    "SELECT segments.scene_class,segments.source_code,"
+                    "segments.source_sha256,NULL AS content_plan_version_id,"
+                    "segments.target_duration_seconds "
+                    "FROM program_render_segments AS segments "
+                    "JOIN program_render_runs AS runs "
+                    "ON runs.id=segments.program_render_run_id "
+                    "WHERE segments.id=:segment AND runs.project_id=:project "
+                    "AND runs.owner_id=:owner AND segments.segment_index=:index"
+                ),
+                {
+                    "segment": str(submission.program_render_segment_id),
+                    "project": str(submission.project_id),
+                    "owner": str(submission.owner_id),
+                    "index": submission.segment_index,
+                },
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if JobRepository._validated_work_item(row) is None:
+            raise ValueError("ProgramRenderSegment source identity is invalid")
 
     def claim(self, job_id: UUID, runner_id: str, lease_seconds: int) -> ClaimResult:
         now = utc_now()
@@ -483,6 +557,72 @@ class JobRepository:
 
     @staticmethod
     def _load_work_item(connection: Connection, job_id: UUID) -> WorkItem | None:
+        typed_sources = JobRepository._has_typed_sources(connection)
+        source_columns = (
+            "project_id,owner_id,code_version_id,program_render_segment_id,segment_index"
+            if typed_sources
+            else "project_id,owner_id,code_version_id,NULL AS program_render_segment_id,"
+            "segment_index"
+        )
+        job = (
+            connection.execute(
+                text(f"SELECT {source_columns} FROM render_jobs WHERE id=:id"),
+                {"id": str(job_id)},
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if job is None:
+            return None
+        if job["program_render_segment_id"] is not None:
+            if not JobRepository._has_program_render_segments(connection):
+                return None
+            row = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT segments.scene_class, segments.source_code,
+                               segments.source_sha256, NULL AS content_plan_version_id,
+                               segments.target_duration_seconds
+                        FROM render_jobs AS jobs
+                        JOIN program_render_segments AS segments
+                          ON segments.id = jobs.program_render_segment_id
+                         AND segments.render_job_id = jobs.id
+                         AND segments.segment_index = jobs.segment_index
+                        JOIN program_render_runs AS runs
+                          ON runs.id = segments.program_render_run_id
+                         AND runs.project_id = jobs.project_id
+                         AND runs.owner_id = jobs.owner_id
+                        WHERE jobs.id = :id
+                          AND jobs.code_version_id IS NULL
+                          AND jobs.project_id = :project_id
+                          AND jobs.owner_id = :owner_id
+                          AND segments.segment_index >= 0
+                          AND segments.segment_index < runs.segment_count
+                          AND (SELECT COUNT(*) FROM program_render_segments AS ordered
+                               WHERE ordered.program_render_run_id = runs.id)
+                              = runs.segment_count
+                          AND (SELECT MIN(ordered.segment_index)
+                               FROM program_render_segments AS ordered
+                               WHERE ordered.program_render_run_id = runs.id) = 0
+                          AND (SELECT MAX(ordered.segment_index)
+                               FROM program_render_segments AS ordered
+                               WHERE ordered.program_render_run_id = runs.id)
+                              = runs.segment_count - 1
+                        """
+                    ),
+                    {
+                        "id": str(job_id),
+                        "project_id": job["project_id"],
+                        "owner_id": job["owner_id"],
+                    },
+                )
+                .mappings()
+                .first()
+            )
+            return JobRepository._validated_work_item(row)
+        if job["code_version_id"] is None:
+            return None
         has_content_plans = connection.execute(
             text(
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' "
@@ -511,6 +651,8 @@ class JobRepository:
                 JOIN content_plan_versions
                   ON content_plan_versions.id = code_versions.content_plan_version_id
                 WHERE render_jobs.id = :id
+                  AND code_versions.project_id = render_jobs.project_id
+                  AND code_versions.owner_id = render_jobs.owner_id
                 """
             )
         row = (
@@ -521,6 +663,24 @@ class JobRepository:
             .mappings()
             .first()
         )
+        if row is None:
+            return None
+        return JobRepository._validated_work_item(row)
+
+    @staticmethod
+    def _has_program_render_segments(connection: Connection) -> bool:
+        return (
+            connection.execute(
+                text(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' "
+                    "AND name='program_render_segments'"
+                )
+            ).scalar_one_or_none()
+            is not None
+        )
+
+    @staticmethod
+    def _validated_work_item(row) -> WorkItem | None:  # type: ignore[no-untyped-def]
         if row is None:
             return None
         scene_class = row["scene_class"]
@@ -543,7 +703,11 @@ class JobRepository:
         if sha256(source_code.encode("utf-8")).hexdigest() != source_sha256:
             return None
         try:
-            plan_id = UUID(str(content_plan_version_id))
+            plan_id = (
+                UUID(str(content_plan_version_id))
+                if content_plan_version_id is not None
+                else None
+            )
             target = float(target_duration_seconds)
         except (TypeError, ValueError):
             return None
@@ -566,7 +730,14 @@ class JobRepository:
             id=UUID(row["id"]),
             project_id=UUID(row["project_id"]),
             owner_id=UUID(row["owner_id"]),
-            code_version_id=UUID(row["code_version_id"]),
+            code_version_id=(
+                UUID(str(row["code_version_id"])) if row["code_version_id"] else None
+            ),
+            program_render_segment_id=(
+                UUID(str(row["program_render_segment_id"]))
+                if row.get("program_render_segment_id")
+                else None
+            ),
             profile=RenderProfile(row["profile"]),
             status=RenderJobStatus(row["status"]),
             created_at=from_timestamp(row["created_at"]),  # type: ignore[arg-type]
@@ -580,4 +751,8 @@ class JobRepository:
             heartbeat_at=from_timestamp(row["heartbeat_at"]),
             cancellation_requested_at=from_timestamp(row["cancellation_requested_at"]),
             state_version=row["state_version"],
+            concat_group_id=(
+                UUID(str(row["concat_group_id"])) if row["concat_group_id"] else None
+            ),
+            segment_index=(int(row["segment_index"]) if row["segment_index"] is not None else None),
         )

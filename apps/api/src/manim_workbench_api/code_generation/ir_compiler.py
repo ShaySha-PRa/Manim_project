@@ -6,7 +6,6 @@ AnimationIR 2.0 lowering lives in ``compiler.manim.compile_animation_ir``.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 
 from manim_workbench_contracts import CodeModelResponse
 from manim_workbench_contracts.ir import (
@@ -23,6 +22,8 @@ from manim_workbench_contracts.ir import (
     TrackerSpec,
     VisualKind,
 )
+
+from manim_workbench_api.compiler.base import CompiledProgram, CompiledSegment
 
 from .math_expression import (
     MathExpressionError,
@@ -43,28 +44,13 @@ ALLOWED_COLORS = {
 }
 
 
-@dataclass(frozen=True, slots=True)
-class CompiledSegment:
-    source: str
-    scene_base: str
-    visual_kinds: tuple[VisualKind, ...]
-    duration_seconds: float
-
-    def as_response(self) -> CodeModelResponse:
-        return CodeModelResponse(scene_class="GeneratedScene", code=self.source)
-
-
-@dataclass(frozen=True, slots=True)
-class CompiledProgram:
-    segments: tuple[CompiledSegment, ...]
-
-    @property
-    def requires_concat(self) -> bool:
-        return len(self.segments) > 1
-
-
 class IrCompileError(ValueError):
     """Raised when IR cannot be compiled into allowlisted Manim."""
+
+
+def compiled_segment_as_response(segment: CompiledSegment) -> CodeModelResponse:
+    """Adapt a backend-neutral segment to the teaching provider response contract."""
+    return CodeModelResponse(scene_class="GeneratedScene", code=segment.source)
 
 
 def scene_base_for_step(step: SceneStep) -> str:

@@ -6,8 +6,6 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from manim_workbench_api.quality.reports.errors import (
     QUALITY_REPORT_CONFLICT,
     QUALITY_REPORT_NOT_FOUND,
@@ -27,7 +25,8 @@ from manim_workbench_contracts import (
 )
 from sqlalchemy import Engine, create_engine, text
 
-ROOT = Path(__file__).resolve().parents[3]
+from tests.workflows.migration_support import upgrade_workflow_database
+
 OWNER_A = UUID("00000000-0000-0000-0000-000000000001")
 OWNER_B = UUID("00000000-0000-0000-0000-000000000002")
 PROJECT_A = UUID("00000000-0000-0000-0000-000000000011")
@@ -41,9 +40,7 @@ NOW = datetime(2026, 8, 5, 10, 0, tzinfo=timezone.utc)
 
 def migrated_engine(tmp_path: Path) -> Engine:
     database_path = tmp_path / "quality-reports.db"
-    config = Config(str(ROOT / "alembic.ini"))
-    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    upgrade_workflow_database(database_path)
     engine = create_engine(f"sqlite:///{database_path}")
     _seed_lineage(engine)
     return engine

@@ -27,6 +27,18 @@ import type {
   WorkspaceContentPlanGenerationRequest,
   WorkspaceRenderJobSubmission,
 } from "@manim-workbench/contracts";
+import type {
+  CompositionRun,
+  GlobalBrief,
+  RenderProfile,
+  SceneBlockRun,
+  SceneBlockVersion,
+  ScenePipelineMode,
+  VideoWorkflow,
+  VideoWorkflowVersion,
+  WorkflowEdge,
+  WorkflowNode,
+} from "../../components/workflow/types";
 
 const DEFAULT_API_ORIGIN = "";
 
@@ -226,6 +238,89 @@ export class WorkbenchApiClient {
   codeSourceUrl(codeVersionId: string, download = false): string {
     const query = download ? "?download=true" : "";
     return `${this.baseUrl}/api/v1/workspace/code-versions/${codeVersionId}/source${query}`;
+  }
+
+  createVideoWorkflow(projectId: string): Promise<VideoWorkflow> {
+    return this.#request(`/api/v1/projects/${projectId}/video-workflows`, { method: "POST" });
+  }
+
+  getVideoWorkflow(workflowId: string): Promise<VideoWorkflow> {
+    return this.#request(`/api/v1/video-workflows/${workflowId}`);
+  }
+
+  createSceneBlock(workflowId: string, input: {
+    title: string;
+    prompt: string;
+    pipeline_mode: ScenePipelineMode;
+    target_duration_seconds: number;
+    asset_version_ids: ReadonlyArray<string>;
+  }): Promise<{ block: { id: string }; version: SceneBlockVersion }> {
+    return this.#jsonMutation(
+      `/api/v1/video-workflows/${workflowId}/scene-blocks`,
+      "POST",
+      input,
+    );
+  }
+
+  createSceneBlockVersion(blockId: string, input: {
+    parent_version_id: string;
+    title: string;
+    prompt: string;
+    pipeline_mode: ScenePipelineMode;
+    target_duration_seconds: number;
+    asset_version_ids: ReadonlyArray<string>;
+  }): Promise<SceneBlockVersion> {
+    return this.#jsonMutation(`/api/v1/scene-blocks/${blockId}/versions`, "POST", input);
+  }
+
+  getSceneBlockVersion(versionId: string): Promise<{
+    block_id: string;
+    version: SceneBlockVersion;
+  }> {
+    return this.#request(`/api/v1/scene-block-versions/${versionId}`);
+  }
+
+  createVideoWorkflowVersion(workflowId: string, input: {
+    parent_version_id: string | null;
+    global_brief: GlobalBrief;
+    nodes: ReadonlyArray<WorkflowNode>;
+    edges: ReadonlyArray<WorkflowEdge>;
+  }): Promise<VideoWorkflowVersion> {
+    return this.#jsonMutation(`/api/v1/video-workflows/${workflowId}/versions`, "POST", input);
+  }
+
+  getVideoWorkflowVersion(versionId: string): Promise<VideoWorkflowVersion> {
+    return this.#request(`/api/v1/workflow-versions/${versionId}`);
+  }
+
+  submitSceneBlockRun(
+    versionId: string,
+    input: { workflow_version_id: string; profile: RenderProfile; idempotency_key: string },
+  ): Promise<SceneBlockRun> {
+    return this.#jsonMutation(`/api/v1/scene-block-versions/${versionId}/runs`, "POST", input);
+  }
+
+  getSceneBlockRun(runId: string): Promise<SceneBlockRun> {
+    return this.#request(`/api/v1/scene-block-runs/${runId}`);
+  }
+
+  submitCompositionRun(
+    versionId: string,
+    input: { profile: RenderProfile; idempotency_key: string },
+  ): Promise<CompositionRun> {
+    return this.#jsonMutation(
+      `/api/v1/workflow-versions/${versionId}/composition-runs`,
+      "POST",
+      input,
+    );
+  }
+
+  getCompositionRun(runId: string): Promise<CompositionRun> {
+    return this.#request(`/api/v1/composition-runs/${runId}`);
+  }
+
+  compositionArtifactUrl(runId: string): string {
+    return `${this.baseUrl}/api/v1/composition-runs/${runId}/artifact`;
   }
 
   async getCodeSource(codeVersionId: string): Promise<string> {

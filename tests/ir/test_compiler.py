@@ -1,7 +1,9 @@
 import pytest
 from manim_workbench_api.code_generation.gallery_fixtures import (
+    fixed_in_frame_storyboard,
     following_graph_camera_storyboard,
     mixed_formula_geometry_threed_storyboard,
+    opening_manim_formula_storyboard,
 )
 from manim_workbench_api.code_generation.ir_compiler import (
     IrCompileError,
@@ -11,8 +13,9 @@ from manim_workbench_api.code_generation.ir_compiler import (
 )
 from manim_workbench_api.code_generation.security import validate_source_security
 from manim_workbench_api.code_generation.validation import preflight_source
+from manim_workbench_api.compiler.base import CompiledProgram
 from manim_workbench_api.quality.temporal import analyze_temporal_quality
-from manim_workbench_contracts.ir import VisualKind
+from manim_workbench_contracts.ir import SceneStoryboard, VisualKind
 
 
 def test_function_synthesis_uses_value_tracker_and_named_redraw() -> None:
@@ -149,3 +152,29 @@ def test_mixed_storyboard_splits_threed_from_2d() -> None:
     for segment in program.segments:
         assert validate_source_security(segment.source).allowed
         assert preflight_source(segment.source).ok
+
+
+def test_teaching_storyboard_returns_public_program_with_ordered_2d_3d_2d_segments() -> None:
+    formula = opening_manim_formula_storyboard().steps[0]
+    surface = fixed_in_frame_storyboard().steps[0]
+    summary = opening_manim_formula_storyboard().steps[0].model_copy(
+        update={"goal": "Summarize the result"}
+    )
+    storyboard = SceneStoryboard(
+        target_duration_seconds=48,
+        steps=(formula, surface, summary),
+    )
+
+    program = compile_storyboard(storyboard)
+
+    assert isinstance(program, CompiledProgram)
+    assert [segment.scene_base for segment in program.segments] == [
+        "Scene",
+        "ThreeDScene",
+        "Scene",
+    ]
+    assert [segment.visual_kinds for segment in program.segments] == [
+        (formula.visual_kind,),
+        (surface.visual_kind,),
+        (summary.visual_kind,),
+    ]

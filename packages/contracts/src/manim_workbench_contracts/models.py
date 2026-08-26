@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-CONTRACT_SCHEMA_VERSION = "1.10"
+CONTRACT_SCHEMA_VERSION = "1.11"
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
@@ -363,7 +363,7 @@ class ContentPlanGenerationRequest(ContractModel):
     prompt_version_id: UUID
     audience: Audience | None = None
     language: Language = Language.ZH_CN
-    target_duration_seconds: Annotated[int | None, Field(ge=30, le=180)] = None
+    target_duration_seconds: Annotated[int | None, Field(ge=15, le=180)] = None
     derivation_style: DerivationStyle | None = None
     explicit_assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)] = ()
 
@@ -372,7 +372,7 @@ class WorkspaceContentPlanGenerationRequest(ContractModel):
     prompt_version_id: UUID
     audience: Audience | None = None
     language: Language = Language.ZH_CN
-    target_duration_seconds: Annotated[int | None, Field(ge=30, le=180)] = None
+    target_duration_seconds: Annotated[int | None, Field(ge=15, le=180)] = None
     derivation_style: DerivationStyle | None = None
     explicit_assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)] = ()
 
@@ -394,7 +394,7 @@ class ContentPlanDraft(ContractModel):
     title: ShortText
     audience: Audience
     language: Language
-    target_duration_seconds: Annotated[int, Field(ge=30, le=180)]
+    target_duration_seconds: Annotated[int, Field(ge=15, le=180)]
     derivation_style: DerivationStyle
     explicit_assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)]
     ambiguities: Annotated[tuple[ShortText, ...], Field(max_length=20)]
@@ -518,7 +518,8 @@ class RenderJob(ContractModel):
     id: UUID
     project_id: UUID
     owner_id: UUID
-    code_version_id: UUID
+    code_version_id: UUID | None = None
+    program_render_segment_id: UUID | None = None
     profile: RenderProfile
     status: RenderJobStatus
     idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]
@@ -536,13 +537,36 @@ class RenderJob(ContractModel):
     concat_group_id: UUID | None = None
     segment_index: Annotated[int | None, Field(ge=0, le=24)] = None
 
+    @model_validator(mode="after")
+    def validate_single_source(self) -> RenderJob:
+        if (self.code_version_id is None) == (self.program_render_segment_id is None):
+            raise ValueError("render job requires exactly one typed source")
+        if self.program_render_segment_id is not None and (
+            self.concat_group_id is None or self.segment_index is None
+        ):
+            raise ValueError("ProgramRenderSegment jobs require segment identity")
+        return self
+
 
 class RenderJobSubmission(ContractModel):
     project_id: UUID
     owner_id: UUID
-    code_version_id: UUID
+    code_version_id: UUID | None = None
+    program_render_segment_id: UUID | None = None
     profile: RenderProfile
     idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]
+    concat_group_id: UUID | None = None
+    segment_index: Annotated[int | None, Field(ge=0, le=24)] = None
+
+    @model_validator(mode="after")
+    def validate_segment_identity(self) -> RenderJobSubmission:
+        if (self.code_version_id is None) == (self.program_render_segment_id is None):
+            raise ValueError("render job submission requires exactly one typed source")
+        if (self.concat_group_id is None) != (self.segment_index is None):
+            raise ValueError("concat_group_id and segment_index must be provided together")
+        if self.program_render_segment_id is not None and self.segment_index is None:
+            raise ValueError("ProgramRenderSegment submissions require segment identity")
+        return self
 
 
 class WorkspaceRenderJobSubmission(ContractModel):
@@ -558,8 +582,9 @@ class RenderJobLeaseRequest(ContractModel):
 
 class RenderJobLease(ContractModel):
     job_id: UUID
-    code_version_id: UUID
-    content_plan_version_id: UUID
+    code_version_id: UUID | None = None
+    program_render_segment_id: UUID | None = None
+    content_plan_version_id: UUID | None = None
     target_duration_seconds: Annotated[float, Field(gt=0, le=600)]
     profile: RenderProfile
     scene_class: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{1,99}$")]
@@ -568,6 +593,16 @@ class RenderJobLease(ContractModel):
     lease_token: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     lease_expires_at: datetime
     attempt_number: Annotated[int, Field(ge=1, le=3)]
+
+    @model_validator(mode="after")
+    def validate_typed_source(self) -> RenderJobLease:
+        code_source = self.code_version_id is not None
+        program_source = self.program_render_segment_id is not None
+        if code_source == program_source:
+            raise ValueError("render job lease requires exactly one typed source")
+        if code_source != (self.content_plan_version_id is not None):
+            raise ValueError("only CodeVersion leases carry content_plan_version_id")
+        return self
 
 
 class RenderJobHeartbeat(ContractModel):
@@ -768,6 +803,23 @@ from .ir import (  # noqa: E402
     UserAsset,
     UserAssetKind,
 )
+from .workflow import (  # noqa: E402
+    CompositionManifest,
+    CompositionManifestClip,
+    CompositionRun,
+    CompositionRunStatus,
+    GlobalBrief,
+    SceneBlockRun,
+    SceneBlockRunStatus,
+    SceneBlockVersion,
+    ScenePipeline,
+    ScenePipelineMode,
+    VideoWorkflowVersion,
+    WorkflowEdge,
+    WorkflowNode,
+    WorkflowNodeKind,
+    WorkflowStylePreset,
+)
 
 ContentPlanVersion.model_rebuild()
 ContentPlanDraft.model_rebuild()
@@ -856,6 +908,15 @@ CONTRACT_MODELS = (
     AnimCameraOp,
     AnimAssertion,
     AnimFallback,
+    GlobalBrief,
+    SceneBlockVersion,
+    SceneBlockRun,
+    WorkflowNode,
+    WorkflowEdge,
+    VideoWorkflowVersion,
+    CompositionManifestClip,
+    CompositionManifest,
+    CompositionRun,
 )
 
 PROJECT_RECORD_MODELS = (
@@ -900,6 +961,12 @@ CONTRACT_ENUMS = (
     CriticAnswer,
     IntentDomain,
     ToolOp,
+    WorkflowStylePreset,
+    ScenePipelineMode,
+    ScenePipeline,
+    SceneBlockRunStatus,
+    WorkflowNodeKind,
+    CompositionRunStatus,
 )
 
 RENDER_JOB_TRANSITIONS: dict[RenderJobStatus, frozenset[RenderJobStatus]] = {

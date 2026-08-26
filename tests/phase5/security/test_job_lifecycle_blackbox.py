@@ -8,12 +8,11 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+from tests.workflows.migration_support import upgrade_workflow_database
+
 TOKEN = "phase5-security-test-token"
 HEADERS = {"X-Internal-Token": TOKEN}
 
@@ -39,9 +38,7 @@ def api_client(
     from manim_workbench_api.main import app
 
     database_path = tmp_path / "phase5-blackbox.db"
-    config = Config(str(PROJECT_ROOT / "alembic.ini"))
-    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    upgrade_workflow_database(database_path)
     engine = create_database_engine(f"sqlite:///{database_path}")
     _seed_submission_dependencies(engine)
     publisher = RecordingPublisher()

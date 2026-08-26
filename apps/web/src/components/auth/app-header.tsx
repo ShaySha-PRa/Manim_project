@@ -12,6 +12,7 @@ export function AppHeader() {
         </Link>
         <nav aria-label="主导航" className="app-nav">
           <Link href="/workbench">工作台</Link>
+          <Link href="/workflows">场景工作流</Link>
         </nav>
       </div>
     </header>

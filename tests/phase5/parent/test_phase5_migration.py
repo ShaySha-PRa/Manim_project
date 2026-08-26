@@ -11,7 +11,7 @@ def test_phase5_migration_adds_durable_lease_and_recovery_state(tmp_path: Path) 
     database_path = tmp_path / "phase5.db"
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0002_phase5")
 
     connection = sqlite3.connect(database_path)
     columns = {
@@ -42,7 +42,7 @@ def test_phase5_migration_downgrades_to_phase3_schema(tmp_path: Path) -> None:
     database_path = tmp_path / "phase5-downgrade.db"
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0002_phase5")
     command.downgrade(config, "0001_phase3")
 
     connection = sqlite3.connect(database_path)

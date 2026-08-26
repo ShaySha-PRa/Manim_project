@@ -5,8 +5,6 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from manim_workbench_api.code_generation.errors import CodeGenerationError
 from manim_workbench_api.code_generation.repair import (
     CategoryPolicy,
@@ -22,7 +20,8 @@ from manim_workbench_contracts import (
 )
 from sqlalchemy import Engine, create_engine, text
 
-ROOT = Path(__file__).resolve().parents[3]
+from tests.workflows.migration_support import upgrade_workflow_database
+
 OWNER_ID = UUID("00000000-0000-0000-0000-000000000001")
 OTHER_OWNER_ID = UUID("00000000-0000-0000-0000-000000000099")
 PROJECT_ID = UUID("00000000-0000-0000-0000-000000000002")
@@ -54,9 +53,7 @@ def plan_payload() -> dict[str, object]:
 
 def migrated_engine(tmp_path: Path) -> Engine:
     database_path = tmp_path / "phase7-repository.db"
-    config = Config(str(ROOT / "alembic.ini"))
-    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    upgrade_workflow_database(database_path)
     engine = create_engine(f"sqlite:///{database_path}")
     with engine.begin() as connection:
         connection.execute(

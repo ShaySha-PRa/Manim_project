@@ -4,8 +4,6 @@ import json
 from pathlib import Path
 from uuid import UUID
 
-from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
 from manim_workbench_api.code_generation.dependencies import (
     get_code_generation_engine,
@@ -18,7 +16,8 @@ from manim_workbench_api.jobs.dependencies import get_internal_token
 from manim_workbench_api.main import app
 from sqlalchemy import Engine, create_engine, text
 
-ROOT = Path(__file__).resolve().parents[3]
+from tests.workflows.migration_support import upgrade_workflow_database
+
 OWNER_ID = UUID("00000000-0000-0000-0000-000000000001")
 PROJECT_ID = UUID("00000000-0000-0000-0000-000000000002")
 PROMPT_ID = UUID("00000000-0000-0000-0000-000000000003")
@@ -60,9 +59,7 @@ class AcceptingRenderer:
 
 def migrated_engine(tmp_path: Path) -> Engine:
     database_path = tmp_path / "phase7-integration.db"
-    config = Config(str(ROOT / "alembic.ini"))
-    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+    upgrade_workflow_database(database_path)
     engine = create_engine(f"sqlite:///{database_path}")
     plan = {
         "schema_version": "1.1",

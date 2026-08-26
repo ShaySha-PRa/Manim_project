@@ -16,7 +16,8 @@ export default defineConfig({
     baseURL: "http://localhost:13000",
     browserName: "chromium",
     launchOptions: {
-      executablePath: `${root}/runtime/playwright-browsers/chromium-1234/chrome-linux64/chrome`,
+      executablePath: process.env.MANIM_PLAYWRIGHT_CHROMIUM
+        ?? `${root}/runtime/playwright-browsers/chromium-1234/chrome-linux64/chrome`,
     },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
@@ -31,7 +32,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: "uv run python tests/phase8/browser/prepare_isolated_web.py && cd runtime/phase8-browser-web && NEXT_PUBLIC_API_URL=http://localhost:18000 ../../node_modules/.bin/next dev --hostname 127.0.0.1 --port 13000",
+      command: "uv run python tests/phase8/browser/prepare_isolated_web.py && cd runtime/phase8-browser-web && MANIM_WORKBENCH_API_URL=http://localhost:18000 ../../node_modules/.bin/next dev --hostname 127.0.0.1 --port 13000",
       cwd: root,
       url: "http://localhost:13000/login",
       reuseExistingServer: false,

@@ -22,7 +22,7 @@ def test_phase7_migration_adds_provenance_attempt_hashes_and_category_state(
 ) -> None:
     database_path = tmp_path / "phase7.db"
     config = alembic_config(database_path)
-    command.upgrade(config, "head")
+    command.upgrade(config, "0004_phase7")
 
     connection = sqlite3.connect(database_path)
     assert {
@@ -41,7 +41,7 @@ def test_phase7_migration_adds_provenance_attempt_hashes_and_category_state(
 def test_phase7_migration_downgrades_to_phase6(tmp_path: Path) -> None:
     database_path = tmp_path / "phase7-downgrade.db"
     config = alembic_config(database_path)
-    command.upgrade(config, "head")
+    command.upgrade(config, "0004_phase7")
     command.downgrade(config, "0003_phase6")
 
     connection = sqlite3.connect(database_path)
