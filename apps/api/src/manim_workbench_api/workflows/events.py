@@ -156,7 +156,9 @@ class WorkflowEventService:
 
     def _event_stream(
         self,
-        loader,  # type: ignore[no-untyped-def]
+        loader: Callable[
+            [UUID, UUID, WorkflowEventCursor], tuple[WorkflowRunEvent, ...]
+        ],
         run_id: UUID,
         owner_id: UUID,
         cursor: WorkflowEventCursor,

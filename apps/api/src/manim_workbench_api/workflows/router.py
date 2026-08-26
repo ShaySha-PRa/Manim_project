@@ -13,6 +13,7 @@ from manim_workbench_contracts import (
 )
 from sqlalchemy import Engine
 
+from manim_workbench_api.assets.scientific import AssetIngestError
 from manim_workbench_api.auth.models import SessionPrincipal
 from manim_workbench_api.projects.router import StableValidationRoute
 
@@ -35,6 +36,8 @@ from .models import (
     SceneBlockVersionCreateRequest,
     SceneBlockVersionDetail,
     SceneRunCreateRequest,
+    ScientificAssetRecord,
+    ScientificCsvAssetCreateRequest,
     VideoWorkflowRecord,
     WorkflowVersionCreateRequest,
 )
@@ -76,6 +79,30 @@ def create_workflow(
     try:
         workflow_id = service.repository.create_workflow(project_id, principal.user_id)
         return service.repository.get_workflow(workflow_id, principal.user_id)
+    except WorkflowRepositoryError as error:
+        return _error(error)
+
+
+@router.post(
+    "/projects/{project_id}/scientific-assets/csv",
+    response_model=ScientificAssetRecord,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_scientific_csv_asset(
+    project_id: UUID,
+    request: ScientificCsvAssetCreateRequest,
+    principal: MutatingPrincipal,
+    engine: DatabaseEngine,
+) -> ScientificAssetRecord | JSONResponse:
+    try:
+        return _service(engine).create_csv_asset(
+            project_id, principal.user_id, request.csv_text
+        )
+    except AssetIngestError as error:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"error": {"code": "asset_invalid", "message": str(error)}},
+        )
     except WorkflowRepositoryError as error:
         return _error(error)
 

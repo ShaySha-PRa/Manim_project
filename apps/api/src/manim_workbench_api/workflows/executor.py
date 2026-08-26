@@ -30,6 +30,25 @@ _CSV = re.compile(r"csv|表格数据|实验数据|dataset", re.IGNORECASE)
 _PAPER = re.compile(r"论文|paper|pdf|文献", re.IGNORECASE)
 
 
+def preflight_scene(
+    prompt: str,
+    pipeline: ScenePipeline | None,
+    *,
+    asset_mimes: tuple[str, ...] = (),
+) -> tuple[SceneBlockRunStatus, str] | None:
+    if pipeline is None:
+        return SceneBlockRunStatus.NEEDS_CONFIRMATION, "pipeline_confirmation_required"
+    if pipeline is not ScenePipeline.SCIENTIFIC:
+        return None
+    if _CSV.search(prompt) and "text/csv" not in asset_mimes:
+        return SceneBlockRunStatus.ASSET_REQUIRED, "csv_asset_required"
+    if _PAPER.search(prompt) and not {"text/plain", "application/pdf"}.intersection(
+        asset_mimes
+    ):
+        return SceneBlockRunStatus.NEEDS_CONFIRMATION, "paper_content_required"
+    return None
+
+
 class TeachingAdapter(Protocol):
     def compile(
         self,
@@ -89,24 +108,15 @@ class SceneBlockExecutor:
         previous_scene_summary: str | None = None,
     ) -> ScenePreparation:
         pipeline = self._select_pipeline(block)
-        if pipeline is None:
-            return ScenePreparation(
-                status=SceneBlockRunStatus.NEEDS_CONFIRMATION,
-                error_code="pipeline_confirmation_required",
-            )
-        if pipeline is ScenePipeline.SCIENTIFIC:
-            if _CSV.search(block.prompt) and not csv_text:
-                return ScenePreparation(
-                    status=SceneBlockRunStatus.ASSET_REQUIRED,
-                    pipeline=pipeline,
-                    error_code="csv_asset_required",
-                )
-            if _PAPER.search(block.prompt) and not paper_text:
-                return ScenePreparation(
-                    status=SceneBlockRunStatus.NEEDS_CONFIRMATION,
-                    pipeline=pipeline,
-                    error_code="paper_content_required",
-                )
+        asset_mimes = tuple(
+            mime
+            for mime, content in (("text/csv", csv_text), ("text/plain", paper_text))
+            if content
+        )
+        stop = preflight_scene(block.prompt, pipeline, asset_mimes=asset_mimes)
+        if stop is not None:
+            status, error_code = stop
+            return ScenePreparation(status=status, pipeline=pipeline, error_code=error_code)
         try:
             if pipeline is ScenePipeline.TEACHING:
                 compiled = self._teaching.compile(

@@ -59,6 +59,8 @@ def test_scene_cards_expose_generation_safe_stops_and_provenance() -> None:
     assert "AnimationIR" in source
     assert "CompiledProgram" in source
     assert "AssetVersion" in source
+    assert "保存并绑定 AssetVersion" in source
+    assert "createScientificCsvAsset" in source
 
 
 def test_composition_is_blocked_until_all_current_scenes_succeed() -> None:
@@ -69,7 +71,10 @@ def test_composition_is_blocked_until_all_current_scenes_succeed() -> None:
     assert "尚不能合成" in panel
     assert "Composition Manifest" in panel
     assert "下载完整 MP4" in panel
-    assert 'status === "succeeded"' in hook
+    assert 'allSucceeded("preview")' in panel
+    assert 'allSucceeded("final")' in panel
+    assert "sceneRunKey(scene.version.id, profile)" in hook
+    assert 'run.profile' in hook
 
 
 def test_browser_state_does_not_store_owner_tokens_or_authorization_headers() -> None:

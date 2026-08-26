@@ -249,6 +249,9 @@ export interface CompositionManifest {
 
 export interface CompositionManifestClip {
   readonly scene_block_version_id: string;
+  readonly intent_ref?: string | null;
+  readonly animation_ir_ref?: string | null;
+  readonly compiled_program_ref?: string | null;
   readonly artifact_sha256: string;
   readonly duration_seconds: number;
   readonly position: number;
@@ -695,6 +698,7 @@ export interface SceneBlockRun {
   readonly project_id: string;
   readonly owner_id: string;
   readonly scene_block_version_id: string;
+  readonly profile: RenderProfile;
   readonly status: SceneBlockRunStatus;
   readonly pipeline_used?: ScenePipeline | null;
   readonly intent_ref?: string | null;

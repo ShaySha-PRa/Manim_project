@@ -13,7 +13,7 @@ from manim_workbench_contracts import (
     ProgramRenderSegment,
     RenderProfile,
 )
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, RowMapping, text
 
 
 class ProgramRenderConflict(ValueError):
@@ -384,11 +384,11 @@ class ProgramRenderStore:
             )
 
     @staticmethod
-    def _run(row) -> ProgramRenderRun:  # type: ignore[no-untyped-def]
+    def _run(row: RowMapping) -> ProgramRenderRun:
         return ProgramRenderRun.model_validate(dict(row))
 
     @staticmethod
-    def _segment(row) -> ProgramRenderSegment:  # type: ignore[no-untyped-def]
+    def _segment(row: RowMapping) -> ProgramRenderSegment:
         values = dict(row)
         values.pop("source_code", None)
         return ProgramRenderSegment.model_validate(values)

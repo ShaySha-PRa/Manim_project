@@ -135,6 +135,7 @@ class SceneBlockRun(ContractModel):
     project_id: UUID
     owner_id: UUID
     scene_block_version_id: UUID
+    profile: RenderProfile
     status: SceneBlockRunStatus
     pipeline_used: ScenePipeline | None = None
     intent_ref: UUID | None = None
@@ -276,6 +277,9 @@ class VideoWorkflowVersion(ContractModel):
 
 class CompositionManifestClip(ContractModel):
     scene_block_version_id: UUID
+    intent_ref: UUID | None = None
+    animation_ir_ref: UUID | None = None
+    compiled_program_ref: UUID | None = None
     artifact_sha256: Sha256
     duration_seconds: Annotated[float, Field(gt=0, le=120)]
     position: Annotated[int, Field(ge=1, le=8)]

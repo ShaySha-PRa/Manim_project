@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Project } from "@manim-workbench/contracts";
 
@@ -50,6 +50,9 @@ const defaultBrief: GlobalBrief = {
 const terminalScene = new Set(["succeeded", "failed", "asset_required", "needs_confirmation"]);
 const terminalComposition = new Set(["succeeded", "failed", "not_ready_to_compose"]);
 
+export const sceneRunKey = (versionId: string, profile: RenderProfile) =>
+  `${versionId}:${profile}`;
+
 export function retainRunsForCurrentScenes(
   currentRuns: Readonly<Record<string, SceneBlockRun>>,
   currentScenes: ReadonlyArray<SceneDraft>,
@@ -58,7 +61,7 @@ export function retainRunsForCurrentScenes(
     currentScenes.flatMap((scene) => scene.version ? [scene.version.id] : []),
   );
   return Object.fromEntries(
-    Object.entries(currentRuns).filter(([versionId]) => versionIds.has(versionId)),
+    Object.entries(currentRuns).filter(([, run]) => versionIds.has(run.scene_block_version_id)),
   );
 }
 
@@ -111,7 +114,9 @@ export function useVideoWorkflow(enabled: boolean) {
     })));
     const runIds = (query.get("runs") ?? "").split(",").filter(Boolean);
     const recoveredRuns = await Promise.all(runIds.map((id) => workbenchApi.getSceneBlockRun(id)));
-    setRuns(Object.fromEntries(recoveredRuns.map((run) => [run.scene_block_version_id, run])));
+    setRuns(Object.fromEntries(recoveredRuns.map((run) => [
+      sceneRunKey(run.scene_block_version_id, run.profile), run,
+    ])));
     const compositionId = query.get("composition");
     if (compositionId) setComposition(await workbenchApi.getCompositionRun(compositionId));
   }, []);
@@ -134,7 +139,9 @@ export function useVideoWorkflow(enabled: boolean) {
       void Promise.all(activeRuns.map((run) => workbenchApi.getSceneBlockRun(run.id)))
         .then((updated) => setRuns((current) => ({
           ...current,
-          ...Object.fromEntries(updated.map((run) => [run.scene_block_version_id, run])),
+          ...Object.fromEntries(updated.map((run) => [
+            sceneRunKey(run.scene_block_version_id, run.profile), run,
+          ])),
         })))
         .catch(() => setMessage("场景状态暂时无法刷新，正在保留当前任务身份。"));
       if (activeComposition) {
@@ -252,17 +259,33 @@ export function useVideoWorkflow(enabled: boolean) {
     }
   }, [version]);
 
+  const uploadCsv = useCallback(async (scene: SceneDraft, csvText: string) => {
+    if (!projectId) return setMessage("请先选择项目。");
+    try {
+      const asset = await workbenchApi.createScientificCsvAsset(projectId, csvText);
+      updateScene(scene.localId, {
+        assetVersionIds: [...scene.assetVersionIds, asset.id],
+      });
+      setMessage("CSV 已保存为不可变 AssetVersion；请保存工作流新版本后生成。");
+    } catch (cause) {
+      setMessage(messageFor(cause));
+    }
+  }, [projectId, updateScene]);
+
   const generateScene = useCallback(async (scene: SceneDraft, profile: RenderProfile) => {
     const run = await submitScene(scene, profile);
     if (!run || !version) return;
-    const nextRuns = { ...runs, [run.scene_block_version_id]: run };
+    const nextRuns = {
+      ...runs,
+      [sceneRunKey(run.scene_block_version_id, run.profile)]: run,
+    };
     setRuns(nextRuns);
     updateUrl(version, nextRuns, composition);
   }, [composition, runs, submitScene, updateUrl, version]);
 
   const generateIncomplete = useCallback(async (profile: RenderProfile) => {
     const incomplete = scenes.filter((scene) => (
-      scene.version && runs[scene.version.id]?.status !== "succeeded"
+      scene.version && runs[sceneRunKey(scene.version.id, profile)]?.status !== "succeeded"
     ));
     const submitted = [] as SceneBlockRun[];
     for (const scene of incomplete) {
@@ -272,7 +295,9 @@ export function useVideoWorkflow(enabled: boolean) {
     if (!submitted.length || !version) return;
     const nextRuns = {
       ...runs,
-      ...Object.fromEntries(submitted.map((run) => [run.scene_block_version_id, run])),
+      ...Object.fromEntries(submitted.map((run) => [
+        sceneRunKey(run.scene_block_version_id, run.profile), run,
+      ])),
     };
     setRuns(nextRuns);
     updateUrl(version, nextRuns, composition);
@@ -319,14 +344,18 @@ export function useVideoWorkflow(enabled: boolean) {
     });
   }, []);
 
-  const allSucceeded = useMemo(() => scenes.every((scene) => (
-    scene.version && runs[scene.version.id]?.status === "succeeded"
+  const allSucceeded = useCallback((profile: RenderProfile) => scenes.every((scene) => (
+    scene.version && runs[sceneRunKey(scene.version.id, profile)]?.status === "succeeded"
   )), [runs, scenes]);
+
+  const runFor = useCallback((scene: SceneDraft, profile: RenderProfile) => (
+    scene.version ? runs[sceneRunKey(scene.version.id, profile)] : undefined
+  ), [runs]);
 
   return {
     projects, projectId, setProjectId, workflow, version, brief, setBrief, scenes, setScenes,
     runs, composition, busy, message, setMessage, persist, updateScene, generateScene,
-    generateIncomplete, compose, moveScene, reorderScene, allSucceeded,
+    generateIncomplete, compose, moveScene, reorderScene, allSucceeded, runFor, uploadCsv,
     addScene: () => setScenes((current) => current.length < 8
       ? [...current, blankScene(current.length + 1)] : current),
     copyScene: (scene: SceneDraft) => setScenes((current) => current.length < 8

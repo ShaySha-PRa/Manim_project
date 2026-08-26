@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from uuid import UUID, uuid4
 
+from manim_workbench_api.assets.versions import load_asset_payloads
 from manim_workbench_api.compiler.base import CompiledProgram, CompiledSegment
 from manim_workbench_api.program_rendering import (
     JobProgramRenderBackend,
@@ -29,6 +30,7 @@ from manim_workbench_api.workflows import (
     ProgramRenderSource,
     ProgramRenderStore,
     SceneBlockExecutor,
+    SceneCacheService,
     WorkflowArtifactStore,
     WorkflowClipEvidence,
     WorkflowComposer,
@@ -41,17 +43,19 @@ from manim_workbench_api.workflows.composition import WorkflowArtifactPublisher
 from manim_workbench_contracts import (
     CompositionManifest,
     CompositionRunStatus,
+    ProgramRenderRun,
     ProgramRenderRunStatus,
     ProgramRenderSegment,
     RenderJobStatus,
     RenderProfile,
+    SceneBlockRun,
     SceneBlockRunStatus,
     ScenePipeline,
     VideoWorkflowVersion,
 )
 from sqlalchemy import Engine, text
 
-from manim_workbench_runner.rendering import ClipInput, CompositionResult
+from manim_workbench_runner.rendering import ClipInput, CompositionResult, inspect_clip
 
 from .workflow_coordinator import (
     WorkflowTaskExecution,
@@ -199,6 +203,45 @@ class PersistentWorkflowTaskExecutor:
                 self._programs.finish(found[0].id)
             self._append_scene_success(run, pipeline, profile, stored_artifact.id)
             return None
+        cached_run = self._repository.find_scene_cache_source_run(
+            run.cache_key, lease.project_id, lease.owner_id, profile
+        )
+        cache_hit = SceneCacheService(
+            self._repository,
+            artifact_root=self._workflow_artifacts.artifact_root,
+            media_probe=lambda path: self._cache_media_valid(path, profile),
+        ).lookup(
+            run.cache_key,
+            owner_id=lease.owner_id,
+            project_id=lease.project_id,
+            profile=profile,
+        )
+        if cached_run is not None and cache_hit is not None:
+            source_id = (
+                cached_run.preview_artifact_id
+                if profile is RenderProfile.PREVIEW
+                else cached_run.final_artifact_id
+            )
+            if source_id is None:
+                raise ValueError("cache source artifact reference is missing")
+            source = self._workflow_artifacts.get(
+                source_id,
+                project_id=lease.project_id,
+                owner_id=lease.owner_id,
+            )
+            if source is None:
+                raise ValueError("cache source artifact disappeared")
+            reused = self._workflow_artifacts.reuse(source, scene_block_run_id=run.id)
+            self._append_scene_success(
+                run,
+                self._pipeline_for(cached_run.pipeline_used, None),
+                profile,
+                reused.id,
+                intent_ref=cached_run.intent_ref,
+                animation_ir_ref=cached_run.animation_ir_ref,
+                compiled_program_ref=cached_run.compiled_program_ref,
+            )
+            return None
         if found is not None and found[0].status is ProgramRenderRunStatus.FAILED:
             self._append_scene_failure(
                 run, found[0].failure_code or "program_render_failed"
@@ -215,11 +258,23 @@ class PersistentWorkflowTaskExecutor:
             )
 
         if found is None:
+            assets = load_asset_payloads(
+                self._engine,
+                block.asset_version_ids,
+                owner_id=lease.owner_id,
+                project_id=lease.project_id,
+            )
+            csv_text = next(
+                (asset.text for asset in assets if asset.mime == "text/csv"), None
+            )
+            paper_text = next(
+                (asset.text for asset in assets if asset.mime == "text/plain"), None
+            )
             preparation = self._scene_executor.prepare(
                 block,
                 workflow.global_brief,
-                csv_text=self._payload_text(lease.payload, "csv_text"),
-                paper_text=self._payload_text(lease.payload, "paper_text"),
+                csv_text=csv_text,
+                paper_text=paper_text,
                 previous_scene_summary=self._payload_text(
                     lease.payload, "previous_scene_summary"
                 ),
@@ -236,6 +291,15 @@ class PersistentWorkflowTaskExecutor:
                 )
                 return None
             compilation = preparation.compilation
+            intent_ref, animation_ir_ref = self._repository.persist_scene_provenance(
+                run_id=run.id,
+                project_id=lease.project_id,
+                owner_id=lease.owner_id,
+                intent=compilation.intent,
+                animation_ir=compilation.animation_ir,
+                tool_runs=compilation.tool_runs,
+                provenance=compilation.provenance,
+            )
             digest = program_sha256(compilation.program)
             sources = tuple(
                 self._program_source(segment) for segment in compilation.program.segments
@@ -256,6 +320,8 @@ class PersistentWorkflowTaskExecutor:
                 expected_state_version=run.state_version,
                 status=SceneBlockRunStatus.COMPILING,
                 pipeline_used=preparation.pipeline,
+                intent_ref=intent_ref,
+                animation_ir_ref=animation_ir_ref,
                 compiled_program_ref=found[0].id,
             )
 
@@ -284,6 +350,8 @@ class PersistentWorkflowTaskExecutor:
                 expected_state_version=run.state_version,
                 status=SceneBlockRunStatus.RENDERING,
                 pipeline_used=self._pipeline_for(run.pipeline_used, found),
+                intent_ref=run.intent_ref,
+                animation_ir_ref=run.animation_ir_ref,
                 compiled_program_ref=program_run.id,
             )
         evidence, active, failure_code = self._collect_segment_evidence(
@@ -372,6 +440,29 @@ class PersistentWorkflowTaskExecutor:
                 artifact_id=stored_artifact.id,
             )
             return None
+        cached_run = self._repository.find_composition_cache_source_run(
+            run.cache_key, lease.project_id, lease.owner_id, profile
+        )
+        if cached_run is not None and cached_run.artifact_id is not None:
+            source = self._workflow_artifacts.get(
+                cached_run.artifact_id,
+                project_id=lease.project_id,
+                owner_id=lease.owner_id,
+            )
+            if source is not None:
+                reused = self._workflow_artifacts.reuse(
+                    source, composition_run_id=run.id
+                )
+                self._repository.append_composition_run_event(
+                    run_id=run.id,
+                    project_id=lease.project_id,
+                    owner_id=lease.owner_id,
+                    expected_state_version=run.state_version,
+                    status=CompositionRunStatus.SUCCEEDED,
+                    manifest=manifest,
+                    artifact_id=reused.id,
+                )
+                return None
         if run.status is CompositionRunStatus.QUEUED:
             run = self._repository.append_composition_run_event(
                 run_id=run.id,
@@ -549,14 +640,21 @@ class PersistentWorkflowTaskExecutor:
             path=self._workflow_artifacts.verified_path(artifact),
             artifact_sha256=artifact.sha256,
             byte_size=artifact.byte_size,
+            intent_ref=self._row_uuid(row, "intent_ref"),
+            animation_ir_ref=self._row_uuid(row, "animation_ir_ref"),
+            compiled_program_ref=self._row_uuid(row, "compiled_program_ref"),
         )
 
     def _append_scene_success(
         self,
-        run,  # type: ignore[no-untyped-def]
+        run: SceneBlockRun,
         pipeline: ScenePipeline,
         profile: RenderProfile,
         artifact_id: UUID,
+        *,
+        intent_ref: UUID | None = None,
+        animation_ir_ref: UUID | None = None,
+        compiled_program_ref: UUID | None = None,
     ) -> None:
         current = self._repository.get_scene_block_run(
             run.id, run.project_id, run.owner_id
@@ -576,11 +674,13 @@ class PersistentWorkflowTaskExecutor:
             expected_state_version=current.state_version,
             status=SceneBlockRunStatus.SUCCEEDED,
             pipeline_used=pipeline,
-            compiled_program_ref=current.compiled_program_ref,
+            intent_ref=intent_ref or current.intent_ref,
+            animation_ir_ref=animation_ir_ref or current.animation_ir_ref,
+            compiled_program_ref=compiled_program_ref or current.compiled_program_ref,
             **values,
         )
 
-    def _append_scene_failure(self, run, failure_code: str) -> None:  # type: ignore[no-untyped-def]
+    def _append_scene_failure(self, run: SceneBlockRun, failure_code: str) -> None:
         current = self._repository.get_scene_block_run(
             run.id, run.project_id, run.owner_id
         )
@@ -593,6 +693,8 @@ class PersistentWorkflowTaskExecutor:
             expected_state_version=current.state_version,
             status=SceneBlockRunStatus.FAILED,
             pipeline_used=current.pipeline_used,
+            intent_ref=current.intent_ref,
+            animation_ir_ref=current.animation_ir_ref,
             compiled_program_ref=current.compiled_program_ref,
             error_code=failure_code,
         )
@@ -602,7 +704,7 @@ class PersistentWorkflowTaskExecutor:
         scene_run_id: UUID,
         profile: RenderProfile,
         lease: WorkflowTaskLease,
-    ):
+    ) -> tuple[ProgramRenderRun, tuple[ProgramRenderSegment, ...]]:
         found = self._programs.find(
             scene_run_id, lease.project_id, lease.owner_id, profile
         )
@@ -637,7 +739,9 @@ class PersistentWorkflowTaskExecutor:
         )
 
     @staticmethod
-    def _program_request(program_run, program: CompiledProgram) -> ProgramRenderRequest:  # type: ignore[no-untyped-def]
+    def _program_request(
+        program_run: ProgramRenderRun, program: CompiledProgram
+    ) -> ProgramRenderRequest:
         deadline = min(
             3_600,
             max(5, int(sum(item.duration_seconds for item in program.segments) * 4 + 60)),
@@ -656,7 +760,10 @@ class PersistentWorkflowTaskExecutor:
         )
 
     @staticmethod
-    def _pipeline_for(run_pipeline, found) -> ScenePipeline:  # type: ignore[no-untyped-def]
+    def _pipeline_for(
+        run_pipeline: ScenePipeline | None,
+        found: tuple[ProgramRenderRun, tuple[ProgramRenderSegment, ...]] | None,
+    ) -> ScenePipeline:
         if run_pipeline is not None:
             return run_pipeline
         if found is None:
@@ -696,6 +803,9 @@ class PersistentWorkflowTaskExecutor:
                     scene_block_version_id=UUID(str(row["scene_block_version_id"])),
                     artifact_sha256=str(row["sha256"]),
                     duration_seconds=float(row["duration_seconds"]),
+                    intent_ref=self._row_uuid(row, "intent_ref"),
+                    animation_ir_ref=self._row_uuid(row, "animation_ir_ref"),
+                    compiled_program_ref=self._row_uuid(row, "compiled_program_ref"),
                 )
                 for row in rows
             ),
@@ -714,6 +824,11 @@ class PersistentWorkflowTaskExecutor:
             raise ValueError(f"workflow task {key} is invalid") from error
 
     @staticmethod
+    def _row_uuid(row: dict[str, object], key: str) -> UUID | None:
+        value = row.get(key)
+        return UUID(str(value)) if value is not None else None
+
+    @staticmethod
     def _payload_text(payload: dict[str, object], key: str) -> str | None:
         value = payload.get(key)
         if value is None:
@@ -721,6 +836,16 @@ class PersistentWorkflowTaskExecutor:
         if not isinstance(value, str) or not value:
             raise ValueError(f"workflow task {key} is invalid")
         return value
+
+    @staticmethod
+    def _cache_media_valid(path: Path, profile: RenderProfile) -> bool:
+        try:
+            inspect_clip(
+                ClipInput(path, profile, hashlib.sha256(path.read_bytes()).hexdigest())
+            )
+        except (OSError, ValueError):
+            return False
+        return True
 
 
 class _SceneProgramPublisher(ProgramArtifactPublisher):

@@ -140,10 +140,10 @@ def test_0010_blocks_version_mutation_and_non_monotonic_run_events(tmp_path: Pat
         )
         connection.execute(
             text(
-                "INSERT INTO scene_block_runs "
-                "(id,scene_block_version_id,workflow_version_id,project_id,owner_id,"
-                "cache_key,idempotency_key,created_at) VALUES "
-                "('run','block-v1','workflow-v1','project','owner',:cache,:key,:now)"
+                    "INSERT INTO scene_block_runs "
+                    "(id,scene_block_version_id,workflow_version_id,project_id,owner_id,"
+                    "profile,cache_key,idempotency_key,created_at) VALUES "
+                    "('run','block-v1','workflow-v1','project','owner','preview',:cache,:key,:now)"
             ),
             {"cache": "a" * 64, "key": "scene-run-idempotency", "now": now},
         )
@@ -421,10 +421,10 @@ def test_0010_downgrade_refuses_scientific_job_before_dropping_tables(
         )
         connection.execute(
             text(
-                "INSERT INTO scene_block_runs "
-                "(id,scene_block_version_id,workflow_version_id,project_id,owner_id,cache_key,"
-                "idempotency_key,created_at) VALUES "
-                "('scene-run','block-v1','workflow-v1','project','owner',:cache,:key,:now)"
+                    "INSERT INTO scene_block_runs "
+                    "(id,scene_block_version_id,workflow_version_id,project_id,owner_id,profile,cache_key,"
+                    "idempotency_key,created_at) VALUES "
+                    "('scene-run','block-v1','workflow-v1','project','owner','preview',:cache,:key,:now)"
             ),
             {"cache": "a" * 64, "key": "scientific-scene-run", "now": now},
         )

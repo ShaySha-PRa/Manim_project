@@ -6,6 +6,8 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import av
+from manim_workbench_api.assets.scientific import ingest_csv_text
+from manim_workbench_api.assets.versions import persist_asset_version
 from manim_workbench_api.compiler.base import CompiledProgram, CompiledSegment
 from manim_workbench_api.jobs.dependencies import NullJobSignalPublisher
 from manim_workbench_api.jobs.repository import JobRepository
@@ -21,6 +23,7 @@ from manim_workbench_contracts import (
     RenderProfile,
     SceneBlockRunStatus,
     ScenePipeline,
+    ScenePipelineMode,
 )
 from manim_workbench_contracts.ir import VisualKind
 from manim_workbench_runner.queue import (
@@ -33,6 +36,8 @@ from sqlalchemy import Engine, text
 from tests.workflows.test_repository import (
     OWNER_A,
     PROJECT_A,
+    _brief,
+    _linear_nodes,
     _workflow_fixture,
 )
 
@@ -98,6 +103,24 @@ class _ScientificAdapter:
         raise AssertionError("teaching fixture must not call the scientific adapter")
 
 
+class _RecordingScientificAdapter:
+    def __init__(self) -> None:
+        self.csv_text: str | None = None
+
+    def compile(self, block, global_brief, **kwargs):  # type: ignore[no-untyped-def]
+        del global_brief
+        self.csv_text = kwargs.get("csv_text")
+        return SceneCompilation(
+            pipeline=ScenePipeline.SCIENTIFIC,
+            program=_program(),
+            prompt_version_id=block.id,
+            content_plan_version_id=None,
+            intent={"goal": f"temperature pressure from {block.prompt}"},
+            animation_ir={"objects": ["data_plot"]},
+            provenance=(("asset_source", "bound_asset_version"),),
+        )
+
+
 class _AllowQuality:
     def evaluate(self, composition, *, policy):  # type: ignore[no-untyped-def]
         del policy
@@ -113,10 +136,11 @@ def _executor(
     staging_root: Path,
     *,
     clock=None,  # type: ignore[no-untyped-def]
+    scientific=None,  # type: ignore[no-untyped-def]
 ) -> PersistentWorkflowTaskExecutor:
     return PersistentWorkflowTaskExecutor(
         engine,
-        SceneBlockExecutor(teaching, _ScientificAdapter()),
+        SceneBlockExecutor(teaching, scientific or _ScientificAdapter()),
         JobService(JobRepository(engine), NullJobSignalPublisher()),
         _AllowQuality(),
         store,
@@ -276,6 +300,106 @@ def test_scene_executor_recovers_mid_render_without_duplicate_jobs_or_terminal_a
         ).scalar_one() == "succeeded"
     assert teaching.calls == 1
 
+    cached = repository.create_scene_block_run(
+        scene_block_version_id=first.id,
+        workflow_version_id=workflow.id,
+        project_id=PROJECT_A,
+        owner_id=OWNER_A,
+        cache_key="a" * 64,
+        idempotency_key="real-scene-cache-hit",
+        profile=RenderProfile.PREVIEW,
+    )
+    cached_lease = _scene_lease(cached.id, first.id, workflow.id)
+    assert _executor(
+        engine, teaching, store, artifact_root, staging_root
+    ).execute(cached_lease) is None
+    cached_projection = repository.get_scene_block_run(cached.id, PROJECT_A, OWNER_A)
+    assert cached_projection.status is SceneBlockRunStatus.SUCCEEDED
+    assert cached_projection.preview_artifact_id is not None
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT COUNT(*) FROM render_jobs")).scalar_one() == 2
+    assert teaching.calls == 1
+
+
+def test_runner_loads_bound_csv_and_persists_scientific_intent_ir_provenance(
+    engine: Engine, tmp_path: Path
+) -> None:
+    repository = WorkflowRepository(engine)
+    csv_text = "timestamp,temperature,pressure\n0,20,101\n1,35,99\n"
+    asset = ingest_csv_text(csv_text)
+    asset_id = persist_asset_version(
+        engine,
+        asset,
+        owner_id=OWNER_A,
+        project_id=PROJECT_A,
+        payload_text=csv_text,
+    )
+    workflow_id = repository.create_workflow(PROJECT_A, OWNER_A)
+    first = repository.create_scene_block(
+        workflow_id=workflow_id,
+        project_id=PROJECT_A,
+        owner_id=OWNER_A,
+        title="Intro",
+        prompt="教学讲解数据图。",
+        pipeline_mode=ScenePipelineMode.TEACHING,
+        target_duration_seconds=30,
+    )
+    csv_scene = repository.create_scene_block(
+        workflow_id=workflow_id,
+        project_id=PROJECT_A,
+        owner_id=OWNER_A,
+        title="CSV",
+        prompt="根据 CSV 实验数据展示温度和压力异常区间。",
+        pipeline_mode=ScenePipelineMode.SCIENTIFIC,
+        target_duration_seconds=30,
+        asset_version_ids=(asset_id,),
+    )
+    nodes, edges = _linear_nodes(first.id, csv_scene.id)
+    workflow = repository.append_workflow_version(
+        workflow_id=workflow_id,
+        project_id=PROJECT_A,
+        owner_id=OWNER_A,
+        global_brief=_brief(),
+        nodes=nodes,
+        edges=edges,
+    )
+    run = repository.create_scene_block_run(
+        scene_block_version_id=csv_scene.id,
+        workflow_version_id=workflow.id,
+        project_id=PROJECT_A,
+        owner_id=OWNER_A,
+        cache_key="c" * 64,
+        idempotency_key="bound-csv-scene-run",
+        profile=RenderProfile.PREVIEW,
+    )
+    artifact_root = tmp_path / "artifacts"
+    staging_root = tmp_path / "staging"
+    store = WorkflowArtifactStore(engine, artifact_root, staging_root)
+    scientific = _RecordingScientificAdapter()
+    outcome = _executor(
+        engine,
+        _TeachingAdapter(),
+        store,
+        artifact_root,
+        staging_root,
+        scientific=scientific,
+    ).execute(_scene_lease(run.id, csv_scene.id, workflow.id))
+    assert outcome is not None and outcome.retry_at is not None
+    assert scientific.csv_text == csv_text
+    projected = repository.get_scene_block_run(run.id, PROJECT_A, OWNER_A)
+    assert projected.intent_ref is not None
+    assert projected.animation_ir_ref is not None
+    with engine.connect() as connection:
+        provenance = connection.execute(
+            text(
+                "SELECT intent_json,animation_ir_json,provenance_json FROM "
+                "scene_run_provenance WHERE scene_block_run_id=:run"
+            ),
+            {"run": str(run.id)},
+        ).one()
+    assert "temperature" in provenance.intent_json
+    assert "data_plot" in provenance.animation_ir_json
+    assert "bound_asset_version" in provenance.provenance_json
 
 def _publish_scene_fixture(
     repository: WorkflowRepository,
@@ -418,3 +542,36 @@ def test_composition_executor_recovers_after_atomic_publish_before_terminal_comm
             {"run": str(run.id)},
         ).scalar_one() == 1
     assert teaching.calls == 0
+
+    cached_run = repository.create_composition_run(
+        workflow_version_id=workflow.id,
+        project_id=PROJECT_A,
+        owner_id=OWNER_A,
+        profile=RenderProfile.FINAL,
+        cache_key="f" * 64,
+        idempotency_key="composition-cross-run-cache-hit",
+    )
+    first_path.unlink()
+    second_path.unlink()
+    cached_lease = WorkflowTaskLease(
+        task_id=uuid4(),
+        run_id=cached_run.id,
+        project_id=PROJECT_A,
+        owner_id=OWNER_A,
+        kind="composition",
+        lease_token="c" * 64,
+        attempt_count=1,
+        payload={
+            "workflow_version_id": str(workflow.id),
+            "profile": "final",
+            "artifact_ids": [str(first_artifact), str(second_artifact)],
+        },
+    )
+    assert _executor(
+        engine, teaching, store, artifact_root, staging_root
+    ).execute(cached_lease) is None
+    cached_projection = repository.get_composition_run(
+        cached_run.id, PROJECT_A, OWNER_A
+    )
+    assert cached_projection.status is CompositionRunStatus.SUCCEEDED
+    assert cached_projection.artifact_id is not None

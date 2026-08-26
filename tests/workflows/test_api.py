@@ -243,8 +243,26 @@ def test_workflow_mutations_require_existing_csrf_boundary_and_openapi_lists_rou
         f"/api/v1/projects/{project['id']}/video-workflows", headers=headers
     )
     assert allowed.status_code == 201
+    csv_asset = client.post(
+        f"/api/v1/projects/{project['id']}/scientific-assets/csv",
+        headers=headers,
+        json={
+            "csv_text": "timestamp,temperature,pressure\n0,20,101\n1,35,99\n"
+        },
+    )
+    assert csv_asset.status_code == 201, csv_asset.text
+    assert csv_asset.json()["mime"] == "text/csv"
+    assert len(csv_asset.json()["sha256"]) == 64
+    invalid_csv = client.post(
+        f"/api/v1/projects/{project['id']}/scientific-assets/csv",
+        headers=headers,
+        json={"csv_text": "unknown-column!\n1\n"},
+    )
+    assert invalid_csv.status_code == 422
+    assert invalid_csv.json()["error"]["code"] == "asset_invalid"
     paths = app.openapi()["paths"]
     assert "/api/v1/video-workflows/{workflow_id}/versions" in paths
+    assert "/api/v1/projects/{project_id}/scientific-assets/csv" in paths
     assert "/api/v1/scene-block-versions/{version_id}/runs" in paths
     assert "/api/v1/scene-block-runs/{run_id}/events" in paths
     assert "/api/v1/workflow-versions/{version_id}/composition-runs" in paths

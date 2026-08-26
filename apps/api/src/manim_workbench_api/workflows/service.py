@@ -7,12 +7,14 @@ from manim_workbench_contracts import (
     CompositionRun,
     CompositionRunStatus,
     SceneBlockRun,
-    SceneBlockRunStatus,
     ScenePipeline,
     ScenePipelineMode,
     VideoWorkflowVersion,
 )
 from sqlalchemy import Engine, text
+
+from manim_workbench_api.assets.scientific import ingest_csv_text
+from manim_workbench_api.assets.versions import persist_asset_version
 
 from .cache import SceneCacheVersions, canonical_json, scene_cache_key
 from .composition import (
@@ -20,13 +22,14 @@ from .composition import (
     build_composition_manifest,
     composition_cache_key,
 )
-from .executor import route_scene_pipeline
+from .executor import preflight_scene, route_scene_pipeline
 from .models import (
     CompositionRunCreateRequest,
     SceneBlockCreateRequest,
     SceneBlockCreation,
     SceneBlockVersionCreateRequest,
     SceneRunCreateRequest,
+    ScientificAssetRecord,
     WorkflowVersionCreateRequest,
 )
 from .queue import WorkflowTaskKind, WorkflowTaskNotifier, WorkflowTaskQueue
@@ -68,6 +71,38 @@ class WorkflowService:
             **request.model_dump(),
         )
         return SceneBlockCreation(block=block, version=version)
+
+    def create_csv_asset(
+        self, project_id: UUID, owner_id: UUID, csv_text: str
+    ) -> ScientificAssetRecord:
+        with self._engine.connect() as connection:
+            active = connection.execute(
+                text(
+                    "SELECT id FROM projects WHERE id=:project_id AND owner_id=:owner_id "
+                    "AND archived_at IS NULL"
+                ),
+                {"project_id": str(project_id), "owner_id": str(owner_id)},
+            ).scalar_one_or_none()
+        if active is None:
+            from .errors import WORKFLOW_NOT_FOUND
+
+            raise WORKFLOW_NOT_FOUND
+        asset = ingest_csv_text(csv_text)
+        asset_id = persist_asset_version(
+            self._engine,
+            asset,
+            owner_id=owner_id,
+            project_id=project_id,
+            payload_text=csv_text,
+        )
+        return ScientificAssetRecord(
+            id=asset_id,
+            project_id=project_id,
+            owner_id=owner_id,
+            sha256=asset.sha256,
+            mime=asset.mime.value,
+            size_bytes=asset.size_bytes,
+        )
 
     def append_scene_block_version(
         self,
@@ -125,10 +160,13 @@ class WorkflowService:
             return existing
         pipeline = self._pipeline(block.pipeline_mode, block.prompt)
         key_pipeline = pipeline or ScenePipeline.TEACHING
+        asset_metadata = self._asset_metadata(
+            block.asset_version_ids, block.project_id, owner_id
+        )
         cache_key = scene_cache_key(
             block=block,
             global_brief=workflow.global_brief,
-            asset_hashes=self._asset_hashes(block.asset_version_ids, block.project_id, owner_id),
+            asset_hashes=tuple(item[0] for item in asset_metadata),
             pipeline=key_pipeline,
             versions=SCENE_CACHE_VERSIONS,
             profile=request.profile,
@@ -140,8 +178,13 @@ class WorkflowService:
             owner_id=owner_id,
             cache_key=cache_key,
             idempotency_key=request.idempotency_key,
+            profile=request.profile,
         )
-        stop = self._preflight_stop(block.prompt, pipeline)
+        stop = preflight_scene(
+            block.prompt,
+            pipeline,
+            asset_mimes=tuple(item[1] for item in asset_metadata),
+        )
         if stop is not None:
             status, error_code = stop
             return self._repository.append_scene_block_run_event(
@@ -204,6 +247,9 @@ class WorkflowService:
                         scene_block_version_id=row["scene_block_version_id"],
                         artifact_sha256=str(row["sha256"]),
                         duration_seconds=float(row["duration_seconds"]),
+                        intent_ref=row["intent_ref"],
+                        animation_ir_ref=row["animation_ir_ref"],
+                        compiled_program_ref=row["compiled_program_ref"],
                     )
                     for row in rows
                 ),
@@ -295,15 +341,15 @@ class WorkflowService:
             raise WORKFLOW_NOT_FOUND
         return UUID(str(value))
 
-    def _asset_hashes(
+    def _asset_metadata(
         self, asset_ids: tuple[UUID, ...], project_id: UUID, owner_id: UUID
-    ) -> tuple[str, ...]:
-        hashes = []
+    ) -> tuple[tuple[str, str], ...]:
+        metadata: list[tuple[str, str]] = []
         with self._engine.connect() as connection:
             for asset_id in asset_ids:
                 value = connection.execute(
                     text(
-                        "SELECT sha256 FROM asset_versions WHERE id=:id "
+                        "SELECT sha256,mime FROM asset_versions WHERE id=:id "
                         "AND project_id=:project_id AND owner_id=:owner_id"
                     ),
                     {
@@ -311,13 +357,13 @@ class WorkflowService:
                         "project_id": str(project_id),
                         "owner_id": str(owner_id),
                     },
-                ).scalar_one_or_none()
+                ).one_or_none()
                 if value is None:
                     from .errors import WORKFLOW_REFERENCE_INVALID
 
                     raise WORKFLOW_REFERENCE_INVALID
-                hashes.append(str(value))
-        return tuple(hashes)
+                metadata.append((str(value.sha256), str(value.mime)))
+        return tuple(metadata)
 
     @staticmethod
     def _pipeline(mode: ScenePipelineMode, prompt: str) -> ScenePipeline | None:
@@ -326,20 +372,3 @@ class WorkflowService:
         if mode is ScenePipelineMode.SCIENTIFIC:
             return ScenePipeline.SCIENTIFIC
         return route_scene_pipeline(prompt)
-
-    @staticmethod
-    def _preflight_stop(
-        prompt: str, pipeline: ScenePipeline | None
-    ) -> tuple[SceneBlockRunStatus, str] | None:
-        lowered = prompt.lower()
-        if pipeline is None:
-            return SceneBlockRunStatus.NEEDS_CONFIRMATION, "pipeline_confirmation_required"
-        if pipeline is ScenePipeline.SCIENTIFIC and any(
-            token in lowered for token in ("csv", "实验数据", "dataset")
-        ):
-            return SceneBlockRunStatus.ASSET_REQUIRED, "csv_asset_content_required"
-        if pipeline is ScenePipeline.SCIENTIFIC and any(
-            token in lowered for token in ("论文", "paper", "pdf", "文献")
-        ):
-            return SceneBlockRunStatus.NEEDS_CONFIRMATION, "paper_content_required"
-        return None

@@ -30,6 +30,9 @@ class SceneClipDescriptor:
     scene_block_version_id: UUID
     artifact_sha256: str
     duration_seconds: float
+    intent_ref: UUID | None = None
+    animation_ir_ref: UUID | None = None
+    compiled_program_ref: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +45,9 @@ class WorkflowClipEvidence:
     path: Path
     artifact_sha256: str
     byte_size: int
+    intent_ref: UUID | None = None
+    animation_ir_ref: UUID | None = None
+    compiled_program_ref: UUID | None = None
     succeeded: bool = True
 
 
@@ -135,6 +141,9 @@ class WorkflowComposer:
                         scene_block_version_id=clip.scene_block_version_id,
                         artifact_sha256=clip.artifact_sha256,
                         duration_seconds=descriptor.duration_seconds,
+                        intent_ref=clip.intent_ref,
+                        animation_ir_ref=clip.animation_ir_ref,
+                        compiled_program_ref=clip.compiled_program_ref,
                     )
                     for clip, descriptor in zip(clips, media, strict=True)
                 ),
@@ -191,6 +200,9 @@ def build_composition_manifest(
         clips=tuple(
             CompositionManifestClip(
                 scene_block_version_id=clip.scene_block_version_id,
+                intent_ref=clip.intent_ref,
+                animation_ir_ref=clip.animation_ir_ref,
+                compiled_program_ref=clip.compiled_program_ref,
                 artifact_sha256=clip.artifact_sha256,
                 duration_seconds=clip.duration_seconds,
                 position=index,

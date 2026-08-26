@@ -49,6 +49,19 @@ def _uuid(value: object | None) -> UUID | None:
     return UUID(str(value)) if value is not None else None
 
 
+def _json_value(value: Any | None) -> str | None:
+    if value is None:
+        return None
+    if hasattr(value, "model_dump"):
+        value = value.model_dump(mode="json")
+    elif isinstance(value, tuple):
+        value = [
+            item.model_dump(mode="json") if hasattr(item, "model_dump") else item
+            for item in value
+        ]
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+
+
 class WorkflowRepository:
     """Immutable workflow persistence with owner-scoped event projections."""
 
@@ -443,6 +456,7 @@ class WorkflowRepository:
         owner_id: UUID,
         cache_key: str,
         idempotency_key: str,
+        profile: RenderProfile = RenderProfile.PREVIEW,
     ) -> SceneBlockRun:
         run_id = uuid4()
         now = utc_now()
@@ -459,9 +473,9 @@ class WorkflowRepository:
                     text(
                         "INSERT INTO scene_block_runs "
                         "(id,scene_block_version_id,workflow_version_id,project_id,owner_id,"
-                        "cache_key,idempotency_key,created_at) VALUES "
+                        "profile,cache_key,idempotency_key,created_at) VALUES "
                         "(:id,:scene_version,:workflow_version,:project_id,:owner_id,"
-                        ":cache_key,:idempotency_key,:created_at)"
+                        ":profile,:cache_key,:idempotency_key,:created_at)"
                     ),
                     {
                         "id": str(run_id),
@@ -469,6 +483,7 @@ class WorkflowRepository:
                         "workflow_version": str(workflow_version_id),
                         "project_id": str(project_id),
                         "owner_id": str(owner_id),
+                        "profile": profile.value,
                         "cache_key": cache_key,
                         "idempotency_key": idempotency_key,
                         "created_at": now.isoformat(),
@@ -550,6 +565,128 @@ class WorkflowRepository:
             ).scalar_one_or_none()
         return (
             self.get_scene_block_run(UUID(str(run_id)), project_id, owner_id)
+            if run_id is not None
+            else None
+        )
+
+    def persist_scene_provenance(
+        self,
+        *,
+        run_id: UUID,
+        project_id: UUID,
+        owner_id: UUID,
+        intent: Any | None,
+        animation_ir: Any | None,
+        tool_runs: tuple[Any, ...],
+        provenance: tuple[tuple[str, str], ...],
+    ) -> tuple[UUID | None, UUID | None]:
+        with self._engine.begin() as connection:
+            self._require_scene_run(connection, run_id, project_id, owner_id)
+            existing = connection.execute(
+                text(
+                    "SELECT intent_ref,animation_ir_ref FROM scene_run_provenance "
+                    "WHERE scene_block_run_id=:run AND project_id=:project "
+                    "AND owner_id=:owner"
+                ),
+                {
+                    "run": str(run_id),
+                    "project": str(project_id),
+                    "owner": str(owner_id),
+                },
+            ).one_or_none()
+            if existing is not None:
+                return _uuid(existing.intent_ref), _uuid(existing.animation_ir_ref)
+            intent_ref = uuid4() if intent is not None else None
+            animation_ir_ref = uuid4() if animation_ir is not None else None
+            connection.execute(
+                text(
+                    "INSERT INTO scene_run_provenance "
+                    "(id,scene_block_run_id,project_id,owner_id,intent_ref,animation_ir_ref,"
+                    "intent_json,animation_ir_json,tool_runs_json,provenance_json,created_at) "
+                    "VALUES (:id,:run,:project,:owner,:intent_ref,:animation_ir_ref,"
+                    ":intent_json,:animation_ir_json,:tool_runs_json,:provenance_json,:created)"
+                ),
+                {
+                    "id": str(uuid4()),
+                    "run": str(run_id),
+                    "project": str(project_id),
+                    "owner": str(owner_id),
+                    "intent_ref": str(intent_ref) if intent_ref else None,
+                    "animation_ir_ref": str(animation_ir_ref) if animation_ir_ref else None,
+                    "intent_json": _json_value(intent),
+                    "animation_ir_json": _json_value(animation_ir),
+                    "tool_runs_json": _json_value(tool_runs),
+                    "provenance_json": _json_value(dict(provenance)),
+                    "created": utc_now().isoformat(),
+                },
+            )
+        return intent_ref, animation_ir_ref
+
+    def find_scene_cache_source_run(
+        self,
+        cache_key: str,
+        project_id: UUID,
+        owner_id: UUID,
+        profile: RenderProfile,
+    ) -> SceneBlockRun | None:
+        artifact_column = (
+            "preview_artifact_id"
+            if profile is RenderProfile.PREVIEW
+            else "final_artifact_id"
+        )
+        with self._engine.connect() as connection:
+            run_id = connection.execute(
+                text(
+                    f"SELECT r.id FROM scene_block_runs r JOIN scene_block_run_events e "
+                    f"ON e.run_id=r.id JOIN workflow_artifacts a "
+                    f"ON a.id=e.{artifact_column} WHERE r.cache_key=:cache_key "
+                    f"AND r.project_id=:project AND r.owner_id=:owner "
+                    f"AND e.status='succeeded' AND a.profile=:profile "
+                    f"AND e.state_version=(SELECT MAX(latest.state_version) FROM "
+                    f"scene_block_run_events latest WHERE latest.run_id=r.id) "
+                    f"ORDER BY r.created_at DESC LIMIT 1"
+                ),
+                {
+                    "cache_key": cache_key,
+                    "project": str(project_id),
+                    "owner": str(owner_id),
+                    "profile": profile.value,
+                },
+            ).scalar_one_or_none()
+        return (
+            self.get_scene_block_run(UUID(str(run_id)), project_id, owner_id)
+            if run_id is not None
+            else None
+        )
+
+    def find_composition_cache_source_run(
+        self,
+        cache_key: str,
+        project_id: UUID,
+        owner_id: UUID,
+        profile: RenderProfile,
+    ) -> CompositionRun | None:
+        with self._engine.connect() as connection:
+            run_id = connection.execute(
+                text(
+                    "SELECT r.id FROM workflow_composition_runs r "
+                    "JOIN workflow_composition_run_events e ON e.run_id=r.id "
+                    "JOIN workflow_artifacts a ON a.id=e.artifact_id "
+                    "WHERE r.cache_key=:cache_key AND r.project_id=:project "
+                    "AND r.owner_id=:owner AND r.profile=:profile "
+                    "AND e.status='succeeded' AND e.state_version=(SELECT MAX(latest."
+                    "state_version) FROM workflow_composition_run_events latest "
+                    "WHERE latest.run_id=r.id) ORDER BY r.created_at DESC LIMIT 1"
+                ),
+                {
+                    "cache_key": cache_key,
+                    "project": str(project_id),
+                    "owner": str(owner_id),
+                    "profile": profile.value,
+                },
+            ).scalar_one_or_none()
+        return (
+            self.get_composition_run(UUID(str(run_id)), project_id, owner_id)
             if run_id is not None
             else None
         )
@@ -680,7 +817,8 @@ class WorkflowRepository:
                     connection.execute(
                         text(
                             f"SELECT a.id AS artifact_id,a.sha256,a.byte_size,a.relative_path,"
-                            f"a.duration_seconds FROM scene_block_runs r "
+                            f"a.duration_seconds,e.intent_ref,e.animation_ir_ref,"
+                            f"e.compiled_program_ref FROM scene_block_runs r "
                             f"JOIN scene_block_run_events e ON e.run_id=r.id "
                             f"JOIN workflow_artifacts a ON a.id=e.{artifact_column} "
                             f"WHERE r.scene_block_version_id=:scene_id "
@@ -709,6 +847,9 @@ class WorkflowRepository:
                         "byte_size": int(row["byte_size"]),
                         "relative_path": str(row["relative_path"]),
                         "duration_seconds": float(row["duration_seconds"]),
+                        "intent_ref": _uuid(row["intent_ref"]),
+                        "animation_ir_ref": _uuid(row["animation_ir_ref"]),
+                        "compiled_program_ref": _uuid(row["compiled_program_ref"]),
                     }
                 )
         return tuple(rows)
@@ -1098,6 +1239,7 @@ class WorkflowRepository:
             project_id=UUID(str(row["project_id"])),
             owner_id=UUID(str(row["owner_id"])),
             scene_block_version_id=UUID(str(row["scene_block_version_id"])),
+            profile=RenderProfile(str(row["profile"])),
             status=SceneBlockRunStatus(str(row["status"])),
             pipeline_used=(
                 ScenePipeline(str(row["pipeline_used"])) if row["pipeline_used"] else None

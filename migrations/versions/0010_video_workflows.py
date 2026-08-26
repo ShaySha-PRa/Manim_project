@@ -58,6 +58,30 @@ def upgrade() -> None:
     )
 
     op.create_table(
+        "asset_version_payloads",
+        sa.Column("asset_version_id", sa.String(36), primary_key=True),
+        sa.Column("project_id", sa.String(36), nullable=False),
+        sa.Column("owner_id", sa.String(36), nullable=False),
+        sa.Column("mime", sa.String(40), nullable=False),
+        sa.Column("payload_text", sa.Text(), nullable=False),
+        sa.Column("sha256", sa.String(64), nullable=False),
+        sa.Column("byte_size", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.String(35), nullable=False),
+        sa.ForeignKeyConstraint(["asset_version_id"], ["asset_versions.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["owner_id"], ["users.id"], ondelete="RESTRICT"),
+        sa.CheckConstraint("mime IN ('text/csv','text/plain')"),
+        sa.CheckConstraint("length(payload_text) BETWEEN 1 AND 200000"),
+        sa.CheckConstraint("length(sha256) = 64"),
+        sa.CheckConstraint("byte_size BETWEEN 1 AND 200000"),
+    )
+    op.create_index(
+        "ix_asset_version_payloads_owner_project",
+        "asset_version_payloads",
+        ["owner_id", "project_id", "created_at"],
+    )
+
+    op.create_table(
         "scene_blocks",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("workflow_id", sa.String(36), nullable=False),
@@ -156,6 +180,7 @@ def upgrade() -> None:
         sa.Column("workflow_version_id", sa.String(36), nullable=False),
         sa.Column("project_id", sa.String(36), nullable=False),
         sa.Column("owner_id", sa.String(36), nullable=False),
+        sa.Column("profile", sa.String(20), nullable=False),
         sa.Column("cache_key", sa.String(64), nullable=False),
         sa.Column("idempotency_key", sa.String(128), nullable=False),
         sa.Column("created_at", sa.String(35), nullable=False),
@@ -168,6 +193,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["owner_id"], ["users.id"], ondelete="RESTRICT"),
         sa.CheckConstraint("length(cache_key) = 64", name="ck_scene_block_runs_cache_key"),
+        sa.CheckConstraint("profile IN ('preview','final')", name="ck_scene_block_runs_profile"),
         sa.UniqueConstraint("owner_id", "idempotency_key", name="uq_scene_block_runs_idempotency"),
     )
     op.create_index(
@@ -196,6 +222,33 @@ def upgrade() -> None:
         sa.UniqueConstraint(
             "owner_id", "idempotency_key", name="uq_composition_runs_idempotency"
         ),
+    )
+
+    op.create_table(
+        "scene_run_provenance",
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("scene_block_run_id", sa.String(36), nullable=False),
+        sa.Column("project_id", sa.String(36), nullable=False),
+        sa.Column("owner_id", sa.String(36), nullable=False),
+        sa.Column("intent_ref", sa.String(36), nullable=True),
+        sa.Column("animation_ir_ref", sa.String(36), nullable=True),
+        sa.Column("intent_json", sa.Text(), nullable=True),
+        sa.Column("animation_ir_json", sa.Text(), nullable=True),
+        sa.Column("tool_runs_json", sa.Text(), nullable=False),
+        sa.Column("provenance_json", sa.Text(), nullable=False),
+        sa.Column("created_at", sa.String(35), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["scene_block_run_id"], ["scene_block_runs.id"], ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["owner_id"], ["users.id"], ondelete="RESTRICT"),
+        sa.CheckConstraint("intent_json IS NULL OR json_valid(intent_json)"),
+        sa.CheckConstraint("animation_ir_json IS NULL OR json_valid(animation_ir_json)"),
+        sa.CheckConstraint("json_valid(tool_runs_json)"),
+        sa.CheckConstraint("json_valid(provenance_json)"),
+        sa.UniqueConstraint("scene_block_run_id"),
+        sa.UniqueConstraint("intent_ref"),
+        sa.UniqueConstraint("animation_ir_ref"),
     )
     op.create_index(
         "ix_composition_runs_owner_workflow",
@@ -402,12 +455,14 @@ def upgrade() -> None:
     )
 
     for table in (
+        "asset_version_payloads",
         "scene_block_versions",
         "video_workflow_versions",
         "scene_block_runs",
         "scene_block_run_events",
         "workflow_composition_runs",
         "workflow_composition_run_events",
+        "scene_run_provenance",
     ):
         _protect_append_only(table)
     _enforce_monotonic_event("scene_block_run_events", "run_id")
@@ -431,6 +486,7 @@ def downgrade() -> None:
         "ix_composition_run_events_latest", table_name="workflow_composition_run_events"
     )
     op.drop_table("workflow_composition_run_events")
+    op.drop_table("scene_run_provenance")
     op.drop_table("program_render_segments")
     op.drop_table("program_render_runs")
     op.drop_index("ix_scene_block_run_events_latest", table_name="scene_block_run_events")
@@ -451,3 +507,7 @@ def downgrade() -> None:
     op.drop_table("scene_blocks")
     op.drop_index("ix_video_workflows_owner_project", table_name="video_workflows")
     op.drop_table("video_workflows")
+    op.drop_index(
+        "ix_asset_version_payloads_owner_project", table_name="asset_version_payloads"
+    )
+    op.drop_table("asset_version_payloads")

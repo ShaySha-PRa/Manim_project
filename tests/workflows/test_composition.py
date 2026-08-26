@@ -69,6 +69,9 @@ def _clips(scene_ids: tuple[UUID, ...]) -> tuple[SceneClipDescriptor, ...]:
     return tuple(
         SceneClipDescriptor(
             scene_block_version_id=item,
+            intent_ref=item,
+            animation_ir_ref=UUID(int=item.int ^ 1),
+            compiled_program_ref=UUID(int=item.int ^ 2),
             artifact_sha256=f"{index + 1:x}" * 64,
             duration_seconds=30.0,
         )
@@ -122,6 +125,9 @@ def test_manifest_and_cache_key_are_stable_and_complete() -> None:
         composer_version="workflow-mvp-v1",
     )
     assert tuple(clip.position for clip in manifest.clips) == (1, 2, 3)
+    assert tuple(clip.intent_ref for clip in manifest.clips) == scene_ids
+    assert all(clip.animation_ir_ref is not None for clip in manifest.clips)
+    assert all(clip.compiled_program_ref is not None for clip in manifest.clips)
     assert manifest.total_duration_seconds == 90
     assert composition_cache_key(workflow, manifest) == composition_cache_key(
         workflow, manifest

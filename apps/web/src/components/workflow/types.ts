@@ -79,6 +79,7 @@ export type SceneBlockRun = {
   project_id: string;
   owner_id: string;
   scene_block_version_id: string;
+  profile: RenderProfile;
   status: "queued" | "planning" | "needs_confirmation" | "asset_required" | "compiling" | "rendering" | "succeeded" | "failed";
   pipeline_used: "teaching" | "scientific" | null;
   intent_ref: string | null;
@@ -105,6 +106,9 @@ export type CompositionRun = {
     composer_version: string;
     clips: ReadonlyArray<{
       scene_block_version_id: string;
+      intent_ref?: string | null;
+      animation_ir_ref?: string | null;
+      compiled_program_ref?: string | null;
       artifact_sha256: string;
       duration_seconds: number;
       position: number;

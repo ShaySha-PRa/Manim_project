@@ -27,6 +27,33 @@ class WorkflowArtifactStore:
         self._artifact_root = artifact_root.resolve(strict=True)
         self._staging_root = staging_root.resolve(strict=True)
 
+    @property
+    def artifact_root(self) -> Path:
+        return self._artifact_root
+
+    def reuse(
+        self,
+        source_artifact: WorkflowArtifact,
+        *,
+        scene_block_run_id: UUID | None = None,
+        composition_run_id: UUID | None = None,
+    ) -> WorkflowArtifact:
+        source = self.verified_path(source_artifact)
+        staging = self._staging_root / f"cache-reuse-{uuid4().hex}.mp4"
+        staging.parent.mkdir(parents=True, exist_ok=True)
+        with source.open("rb") as source_file, staging.open("xb") as target_file:
+            while chunk := source_file.read(1024 * 1024):
+                target_file.write(chunk)
+        return self.publish(
+            staging,
+            project_id=source_artifact.project_id,
+            owner_id=source_artifact.owner_id,
+            profile=source_artifact.profile,
+            duration_seconds=source_artifact.duration_seconds,
+            scene_block_run_id=scene_block_run_id,
+            composition_run_id=composition_run_id,
+        )
+
     def publish(
         self,
         source: Path,

@@ -1491,16 +1491,55 @@
     "CompositionManifestClip": {
       "additionalProperties": false,
       "properties": {
+        "animation_ir_ref": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Animation Ir Ref"
+        },
         "artifact_sha256": {
           "pattern": "^[0-9a-f]{64}$",
           "title": "Artifact Sha256",
           "type": "string"
+        },
+        "compiled_program_ref": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compiled Program Ref"
         },
         "duration_seconds": {
           "exclusiveMinimum": 0,
           "maximum": 120,
           "title": "Duration Seconds",
           "type": "number"
+        },
+        "intent_ref": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intent Ref"
         },
         "position": {
           "maximum": 8,
@@ -4370,6 +4409,9 @@
           "default": null,
           "title": "Preview Artifact Id"
         },
+        "profile": {
+          "$ref": "#/$defs/RenderProfile"
+        },
         "project_id": {
           "format": "uuid",
           "title": "Project Id",
@@ -4395,6 +4437,7 @@
         "project_id",
         "owner_id",
         "scene_block_version_id",
+        "profile",
         "status",
         "cache_key",
         "created_at"

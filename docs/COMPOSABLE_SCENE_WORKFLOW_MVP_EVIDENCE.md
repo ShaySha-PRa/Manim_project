@@ -18,12 +18,18 @@ Director automation, and Phase 10 are not included.
   immutable or append-only and owner/project scoped.
 - Scene and composition keys include the semantic inputs needed for safe reuse. A changed block
   invalidates only that block; a reordered workflow retains scene clips and invalidates only the
-  composition.
+  composition. Cache hits revalidate owner/project/profile, size, SHA-256, path and decodability,
+  then publish a new immutable run-scoped artifact without calling the Provider, tools or Docker.
+- CSV content enters through the authenticated project API, is persisted behind an immutable
+  `AssetVersion`, verified against its hash and size, and is loaded by the Runner rather than
+  copied into the queue payload. Scientific runs persist IntentSpec, tool, AnimationIR and
+  compiler provenance; composition manifests retain those references.
 - The API is asynchronous and backed by durable SQLite tasks plus lossy Redis wakeups. Expired
   leases and lost signals are recoverable without duplicate terminal events or partial artifacts.
 - The production Web workbench supports global settings, 2–8 scene cards, versioned editing,
   accessible reordering, individual generation/preview, full composition, refresh recovery,
-  provenance, failure states, and authenticated download.
+  provenance, failure states, and authenticated download. Preview and Final runs are tracked by
+  separate profile-qualified identities, so one cannot satisfy the other profile's compose gate.
 
 ## Acceptance evidence
 
@@ -32,16 +38,17 @@ to one candidate SHA.
 
 | Gate | Command | Expected/recorded result |
 | --- | --- | --- |
-| Workflow suite | `uv run pytest tests/workflows tests/web/workflow/test_workflow_editor.py -vv --durations=30 -o faulthandler_timeout=60` | 106 passed before the final candidate rerun; no leftover workflow Docker containers or test processes |
-| Real workflow Docker black box | `uv run pytest tests/workflows/test_workflow_docker_acceptance.py -vv -o faulthandler_timeout=300 --durations=10` | 1 passed in 65.96s: teaching + Lorenz 3D + CSV anomaly, all generated segments rendered, ordered manifest and final MP4 decoded |
-| Local rerun, stop, failure, recovery | focused cache/composition/executor/API-runner/recovery command recorded in the final report | 41 passed in 3.37s |
-| Protected migrations | focused protected migration matrix recorded in the final report | 20 passed before the final candidate rerun |
-| Browser workflow | `npm --prefix apps/web exec playwright test -- --config tests/web/workflow/workflow.playwright.config.ts` with local Chromium and media-fixture paths | 1 passed in 19.1s before the final candidate rerun: create, refresh, edit-one, reorder-only, same-origin Cookie/CSRF, and cross-owner 404 |
-| Python static checks | `uv run ruff check . --no-cache` and `git diff --check` | rerun on the final candidate |
-| Contract drift | `uv run python scripts/generate_contracts.py --check` | rerun on the final candidate; schema 1.11 |
-| Locked dependencies | `uv lock --check` | rerun on the final candidate |
-| Full Python suite | `uv run pytest -vv --durations=50 -o faulthandler_timeout=60` | rerun on the final candidate; count is taken from collection rather than hard-coded |
-| Web gates | `npm --prefix apps/web run lint`, `typecheck`, and `build` | rerun on the final candidate production build |
+| Workflow suite | `uv run pytest -q tests/workflows tests/web/workflow -o faulthandler_timeout=60` | 108 passed in 91.40s; includes real Docker cases |
+| Real workflow Docker black box | full-suite case `tests/workflows/test_workflow_docker_acceptance.py` | passed in 51.80s: teaching + Lorenz 3D + CSV anomaly, all generated segments rendered, ordered manifest and final MP4 decoded |
+| Scene cache, bound CSV and provenance | focused workflow executor tests plus the full suite | same-key retry reused the verified clip with no new RenderJob; bound CSV reached the scientific adapter and Intent/IR provenance refs remained visible |
+| API/auth/Workflow HTTP | `uv run pytest -q tests/workflows/test_api.py tests/workflows/test_api_runner_integration.py tests/phase8 tests/phase9` | 156 passed in 22.52s |
+| Protected migrations | `uv run pytest -q tests/workflows/test_migration.py tests/workflows/test_protected_render_job_migration.py tests/workflows/test_render_job_shadow_migration.py tests/workflows/test_typed_render_jobs.py` | 19 passed in 4.31s |
+| Browser workflow | `npm --prefix apps/web exec playwright test -- --config tests/web/workflow/workflow.playwright.config.ts` with local Chromium and media-fixture paths | 1 passed in 18.0s: create, refresh, edit-one, reorder-only, same-origin Cookie/CSRF, and cross-owner 404 |
+| Python static checks | `uv run ruff check .` and `git diff --check` | passed |
+| Contract drift | `uv run python scripts/generate_contracts.py --check` | passed; schema 1.11 |
+| Locked dependencies | `uv lock --check` | passed |
+| Full Python suite | `uv run pytest -vv --durations=50 -o faulthandler_timeout=60` | 733 collected and 733 passed in 167.71s; no artificial skip or manual interruption |
+| Web gates | `npm --prefix apps/web run lint`, `typecheck`, and `build` | all passed; production build generated all routes offline |
 
 The Docker black-box case uses a deterministic bounded teaching-plan fixture so it can be
 repeated offline. The scientific scenes use the production catalog resolver, allowlisted Lorenz

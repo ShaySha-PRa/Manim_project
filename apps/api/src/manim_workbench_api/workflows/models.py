@@ -69,6 +69,19 @@ class SceneRunCreateRequest(WorkflowApiModel):
     idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]
 
 
+class ScientificCsvAssetCreateRequest(WorkflowApiModel):
+    csv_text: Annotated[str, Field(min_length=1, max_length=200_000)]
+
+
+class ScientificAssetRecord(WorkflowApiModel):
+    id: UUID
+    project_id: UUID
+    owner_id: UUID
+    sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    mime: str
+    size_bytes: Annotated[int, Field(gt=0, le=200_000)]
+
+
 class CompositionRunCreateRequest(WorkflowApiModel):
     profile: RenderProfile
     idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]

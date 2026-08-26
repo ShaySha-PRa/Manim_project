@@ -47,7 +47,11 @@ def invoke(
     if engine is not None:
         if input_asset is not None:
             persist_asset_version(
-                engine, input_asset, owner_id=owner_id, project_id=project_id
+                engine,
+                input_asset,
+                owner_id=owner_id,
+                project_id=project_id,
+                payload_text=input_text,
             )
         persist_asset_version(
             engine, asset_version, owner_id=owner_id, project_id=project_id

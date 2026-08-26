@@ -244,6 +244,19 @@ export class WorkbenchApiClient {
     return this.#request(`/api/v1/projects/${projectId}/video-workflows`, { method: "POST" });
   }
 
+  createScientificCsvAsset(projectId: string, csvText: string): Promise<{
+    id: string;
+    sha256: string;
+    mime: string;
+    size_bytes: number;
+  }> {
+    return this.#jsonMutation(
+      `/api/v1/projects/${projectId}/scientific-assets/csv`,
+      "POST",
+      { csv_text: csvText },
+    );
+  }
+
   getVideoWorkflow(workflowId: string): Promise<VideoWorkflow> {
     return this.#request(`/api/v1/video-workflows/${workflowId}`);
   }
