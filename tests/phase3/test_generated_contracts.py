@@ -94,6 +94,7 @@ def test_generated_schema_forbids_unconstrained_escape_hatches() -> None:
         "SceneHint",
         "SceneBlockRun",
         "SceneBlockVersion",
+        "SceneRunProvenance",
         "SceneObject",
         "SceneStep",
         "SceneStoryboard",
