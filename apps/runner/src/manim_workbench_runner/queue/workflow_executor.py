@@ -11,8 +11,10 @@ from pathlib import Path, PurePosixPath
 from uuid import UUID, uuid4
 
 from manim_workbench_api.assets.versions import load_asset_payloads
+from manim_workbench_api.code_generation.repository import CodeGenerationRepository
 from manim_workbench_api.compiler.base import CompiledProgram, CompiledSegment
 from manim_workbench_api.program_rendering import (
+    CodeVersionProgramSegmentStore,
     JobProgramRenderBackend,
     ProgramArtifactPublisher,
     ProgramJobSubmitter,
@@ -41,6 +43,8 @@ from manim_workbench_api.workflows import (
 )
 from manim_workbench_api.workflows.composition import WorkflowArtifactPublisher
 from manim_workbench_contracts import (
+    CodeGenerationCategory,
+    CodeGenerationRequest,
     CompositionManifest,
     CompositionRunStatus,
     ProgramRenderRun,
@@ -198,10 +202,38 @@ class PersistentWorkflowTaskExecutor:
         found = self._programs.find(run.id, lease.project_id, lease.owner_id, profile)
         if stored_artifact is not None:
             self._workflow_artifacts.verified_path(stored_artifact)
-            pipeline = self._pipeline_for(run.pipeline_used, found)
+            cached_source = None
+            intent_ref = run.intent_ref
+            animation_ir_ref = run.animation_ir_ref
+            compiled_program_ref = run.compiled_program_ref
+            if found is None:
+                cached_source = self._repository.find_scene_cache_source_run(
+                    run.cache_key, lease.project_id, lease.owner_id, profile
+                )
+                if cached_source is None:
+                    raise ValueError("published scene artifact has no recoverable source")
+                intent_ref, animation_ir_ref = self._repository.clone_scene_provenance(
+                    source_run_id=cached_source.id,
+                    target_run_id=run.id,
+                    project_id=lease.project_id,
+                    owner_id=lease.owner_id,
+                )
+                compiled_program_ref = cached_source.compiled_program_ref
+            pipeline = self._pipeline_for(
+                run.pipeline_used or (cached_source.pipeline_used if cached_source else None),
+                found,
+            )
             if found is not None:
                 self._programs.finish(found[0].id)
-            self._append_scene_success(run, pipeline, profile, stored_artifact.id)
+            self._append_scene_success(
+                run,
+                pipeline,
+                profile,
+                stored_artifact.id,
+                intent_ref=intent_ref,
+                animation_ir_ref=animation_ir_ref,
+                compiled_program_ref=compiled_program_ref,
+            )
             return None
         cached_run = self._repository.find_scene_cache_source_run(
             run.cache_key, lease.project_id, lease.owner_id, profile
@@ -232,13 +264,19 @@ class PersistentWorkflowTaskExecutor:
             if source is None:
                 raise ValueError("cache source artifact disappeared")
             reused = self._workflow_artifacts.reuse(source, scene_block_run_id=run.id)
+            intent_ref, animation_ir_ref = self._repository.clone_scene_provenance(
+                source_run_id=cached_run.id,
+                target_run_id=run.id,
+                project_id=lease.project_id,
+                owner_id=lease.owner_id,
+            )
             self._append_scene_success(
                 run,
                 self._pipeline_for(cached_run.pipeline_used, None),
                 profile,
                 reused.id,
-                intent_ref=cached_run.intent_ref,
-                animation_ir_ref=cached_run.animation_ir_ref,
+                intent_ref=intent_ref,
+                animation_ir_ref=animation_ir_ref,
                 compiled_program_ref=cached_run.compiled_program_ref,
             )
             return None
@@ -331,15 +369,39 @@ class PersistentWorkflowTaskExecutor:
         )
         program = self._rehydrate_program(sources)
         request = self._program_request(program_run, program)
-        backend = JobProgramRenderBackend(
-            TypedProgramSegmentStore(
-                segments,
-                lambda index, job_id: self._programs.attach_job(
-                    program_run.id, index, job_id
+        def attach_job(index: int, job_id: UUID) -> None:
+            self._programs.attach_job(program_run.id, index, job_id)
+        segment_store: TypedProgramSegmentStore | CodeVersionProgramSegmentStore
+        if self._pipeline_for(run.pipeline_used, found) is ScenePipeline.TEACHING:
+            provenance = self._repository.get_scene_provenance(
+                run.id, lease.project_id, lease.owner_id
+            )
+            values = provenance.provenance
+        else:
+            values = {}
+        teaching_keys = {
+            "prompt_version_id",
+            "content_plan_version_id",
+            "code_generation_category",
+        }
+        if self._pipeline_for(run.pipeline_used, found) is ScenePipeline.TEACHING:
+            if not teaching_keys <= values.keys():
+                raise ValueError("teaching run is missing CodeVersion provenance")
+            segment_store = CodeVersionProgramSegmentStore(
+                CodeGenerationRepository(self._engine),
+                CodeGenerationRequest(
+                    project_id=lease.project_id,
+                    owner_id=lease.owner_id,
+                    prompt_version_id=UUID(values["prompt_version_id"]),
+                    content_plan_version_id=UUID(values["content_plan_version_id"]),
+                    category=CodeGenerationCategory(values["code_generation_category"]),
                 ),
-            ),
-            self._jobs,
-        )
+                assumptions=("Generated by composable teaching workflow.",),
+                attach_job=attach_job,
+            )
+        else:
+            segment_store = TypedProgramSegmentStore(segments, attach_job)
+        backend = JobProgramRenderBackend(segment_store, self._jobs)
         backend.submit(request)
         program_run, segments = self._require_program(run.id, profile, lease)
         if run.status is not SceneBlockRunStatus.RENDERING:
@@ -537,10 +599,17 @@ class PersistentWorkflowTaskExecutor:
                 job = (
                     connection.execute(
                         text(
-                            "SELECT status,failure_code FROM render_jobs WHERE id=:job "
-                            "AND program_render_segment_id=:segment"
+                            "SELECT jobs.status,jobs.failure_code FROM render_jobs jobs "
+                            "LEFT JOIN code_versions versions ON versions.id=jobs.code_version_id "
+                            "WHERE jobs.id=:job AND (jobs.program_render_segment_id=:segment "
+                            "OR (jobs.code_version_id IS NOT NULL "
+                            "AND versions.source_sha256=:source_sha256))"
                         ),
-                        {"job": str(segment.render_job_id), "segment": str(segment.id)},
+                        {
+                            "job": str(segment.render_job_id),
+                            "segment": str(segment.id),
+                            "source_sha256": segment.source_sha256,
+                        },
                     )
                     .mappings()
                     .one_or_none()

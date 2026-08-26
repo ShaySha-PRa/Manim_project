@@ -22,6 +22,7 @@ import type {
   QualityReport,
   QualityReportPage,
   RenderJob,
+  SceneRunProvenance,
   WorkspaceAgentRunRequest,
   WorkspaceCodeGenerationRequest,
   WorkspaceContentPlanGenerationRequest,
@@ -315,6 +316,10 @@ export class WorkbenchApiClient {
 
   getSceneBlockRun(runId: string): Promise<SceneBlockRun> {
     return this.#request(`/api/v1/scene-block-runs/${runId}`);
+  }
+
+  getSceneRunProvenance(runId: string): Promise<SceneRunProvenance> {
+    return this.#request(`/api/v1/scene-block-runs/${runId}/provenance`);
   }
 
   submitCompositionRun(

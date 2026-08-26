@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { SceneRunProvenance } from "@manim-workbench/contracts";
 
 import type { RenderProfile, SceneBlockRun, SceneDraft } from "./types";
 import { ScenePreview } from "./scene-preview";
@@ -10,9 +11,11 @@ type Props = {
   scene: SceneDraft;
   previewRun?: SceneBlockRun;
   finalRun?: SceneBlockRun;
+  provenance?: SceneRunProvenance;
   count: number;
   onUpdate: (patch: Partial<SceneDraft>) => void;
   onGenerate: (profile: RenderProfile) => void;
+  onLoadProvenance: () => void;
   onUploadCsv: (csvText: string) => void;
   onMove: (delta: -1 | 1) => void;
   onCopy: () => void;
@@ -44,7 +47,7 @@ export function SceneBlockCard(props: Props) {
           <div className={styles.actions}><button type="button" onClick={() => props.onGenerate("preview")} disabled={!scene.version}>生成 Preview</button><button type="button" onClick={() => props.onGenerate("final")} disabled={!scene.version}>生成 Final</button></div>
           {evidenceRun?.error_code && <p className={styles.error} role="alert">失败原因：{evidenceRun.error_code}</p>}
           <p>Preview：{previewRun?.status ?? "尚未生成"} · Final：{finalRun?.status ?? "尚未生成"}</p>
-          {evidenceRun && <details><summary>数据来源与执行证据</summary><dl className={styles.provenance}><dt>路径</dt><dd>{evidenceRun.pipeline_used ?? "待确认"}</dd><dt>IntentSpec</dt><dd>{evidenceRun.intent_ref ?? "—"}</dd><dt>AnimationIR</dt><dd>{evidenceRun.animation_ir_ref ?? "—"}</dd><dt>CompiledProgram</dt><dd>{evidenceRun.compiled_program_ref ?? "—"}</dd><dt>Cache</dt><dd>{evidenceRun.cache_key || "—"}</dd></dl></details>}
+          {evidenceRun && <details onToggle={(event) => { if (event.currentTarget.open && !props.provenance) props.onLoadProvenance(); }}><summary>数据来源与执行证据</summary><dl className={styles.provenance}><dt>路径</dt><dd>{evidenceRun.pipeline_used ?? "待确认"}</dd><dt>IntentSpec</dt><dd>{evidenceRun.intent_ref ?? "—"}</dd><dt>AnimationIR</dt><dd>{evidenceRun.animation_ir_ref ?? "—"}</dd><dt>CompiledProgram</dt><dd>{evidenceRun.compiled_program_ref ?? "—"}</dd><dt>Cache</dt><dd>{evidenceRun.cache_key || "—"}</dd></dl>{props.provenance ? <><h4>IntentSpec</h4><pre>{JSON.stringify(props.provenance.intent, null, 2)}</pre><h4>AnimationIR</h4><pre>{JSON.stringify(props.provenance.animation_ir, null, 2)}</pre><h4>工具与数据来源</h4><pre>{JSON.stringify({ tool_runs: props.provenance.tool_runs, provenance: props.provenance.provenance }, null, 2)}</pre></> : <p className={styles.hint}>正在加载可审阅证据…</p>}</details>}
         </div>
         <div className={styles.preview}><ScenePreview run={previewRun} /></div>
       </div>

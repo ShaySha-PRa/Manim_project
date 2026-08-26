@@ -10,7 +10,17 @@ from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 
-from .models import ContractModel, Language, LongText, RenderProfile, Sha256, ShortText
+from .models import (
+    AnimationIR,
+    ContractModel,
+    IntentSpec,
+    Language,
+    LongText,
+    RenderProfile,
+    Sha256,
+    ShortText,
+    ToolRun,
+)
 
 
 class WorkflowStylePreset(str, Enum):
@@ -170,6 +180,25 @@ class SceneBlockRun(ContractModel):
             raise ValueError("active run cannot carry an error_code")
         return self
 
+
+class SceneRunProvenance(ContractModel):
+    scene_block_run_id: UUID
+    project_id: UUID
+    owner_id: UUID
+    intent_ref: UUID | None = None
+    animation_ir_ref: UUID | None = None
+    intent: IntentSpec | None = None
+    animation_ir: AnimationIR | None = None
+    tool_runs: Annotated[tuple[ToolRun, ...], Field(max_length=32)] = ()
+    provenance: Annotated[dict[str, str], Field(max_length=64)] = Field(default_factory=dict)
+    created_at: datetime
+
+    @field_validator("provenance")
+    @classmethod
+    def validate_provenance(cls, value: dict[str, str]) -> dict[str, str]:
+        if any(not 1 <= len(key) <= 100 or len(item) > 2_000 for key, item in value.items()):
+            raise ValueError("provenance keys and values must be bounded")
+        return value
 
 class ProgramRenderRun(ContractModel):
     id: UUID

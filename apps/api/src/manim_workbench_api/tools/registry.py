@@ -51,7 +51,6 @@ def invoke(
                 input_asset,
                 owner_id=owner_id,
                 project_id=project_id,
-                payload_text=input_text,
             )
         persist_asset_version(
             engine, asset_version, owner_id=owner_id, project_id=project_id

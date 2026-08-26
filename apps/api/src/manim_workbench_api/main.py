@@ -22,7 +22,7 @@ class HealthResponse(BaseModel):
 
     status: Literal["ok"]
     service: Literal["api"]
-    contract_schema_version: Literal["1.11"]
+    contract_schema_version: Literal["1.12"]
 
 
 app = FastAPI(title="Manim Workbench API", version="0.1.0")

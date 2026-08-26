@@ -1,5 +1,5 @@
 // Generated from Pydantic contracts. Do not edit.
-export const CONTRACT_SCHEMA_VERSION = "1.11" as const;
+export const CONTRACT_SCHEMA_VERSION = "1.12" as const;
 
 export interface AgentEvent {
   readonly stage: string;
@@ -752,6 +752,19 @@ export interface SceneObject {
 export type ScenePipeline = "teaching" | "scientific";
 
 export type ScenePipelineMode = "auto" | "teaching" | "scientific";
+
+export interface SceneRunProvenance {
+  readonly scene_block_run_id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly intent_ref?: string | null;
+  readonly animation_ir_ref?: string | null;
+  readonly intent?: IntentSpec | null;
+  readonly animation_ir?: AnimationIR | null;
+  readonly tool_runs?: ReadonlyArray<ToolRun>;
+  readonly provenance?: Readonly<Record<string, string>>;
+  readonly created_at: string;
+}
 
 export interface SceneStep {
   readonly goal: string;

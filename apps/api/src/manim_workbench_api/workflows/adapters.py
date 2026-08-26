@@ -41,6 +41,7 @@ class SceneCompilation:
     program: CompiledProgram
     prompt_version_id: UUID
     content_plan_version_id: UUID | None
+    code_request: CodeGenerationRequest | None = None
     intent: Any | None = None
     tool_runs: tuple[Any, ...] = ()
     animation_ir: Any | None = None
@@ -111,10 +112,12 @@ class TeachingSceneAdapter:
             program=program,
             prompt_version_id=prompt.id,
             content_plan_version_id=generated.content_plan_version.id,
+            code_request=code_request,
             provenance=(
                 ("pipeline", "teaching"),
                 ("prompt_version_id", str(prompt.id)),
                 ("content_plan_version_id", str(generated.content_plan_version.id)),
+                ("code_generation_category", code_request.category.value),
                 ("global_brief_title", global_brief.title),
                 ("global_brief_sha256", _brief_sha256(global_brief)),
                 ("previous_scene_summary", previous_scene_summary or ""),

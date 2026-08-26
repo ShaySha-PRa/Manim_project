@@ -9,6 +9,7 @@ from manim_workbench_contracts import (
     CompositionRun,
     SceneBlockRun,
     SceneBlockVersion,
+    SceneRunProvenance,
     VideoWorkflowVersion,
 )
 from sqlalchemy import Engine
@@ -262,6 +263,19 @@ def get_scene_run(
 ) -> SceneBlockRun | JSONResponse:
     try:
         return _service(engine).get_scene_run_for_owner(run_id, principal.user_id)
+    except WorkflowRepositoryError as error:
+        return _error(error)
+
+
+@router.get(
+    "/scene-block-runs/{run_id}/provenance",
+    response_model=SceneRunProvenance,
+)
+def get_scene_run_provenance(
+    run_id: UUID, principal: Principal, engine: DatabaseEngine
+) -> SceneRunProvenance | JSONResponse:
+    try:
+        return _service(engine).get_scene_provenance_for_owner(run_id, principal.user_id)
     except WorkflowRepositoryError as error:
         return _error(error)
 

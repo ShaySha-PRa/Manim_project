@@ -29,10 +29,12 @@ class CodeVersionProgramSegmentStore:
         code_request: CodeGenerationRequest,
         *,
         assumptions: tuple[str, ...] = (),
+        attach_job: Callable[[int, UUID], None] | None = None,
     ) -> None:
         self._repository = repository
         self._code_request = code_request
         self._assumptions = assumptions
+        self._attach_job = attach_job
 
     def stage(
         self,
@@ -78,7 +80,8 @@ class CodeVersionProgramSegmentStore:
         )
 
     def attach_job(self, segment_index: int, render_job_id: UUID) -> None:
-        del segment_index, render_job_id
+        if self._attach_job is not None:
+            self._attach_job(segment_index, render_job_id)
 
 
 class TypedProgramSegmentStore:

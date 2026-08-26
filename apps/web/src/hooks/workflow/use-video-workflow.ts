@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { Project } from "@manim-workbench/contracts";
+import type { Project, SceneRunProvenance } from "@manim-workbench/contracts";
 
 import type {
   CompositionRun,
@@ -79,6 +79,7 @@ export function useVideoWorkflow(enabled: boolean) {
     blankScene(2),
   ]);
   const [runs, setRuns] = useState<Readonly<Record<string, SceneBlockRun>>>({});
+  const [provenance, setProvenance] = useState<Readonly<Record<string, SceneRunProvenance>>>({});
   const [composition, setComposition] = useState<CompositionRun | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -272,6 +273,15 @@ export function useVideoWorkflow(enabled: boolean) {
     }
   }, [projectId, updateScene]);
 
+  const loadProvenance = useCallback(async (run: SceneBlockRun) => {
+    try {
+      const detail = await workbenchApi.getSceneRunProvenance(run.id);
+      setProvenance((current) => ({ ...current, [run.id]: detail }));
+    } catch (cause) {
+      setMessage(messageFor(cause));
+    }
+  }, []);
+
   const generateScene = useCallback(async (scene: SceneDraft, profile: RenderProfile) => {
     const run = await submitScene(scene, profile);
     if (!run || !version) return;
@@ -354,8 +364,9 @@ export function useVideoWorkflow(enabled: boolean) {
 
   return {
     projects, projectId, setProjectId, workflow, version, brief, setBrief, scenes, setScenes,
-    runs, composition, busy, message, setMessage, persist, updateScene, generateScene,
+    runs, provenance, composition, busy, message, setMessage, persist, updateScene, generateScene,
     generateIncomplete, compose, moveScene, reorderScene, allSucceeded, runFor, uploadCsv,
+    loadProvenance,
     addScene: () => setScenes((current) => current.length < 8
       ? [...current, blankScene(current.length + 1)] : current),
     copyScene: (scene: SceneDraft) => setScenes((current) => current.length < 8

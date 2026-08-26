@@ -7,14 +7,16 @@ from manim_workbench_contracts import (
     CompositionRun,
     CompositionRunStatus,
     SceneBlockRun,
+    SceneBlockVersion,
     ScenePipeline,
     ScenePipelineMode,
+    SceneRunProvenance,
     VideoWorkflowVersion,
 )
 from sqlalchemy import Engine, text
 
 from manim_workbench_api.assets.scientific import ingest_csv_text
-from manim_workbench_api.assets.versions import persist_asset_version
+from manim_workbench_api.assets.versions import persist_workflow_asset_version
 
 from .cache import SceneCacheVersions, canonical_json, scene_cache_key
 from .composition import (
@@ -88,7 +90,7 @@ class WorkflowService:
 
             raise WORKFLOW_NOT_FOUND
         asset = ingest_csv_text(csv_text)
-        asset_id = persist_asset_version(
+        asset_id = persist_workflow_asset_version(
             self._engine,
             asset,
             owner_id=owner_id,
@@ -109,7 +111,7 @@ class WorkflowService:
         block_id: UUID,
         owner_id: UUID,
         request: SceneBlockVersionCreateRequest,
-    ):
+    ) -> SceneBlockVersion:
         block = self._repository.get_scene_block(block_id, owner_id)
         return self._repository.append_scene_block_version(
             scene_block_id=block_id,
@@ -117,6 +119,12 @@ class WorkflowService:
             owner_id=owner_id,
             **request.model_dump(),
         )
+
+    def get_scene_provenance_for_owner(
+        self, run_id: UUID, owner_id: UUID
+    ) -> SceneRunProvenance:
+        run = self.get_scene_run_for_owner(run_id, owner_id)
+        return self._repository.get_scene_provenance(run_id, run.project_id, owner_id)
 
     def append_workflow_version(
         self,
@@ -349,8 +357,12 @@ class WorkflowService:
             for asset_id in asset_ids:
                 value = connection.execute(
                     text(
-                        "SELECT sha256,mime FROM asset_versions WHERE id=:id "
-                        "AND project_id=:project_id AND owner_id=:owner_id"
+                        "SELECT sha256,mime FROM workflow_asset_versions WHERE id=:id "
+                        "AND project_id=:project_id AND owner_id=:owner_id UNION ALL "
+                        "SELECT a.sha256,a.mime FROM asset_versions a "
+                        "JOIN asset_version_scopes s ON s.asset_version_id=a.id "
+                        "WHERE a.id=:id AND s.project_id=:project_id "
+                        "AND s.owner_id=:owner_id LIMIT 1"
                     ),
                     {
                         "id": str(asset_id),

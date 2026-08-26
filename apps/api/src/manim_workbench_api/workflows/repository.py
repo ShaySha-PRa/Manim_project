@@ -16,6 +16,7 @@ from manim_workbench_contracts import (
     SceneBlockVersion,
     ScenePipeline,
     ScenePipelineMode,
+    SceneRunProvenance,
     VideoWorkflowVersion,
     WorkflowEdge,
     WorkflowNode,
@@ -622,6 +623,90 @@ class WorkflowRepository:
             )
         return intent_ref, animation_ir_ref
 
+    def get_scene_provenance(
+        self, run_id: UUID, project_id: UUID, owner_id: UUID
+    ) -> SceneRunProvenance:
+        with self._engine.connect() as connection:
+            self._require_scene_run(connection, run_id, project_id, owner_id)
+            row = connection.execute(
+                text(
+                    "SELECT * FROM scene_run_provenance WHERE scene_block_run_id=:run "
+                    "AND project_id=:project AND owner_id=:owner"
+                ),
+                {"run": str(run_id), "project": str(project_id), "owner": str(owner_id)},
+            ).mappings().one_or_none()
+        if row is None:
+            raise WORKFLOW_NOT_FOUND
+        return SceneRunProvenance(
+            scene_block_run_id=UUID(str(row["scene_block_run_id"])),
+            project_id=UUID(str(row["project_id"])),
+            owner_id=UUID(str(row["owner_id"])),
+            intent_ref=_uuid(row["intent_ref"]),
+            animation_ir_ref=_uuid(row["animation_ir_ref"]),
+            intent=json.loads(row["intent_json"]) if row["intent_json"] else None,
+            animation_ir=(
+                json.loads(row["animation_ir_json"]) if row["animation_ir_json"] else None
+            ),
+            tool_runs=tuple(json.loads(row["tool_runs_json"])),
+            provenance=dict(json.loads(row["provenance_json"])),
+            created_at=datetime.fromisoformat(str(row["created_at"])),
+        )
+
+    def clone_scene_provenance(
+        self,
+        *,
+        source_run_id: UUID,
+        target_run_id: UUID,
+        project_id: UUID,
+        owner_id: UUID,
+    ) -> tuple[UUID | None, UUID | None]:
+        """Copy immutable evidence to a cache-hit run with new run-local references."""
+        with self._engine.begin() as connection:
+            self._require_scene_run(connection, source_run_id, project_id, owner_id)
+            self._require_scene_run(connection, target_run_id, project_id, owner_id)
+            existing = connection.execute(
+                text(
+                    "SELECT intent_ref,animation_ir_ref FROM scene_run_provenance "
+                    "WHERE scene_block_run_id=:run AND project_id=:project AND owner_id=:owner"
+                ),
+                {"run": str(target_run_id), "project": str(project_id),
+                 "owner": str(owner_id)},
+            ).one_or_none()
+            if existing is not None:
+                return _uuid(existing.intent_ref), _uuid(existing.animation_ir_ref)
+            source = connection.execute(
+                text(
+                    "SELECT * FROM scene_run_provenance WHERE scene_block_run_id=:run "
+                    "AND project_id=:project AND owner_id=:owner"
+                ),
+                {"run": str(source_run_id), "project": str(project_id),
+                 "owner": str(owner_id)},
+            ).mappings().one_or_none()
+            if source is None:
+                raise WORKFLOW_NOT_FOUND
+            intent_ref = uuid4() if source["intent_ref"] is not None else None
+            animation_ir_ref = uuid4() if source["animation_ir_ref"] is not None else None
+            connection.execute(
+                text(
+                    "INSERT INTO scene_run_provenance "
+                    "(id,scene_block_run_id,project_id,owner_id,intent_ref,animation_ir_ref,"
+                    "intent_json,animation_ir_json,tool_runs_json,provenance_json,created_at) "
+                    "VALUES (:id,:run,:project,:owner,:intent_ref,:animation_ir_ref,"
+                    ":intent,:ir,:tools,:provenance,:created)"
+                ),
+                {
+                    "id": str(uuid4()), "run": str(target_run_id),
+                    "project": str(project_id), "owner": str(owner_id),
+                    "intent_ref": str(intent_ref) if intent_ref else None,
+                    "animation_ir_ref": str(animation_ir_ref) if animation_ir_ref else None,
+                    "intent": source["intent_json"], "ir": source["animation_ir_json"],
+                    "tools": source["tool_runs_json"],
+                    "provenance": source["provenance_json"],
+                    "created": utc_now().isoformat(),
+                },
+            )
+        return intent_ref, animation_ir_ref
+
     def find_scene_cache_source_run(
         self,
         cache_key: str,
@@ -960,8 +1045,11 @@ class WorkflowRepository:
         for asset_id in asset_ids:
             row = connection.execute(
                 text(
-                    "SELECT id FROM asset_versions WHERE id=:id AND project_id=:project_id "
-                    "AND owner_id=:owner_id"
+                    "SELECT id FROM workflow_asset_versions WHERE id=:id "
+                    "AND project_id=:project_id AND owner_id=:owner_id UNION ALL "
+                    "SELECT a.id FROM asset_versions a JOIN asset_version_scopes s "
+                    "ON s.asset_version_id=a.id WHERE a.id=:id "
+                    "AND s.project_id=:project_id AND s.owner_id=:owner_id LIMIT 1"
                 ),
                 {"id": str(asset_id), "project_id": str(project_id), "owner_id": str(owner_id)},
             ).one_or_none()

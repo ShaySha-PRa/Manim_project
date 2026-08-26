@@ -4747,6 +4747,104 @@
       "title": "ScenePipelineMode",
       "type": "string"
     },
+    "SceneRunProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "animation_ir": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnimationIR"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "animation_ir_ref": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Animation Ir Ref"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntentSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "intent_ref": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intent Ref"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "provenance": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 64,
+          "title": "Provenance",
+          "type": "object"
+        },
+        "scene_block_run_id": {
+          "format": "uuid",
+          "title": "Scene Block Run Id",
+          "type": "string"
+        },
+        "tool_runs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ToolRun"
+          },
+          "maxItems": 32,
+          "title": "Tool Runs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "scene_block_run_id",
+        "project_id",
+        "owner_id",
+        "created_at"
+      ],
+      "title": "SceneRunProvenance",
+      "type": "object"
+    },
     "SceneStep": {
       "additionalProperties": false,
       "properties": {
@@ -5749,7 +5847,7 @@
       "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.11",
+  "$id": "https://manim-workbench.local/contracts/1.12",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
@@ -5827,6 +5925,7 @@
     "SceneBlockVersion",
     "SceneHint",
     "SceneObject",
+    "SceneRunProvenance",
     "SceneStep",
     "SceneStoryboard",
     "StateChange",
@@ -5845,5 +5944,5 @@
     "WorkspaceContentPlanGenerationRequest",
     "WorkspaceRenderJobSubmission"
   ],
-  "x-contract-schema-version": "1.11"
+  "x-contract-schema-version": "1.12"
 }

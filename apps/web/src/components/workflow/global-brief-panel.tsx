@@ -7,6 +7,20 @@ type Props = {
   onChange: (brief: GlobalBrief) => void;
 };
 
+const formatEntries = (values: Readonly<Record<string, string | number>>) =>
+  Object.entries(values).map(([key, value]) => `${key}=${value}`).join("\n");
+
+const parseNotation = (value: string) => Object.fromEntries(
+  value.split("\n").map((line) => line.split("=", 2).map((part) => part.trim()))
+    .filter((pair): pair is [string, string] => pair.length === 2 && Boolean(pair[0] && pair[1])),
+);
+
+const parseParameters = (value: string) => Object.fromEntries(
+  value.split("\n").map((line) => line.split("=", 2).map((part) => part.trim()))
+    .filter((pair) => pair.length === 2 && Boolean(pair[0]) && Number.isFinite(Number(pair[1])))
+    .map(([key, number]) => [key, Number(number)]),
+);
+
 export function GlobalBriefPanel({ brief, onChange }: Props) {
   const patch = (value: Partial<GlobalBrief>) => onChange({ ...brief, ...value });
   return (
@@ -22,6 +36,8 @@ export function GlobalBriefPanel({ brief, onChange }: Props) {
         <label>整片目标时长（秒）<input type="number" min={30} max={600} value={brief.target_duration_seconds} onChange={(event) => patch({ target_duration_seconds: Number(event.target.value) })} /></label>
         <label>背景颜色<input type="color" value={brief.background} onChange={(event) => patch({ background: event.target.value })} /></label>
         <label className={styles.wide}>统一色板（逗号分隔）<input value={brief.palette.join(", ")} onChange={(event) => patch({ palette: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) })} /></label>
+        <label className={styles.wide}>统一符号（每行 key=value）<textarea rows={3} value={formatEntries(brief.notation)} onChange={(event) => patch({ notation: parseNotation(event.target.value) })} placeholder="sigma=σ" /></label>
+        <label className={styles.wide}>共享科学参数（每行 key=数值）<textarea rows={3} value={formatEntries(brief.scientific_parameters)} onChange={(event) => patch({ scientific_parameters: parseParameters(event.target.value) })} placeholder="rho=28" /></label>
       </div>
       <p className={styles.hint}>全局风格、符号和科学参数会进入每个场景的缓存键与 provenance。</p>
     </section>

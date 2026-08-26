@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 import av
 from manim_workbench_api.assets.scientific import ingest_csv_text
-from manim_workbench_api.assets.versions import persist_asset_version
+from manim_workbench_api.assets.versions import persist_workflow_asset_version
 from manim_workbench_api.compiler.base import CompiledProgram, CompiledSegment
 from manim_workbench_api.jobs.dependencies import NullJobSignalPublisher
 from manim_workbench_api.jobs.repository import JobRepository
@@ -19,6 +19,8 @@ from manim_workbench_api.workflows import (
     WorkflowRepository,
 )
 from manim_workbench_contracts import (
+    CodeGenerationCategory,
+    CodeGenerationRequest,
     CompositionRunStatus,
     RenderProfile,
     SceneBlockRunStatus,
@@ -69,7 +71,7 @@ def _program() -> CompiledProgram:
             CompiledSegment(
                 source=(
                     "from manim import Scene\n"
-                    f"class Segment{index}(Scene):\n"
+                    "class GeneratedScene(Scene):\n"
                     "    def construct(self):\n"
                     "        self.wait(1)\n"
                 ),
@@ -77,7 +79,7 @@ def _program() -> CompiledProgram:
                 visual_kinds=(VisualKind.FORMULA,),
                 duration_seconds=15,
             )
-            for index in range(2)
+            for _index in range(2)
         )
     )
 
@@ -85,16 +87,68 @@ def _program() -> CompiledProgram:
 class _TeachingAdapter:
     def __init__(self) -> None:
         self.calls = 0
+        self.engine: Engine | None = None
+
+    def bind(self, engine: Engine) -> None:
+        self.engine = engine
 
     def compile(self, block, global_brief, **_kwargs):  # type: ignore[no-untyped-def]
         del global_brief
+        assert self.engine is not None
         self.calls += 1
+        prompt_id = uuid4()
+        content_plan_id = uuid4()
+        now = datetime.now(timezone.utc).isoformat()
+        with self.engine.begin() as connection:
+            prompt_version = connection.execute(
+                text("SELECT COALESCE(MAX(version),0)+1 FROM prompt_versions WHERE project_id=:p"),
+                {"p": str(block.project_id)},
+            ).scalar_one()
+            plan_version = connection.execute(
+                text(
+                    "SELECT COALESCE(MAX(version),0)+1 FROM content_plan_versions "
+                    "WHERE project_id=:p"
+                ),
+                {"p": str(block.project_id)},
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO prompt_versions "
+                    "(id,project_id,owner_id,version,parent_version_id,created_at,prompt) "
+                    "VALUES (:id,:project,:owner,:version,NULL,:now,:prompt)"
+                ),
+                {"id": str(prompt_id), "project": str(block.project_id),
+                 "owner": str(block.owner_id), "version": prompt_version,
+                 "now": now, "prompt": block.prompt},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO content_plan_versions "
+                    "(id,project_id,owner_id,version,parent_version_id,created_at,"
+                    "schema_version,content_json) VALUES "
+                    "(:id,:project,:owner,:version,NULL,:now,'1.1','{}')"
+                ),
+                {"id": str(content_plan_id), "project": str(block.project_id),
+                 "owner": str(block.owner_id), "version": plan_version, "now": now},
+            )
+        code_request = CodeGenerationRequest(
+            project_id=block.project_id,
+            owner_id=block.owner_id,
+            prompt_version_id=prompt_id,
+            content_plan_version_id=content_plan_id,
+            category=CodeGenerationCategory.FORMULA_DERIVATION,
+        )
         return SceneCompilation(
             pipeline=ScenePipeline.TEACHING,
             program=_program(),
-            prompt_version_id=uuid4(),
-            content_plan_version_id=uuid4(),
-            provenance=(("prompt", block.prompt),),
+            prompt_version_id=prompt_id,
+            content_plan_version_id=content_plan_id,
+            code_request=code_request,
+            provenance=(
+                ("prompt_version_id", str(prompt_id)),
+                ("content_plan_version_id", str(content_plan_id)),
+                ("code_generation_category", code_request.category.value),
+            ),
         )
 
 
@@ -138,6 +192,7 @@ def _executor(
     clock=None,  # type: ignore[no-untyped-def]
     scientific=None,  # type: ignore[no-untyped-def]
 ) -> PersistentWorkflowTaskExecutor:
+    teaching.bind(engine)
     return PersistentWorkflowTaskExecutor(
         engine,
         SceneBlockExecutor(teaching, scientific or _ScientificAdapter()),
@@ -316,8 +371,36 @@ def test_scene_executor_recovers_mid_render_without_duplicate_jobs_or_terminal_a
     cached_projection = repository.get_scene_block_run(cached.id, PROJECT_A, OWNER_A)
     assert cached_projection.status is SceneBlockRunStatus.SUCCEEDED
     assert cached_projection.preview_artifact_id is not None
+    cached_provenance = repository.get_scene_provenance(cached.id, PROJECT_A, OWNER_A)
+    assert cached_provenance.scene_block_run_id == cached.id
+    assert cached_provenance.provenance["prompt_version_id"]
     with engine.connect() as connection:
         assert connection.execute(text("SELECT COUNT(*) FROM render_jobs")).scalar_one() == 2
+    assert teaching.calls == 1
+
+    interrupted = repository.create_scene_block_run(
+        scene_block_version_id=first.id,
+        workflow_version_id=workflow.id,
+        project_id=PROJECT_A,
+        owner_id=OWNER_A,
+        cache_key="a" * 64,
+        idempotency_key="cache-artifact-before-terminal",
+        profile=RenderProfile.PREVIEW,
+    )
+    assert projected.preview_artifact_id is not None
+    source_artifact = store.get(
+        projected.preview_artifact_id, project_id=PROJECT_A, owner_id=OWNER_A
+    )
+    assert source_artifact is not None
+    store.reuse(source_artifact, scene_block_run_id=interrupted.id)
+    assert _executor(engine, teaching, store, artifact_root, staging_root).execute(
+        _scene_lease(interrupted.id, first.id, workflow.id)
+    ) is None
+    recovered = repository.get_scene_block_run(interrupted.id, PROJECT_A, OWNER_A)
+    assert recovered.status is SceneBlockRunStatus.SUCCEEDED
+    assert repository.get_scene_provenance(
+        interrupted.id, PROJECT_A, OWNER_A
+    ).scene_block_run_id == interrupted.id
     assert teaching.calls == 1
 
 
@@ -327,7 +410,7 @@ def test_runner_loads_bound_csv_and_persists_scientific_intent_ir_provenance(
     repository = WorkflowRepository(engine)
     csv_text = "timestamp,temperature,pressure\n0,20,101\n1,35,99\n"
     asset = ingest_csv_text(csv_text)
-    asset_id = persist_asset_version(
+    asset_id = persist_workflow_asset_version(
         engine,
         asset,
         owner_id=OWNER_A,

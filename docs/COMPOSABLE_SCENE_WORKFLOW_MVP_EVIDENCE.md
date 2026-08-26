@@ -12,8 +12,10 @@ Director automation, and Phase 10 are not included.
 
 - Teaching and scientific adapters retain their separate constrained planning/IR semantics and
   both return the shared `CompiledProgram` type.
-- Every program segment is persisted as a typed render source, submitted as an independent
-  RenderJob, and either reused directly or hard-cut into one scene clip.
+- Every program segment is persisted and submitted as an independent RenderJob: teaching
+  segments retain real CodeVersion identity, while scientific segments use typed
+  ProgramRenderSegment identity. One segment is reused directly and multiple segments are
+  hard-cut into one scene clip.
 - Workflow, block, program-render, scene-run, composition-run, event, and artifact records are
   immutable or append-only and owner/project scoped.
 - Scene and composition keys include the semantic inputs needed for safe reuse. A changed block
@@ -21,13 +23,17 @@ Director automation, and Phase 10 are not included.
   composition. Cache hits revalidate owner/project/profile, size, SHA-256, path and decodability,
   then publish a new immutable run-scoped artifact without calling the Provider, tools or Docker.
 - CSV content enters through the authenticated project API, is persisted behind an immutable
-  `AssetVersion`, verified against its hash and size, and is loaded by the Runner rather than
-  copied into the queue payload. Scientific runs persist IntentSpec, tool, AnimationIR and
-  compiler provenance; composition manifests retain those references.
+  owner/project-scoped `WorkflowAssetVersion`, verified against its hash and size, and is loaded
+  by the Runner rather than copied into the queue payload. Identical content is idempotent within
+  a project but receives a distinct identity across projects or owners. Scientific runs persist
+  IntentSpec, tool, AnimationIR and compiler provenance; an authenticated endpoint and the Web
+  workbench expose the complete evidence, cache-hit runs receive their own immutable evidence
+  record, and composition manifests retain its references.
 - The API is asynchronous and backed by durable SQLite tasks plus lossy Redis wakeups. Expired
   leases and lost signals are recoverable without duplicate terminal events or partial artifacts.
 - The production Web workbench supports global settings, 2–8 scene cards, versioned editing,
-  accessible reordering, individual generation/preview, full composition, refresh recovery,
+  accessible reordering, complete notation/scientific-parameter settings, individual
+  generation/preview, full composition, refresh recovery,
   provenance, failure states, and authenticated download. Preview and Final runs are tracked by
   separate profile-qualified identities, so one cannot satisfy the other profile's compose gate.
 
@@ -45,7 +51,7 @@ to one candidate SHA.
 | Protected migrations | `uv run pytest -q tests/workflows/test_migration.py tests/workflows/test_protected_render_job_migration.py tests/workflows/test_render_job_shadow_migration.py tests/workflows/test_typed_render_jobs.py` | 19 passed in 4.31s |
 | Browser workflow | `npm --prefix apps/web exec playwright test -- --config tests/web/workflow/workflow.playwright.config.ts` with local Chromium and media-fixture paths | 1 passed in 18.0s: create, refresh, edit-one, reorder-only, same-origin Cookie/CSRF, and cross-owner 404 |
 | Python static checks | `uv run ruff check .` and `git diff --check` | passed |
-| Contract drift | `uv run python scripts/generate_contracts.py --check` | passed; schema 1.11 |
+| Contract drift | `uv run python scripts/generate_contracts.py --check` | passed; schema 1.12 |
 | Locked dependencies | `uv lock --check` | passed |
 | Full Python suite | `uv run pytest -vv --durations=50 -o faulthandler_timeout=60` | 733 collected and 733 passed in 167.71s; no artificial skip or manual interruption |
 | Web gates | `npm --prefix apps/web run lint`, `typecheck`, and `build` | all passed; production build generated all routes offline |
@@ -59,7 +65,7 @@ duration tolerance, decodability, and no remaining `manim-wb-*` containers.
 
 ## Migration evidence
 
-The schema contract is 1.11 and the migration head is `0010_video_workflows.py`. Revision 0009 is
+The schema contract is 1.12 and the migration head is `0010_video_workflows.py`. Revision 0009 is
 an intentionally protected RenderJob parent-table rebuild. Plain Alembic rejects an unprepared
 0008 database. The maintenance command requires stopped writers and a fresh backup, rebuilds via
 a shadow table, verifies copied data/foreign keys/integrity, restores on failure, marks 0009, and

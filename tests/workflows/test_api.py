@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from time import monotonic
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -12,6 +12,7 @@ from manim_workbench_api.auth.router import router as auth_router
 from manim_workbench_api.auth.service import AuthService
 from manim_workbench_api.projects.dependencies import get_project_engine
 from manim_workbench_api.projects.router import router as projects_router
+from manim_workbench_api.tools.registry import invoke
 from manim_workbench_api.workflows.router import router as workflows_router
 from manim_workbench_api.workflows.runtime import get_redis_workflow_task_notifier
 from manim_workbench_api.workflows.service import WorkflowService
@@ -170,6 +171,25 @@ def test_workflow_api_versions_async_submission_idempotency_and_owner_boundary(
         pipeline_used=ScenePipeline.TEACHING,
         error_code="render_failed",
     )
+    intent_ref, animation_ir_ref = workflow_service.repository.persist_scene_provenance(
+        run_id=planning.id,
+        project_id=planning.project_id,
+        owner_id=planning.owner_id,
+        intent=None,
+        animation_ir=None,
+        tool_runs=(),
+        provenance=(("prompt_version_id", "prompt-1"),),
+    )
+    evidence = owner_a.get(
+        f"/api/v1/scene-block-runs/{first.json()['id']}/provenance"
+    )
+    assert evidence.status_code == 200
+    assert intent_ref is None
+    assert animation_ir_ref is None
+    assert evidence.json()["intent_ref"] is None
+    assert evidence.json()["animation_ir_ref"] is None
+    assert evidence.json()["intent"] is None
+    assert evidence.json()["tool_runs"] == []
     initial_stream = owner_a.get(
         f"/api/v1/scene-block-runs/{first.json()['id']}/events",
         headers=headers_a,
@@ -220,6 +240,7 @@ def test_workflow_api_versions_async_submission_idempotency_and_owner_boundary(
         f"/api/v1/workflow-versions/{version['id']}",
         f"/api/v1/scene-block-runs/{first.json()['id']}",
         f"/api/v1/scene-block-runs/{first.json()['id']}/events",
+        f"/api/v1/scene-block-runs/{first.json()['id']}/provenance",
         f"/api/v1/composition-runs/{composition.json()['id']}",
         f"/api/v1/composition-runs/{composition.json()['id']}/events",
     ):
@@ -265,6 +286,65 @@ def test_workflow_mutations_require_existing_csrf_boundary_and_openapi_lists_rou
     assert "/api/v1/projects/{project_id}/scientific-assets/csv" in paths
     assert "/api/v1/scene-block-versions/{version_id}/runs" in paths
     assert "/api/v1/scene-block-runs/{run_id}/events" in paths
+    assert "/api/v1/scene-block-runs/{run_id}/provenance" in paths
     assert "/api/v1/workflow-versions/{version_id}/composition-runs" in paths
     assert "/api/v1/composition-runs/{run_id}/events" in paths
     assert "/api/v1/composition-runs/{run_id}/artifact" in paths
+
+
+def test_identical_csv_assets_are_scoped_by_owner_and_project(tmp_path: Path) -> None:
+    app, engine = _app(tmp_path)
+    owner_a, headers_a = _ready_client(app, "owner-a@example.test")
+    owner_b, headers_b = _ready_client(app, "owner-b@example.test")
+    project_a1 = owner_a.post(
+        "/api/v1/projects", json={"title": "A1"}, headers=headers_a
+    ).json()
+    project_a2 = owner_a.post(
+        "/api/v1/projects", json={"title": "A2"}, headers=headers_a
+    ).json()
+    project_b = owner_b.post(
+        "/api/v1/projects", json={"title": "B"}, headers=headers_b
+    ).json()
+    csv_text = "timestamp,temperature,pressure\n0,20,101\n1,35,99\n"
+
+    def upload(client: TestClient, headers: dict[str, str], project_id: str):
+        response = client.post(
+            f"/api/v1/projects/{project_id}/scientific-assets/csv",
+            headers=headers,
+            json={"csv_text": csv_text},
+        )
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    first = upload(owner_a, headers_a, project_a1["id"])
+    retry = upload(owner_a, headers_a, project_a1["id"])
+    second_project = upload(owner_a, headers_a, project_a2["id"])
+    second_owner = upload(owner_b, headers_b, project_b["id"])
+    assert retry["id"] == first["id"]
+    assert len({first["id"], second_project["id"], second_owner["id"]}) == 3
+    assert {first["sha256"], second_project["sha256"], second_owner["sha256"]} == {
+        first["sha256"]
+    }
+    with engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT COUNT(*) FROM workflow_asset_versions WHERE sha256=:sha"),
+            {"sha": first["sha256"]},
+        ).scalar_one() == 3
+
+    tool_root = tmp_path / "tool-cache"
+    invoke(
+        "csv_anomaly", {}, input_text=csv_text, output_root=tool_root, engine=engine,
+        owner_id=UUID(project_a1["owner_id"]), project_id=UUID(project_a1["id"]),
+    )
+    invoke(
+        "csv_anomaly", {}, input_text=csv_text, output_root=tool_root, engine=engine,
+        owner_id=UUID(project_b["owner_id"]), project_id=UUID(project_b["id"]),
+    )
+    with engine.connect() as connection:
+        shared_assets = connection.execute(
+            text(
+                "SELECT asset_version_id,COUNT(*) AS scopes FROM asset_version_scopes "
+                "GROUP BY asset_version_id HAVING COUNT(*)=2"
+            )
+        ).mappings().all()
+    assert len(shared_assets) == 2

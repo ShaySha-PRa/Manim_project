@@ -58,27 +58,56 @@ def upgrade() -> None:
     )
 
     op.create_table(
-        "asset_version_payloads",
-        sa.Column("asset_version_id", sa.String(36), primary_key=True),
+        "workflow_asset_versions",
+        sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("project_id", sa.String(36), nullable=False),
         sa.Column("owner_id", sa.String(36), nullable=False),
         sa.Column("mime", sa.String(40), nullable=False),
+        sa.Column("source", sa.String(40), nullable=False),
+        sa.Column("columns_json", sa.Text(), nullable=False),
+        sa.Column("fields_json", sa.Text(), nullable=False),
         sa.Column("payload_text", sa.Text(), nullable=False),
         sa.Column("sha256", sa.String(64), nullable=False),
         sa.Column("byte_size", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.String(35), nullable=False),
-        sa.ForeignKeyConstraint(["asset_version_id"], ["asset_versions.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["owner_id"], ["users.id"], ondelete="RESTRICT"),
         sa.CheckConstraint("mime IN ('text/csv','text/plain')"),
         sa.CheckConstraint("length(payload_text) BETWEEN 1 AND 200000"),
         sa.CheckConstraint("length(sha256) = 64"),
         sa.CheckConstraint("byte_size BETWEEN 1 AND 200000"),
+        sa.CheckConstraint("json_valid(columns_json)"),
+        sa.CheckConstraint("json_valid(fields_json)"),
+        sa.UniqueConstraint(
+            "owner_id", "project_id", "sha256", name="uq_workflow_assets_scope_hash"
+        ),
     )
     op.create_index(
-        "ix_asset_version_payloads_owner_project",
-        "asset_version_payloads",
+        "ix_workflow_asset_versions_owner_project",
+        "workflow_asset_versions",
         ["owner_id", "project_id", "created_at"],
+    )
+
+    op.create_table(
+        "asset_version_scopes",
+        sa.Column("asset_version_id", sa.String(36), nullable=False),
+        sa.Column("project_id", sa.String(36), nullable=False),
+        sa.Column("owner_id", sa.String(36), nullable=False),
+        sa.Column("created_at", sa.String(35), nullable=False),
+        sa.ForeignKeyConstraint(["asset_version_id"], ["asset_versions.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["owner_id"], ["users.id"], ondelete="RESTRICT"),
+        sa.PrimaryKeyConstraint("asset_version_id", "project_id", "owner_id"),
+    )
+    op.create_index(
+        "ix_asset_version_scopes_owner_project",
+        "asset_version_scopes",
+        ["owner_id", "project_id", "created_at"],
+    )
+    op.execute(
+        "INSERT INTO asset_version_scopes (asset_version_id,project_id,owner_id,created_at) "
+        "SELECT id,project_id,owner_id,created_at FROM asset_versions "
+        "WHERE project_id IS NOT NULL AND owner_id IS NOT NULL"
     )
 
     op.create_table(
@@ -455,7 +484,8 @@ def upgrade() -> None:
     )
 
     for table in (
-        "asset_version_payloads",
+        "workflow_asset_versions",
+        "asset_version_scopes",
         "scene_block_versions",
         "video_workflow_versions",
         "scene_block_runs",
@@ -508,6 +538,10 @@ def downgrade() -> None:
     op.drop_index("ix_video_workflows_owner_project", table_name="video_workflows")
     op.drop_table("video_workflows")
     op.drop_index(
-        "ix_asset_version_payloads_owner_project", table_name="asset_version_payloads"
+        "ix_asset_version_scopes_owner_project", table_name="asset_version_scopes"
     )
-    op.drop_table("asset_version_payloads")
+    op.drop_table("asset_version_scopes")
+    op.drop_index(
+        "ix_workflow_asset_versions_owner_project", table_name="workflow_asset_versions"
+    )
+    op.drop_table("workflow_asset_versions")

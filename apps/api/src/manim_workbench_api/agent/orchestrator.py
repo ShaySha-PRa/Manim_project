@@ -101,7 +101,6 @@ def run_agent_with_program(
             ingest_document(paper_text.encode("utf-8"), mime=AssetMime.TEXT),
             owner_id=owner_id,
             project_id=project_id,
-            payload_text=paper_text,
         )
     if intent.needs_confirmation:
         return AgentExecution(

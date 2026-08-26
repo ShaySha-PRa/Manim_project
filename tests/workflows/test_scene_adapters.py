@@ -171,7 +171,11 @@ def test_teaching_adapter_persists_prompt_plan_and_compiles_complete_program(
     assert result.program.segments[0].duration_seconds == 15
     assert "a^2+b^2=c^2" in result.program.segments[0].source
     assert result.content_plan_version_id is not None
+    assert result.code_request is not None
+    assert result.code_request.prompt_version_id == result.prompt_version_id
+    assert result.code_request.content_plan_version_id == result.content_plan_version_id
     provenance = dict(result.provenance)
+    assert provenance["code_generation_category"] == "formula_derivation"
     assert len(provenance["global_brief_sha256"]) == 64
     with engine.connect() as connection:
         assert connection.execute(text("SELECT COUNT(*) FROM prompt_versions")).scalar_one() == 1

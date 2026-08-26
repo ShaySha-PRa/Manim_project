@@ -199,12 +199,14 @@ class ProgramRenderStore:
                     "SELECT segments.id AS segment_id,segments.status,segments.render_job_id,"
                     "runs.project_id,"
                     "runs.owner_id,jobs.code_version_id,jobs.program_render_segment_id,"
+                    "versions.source_sha256 AS job_source_sha256,segments.source_sha256,"
                     "jobs.project_id AS job_project_id,jobs.owner_id AS job_owner_id,"
                     "jobs.segment_index AS job_segment_index "
                     "FROM program_render_segments AS segments "
                     "JOIN program_render_runs AS runs "
                     "ON runs.id=segments.program_render_run_id "
                     "JOIN render_jobs AS jobs ON jobs.id=:job "
+                    "LEFT JOIN code_versions AS versions ON versions.id=jobs.code_version_id "
                     "WHERE segments.program_render_run_id=:run "
                     "AND segments.segment_index=:index"
                 ),
@@ -213,9 +215,17 @@ class ProgramRenderStore:
             ).mappings().one_or_none()
             if identity is None:
                 raise ProgramRenderConflict("segment or RenderJob was not found")
-            if (
+            typed_source_matches = (
+                identity["program_render_segment_id"] == identity["segment_id"]
+                and identity["code_version_id"] is None
+            )
+            teaching_source_matches = (
                 identity["code_version_id"] is not None
-                or identity["program_render_segment_id"] != identity["segment_id"]
+                and identity["program_render_segment_id"] is None
+                and identity["job_source_sha256"] == identity["source_sha256"]
+            )
+            if (
+                not (typed_source_matches or teaching_source_matches)
                 or identity["project_id"] != identity["job_project_id"]
                 or identity["owner_id"] != identity["job_owner_id"]
                 or identity["job_segment_index"] != segment_index

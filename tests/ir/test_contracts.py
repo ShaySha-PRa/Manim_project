@@ -4,7 +4,7 @@ from manim_workbench_contracts.ir import VisualKind as IrVisualKind
 
 
 def test_contract_schema_is_111() -> None:
-    assert CONTRACT_SCHEMA_VERSION == "1.11"
+    assert CONTRACT_SCHEMA_VERSION == "1.12"
     assert CodeGenerationMode.COMPILED_IR.value == "compiled_ir"
     assert VisualKind.THREE_D.value == "three_d"
 

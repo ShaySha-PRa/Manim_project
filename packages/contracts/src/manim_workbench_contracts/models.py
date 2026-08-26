@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-CONTRACT_SCHEMA_VERSION = "1.11"
+CONTRACT_SCHEMA_VERSION = "1.12"
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
@@ -814,6 +814,7 @@ from .workflow import (  # noqa: E402
     SceneBlockVersion,
     ScenePipeline,
     ScenePipelineMode,
+    SceneRunProvenance,
     VideoWorkflowVersion,
     WorkflowEdge,
     WorkflowNode,
@@ -911,6 +912,7 @@ CONTRACT_MODELS = (
     GlobalBrief,
     SceneBlockVersion,
     SceneBlockRun,
+    SceneRunProvenance,
     WorkflowNode,
     WorkflowEdge,
     VideoWorkflowVersion,
