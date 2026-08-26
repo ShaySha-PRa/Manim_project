@@ -44,16 +44,16 @@ to one candidate SHA.
 
 | Gate | Command | Expected/recorded result |
 | --- | --- | --- |
-| Workflow suite | `uv run pytest -q tests/workflows tests/web/workflow -o faulthandler_timeout=60` | 109 passed in 91.20s; includes real Docker cases |
-| Real workflow Docker black box | full-suite case `tests/workflows/test_workflow_docker_acceptance.py` | passed in 51.50s: teaching + Lorenz 3D + CSV anomaly, all generated segments rendered, ordered manifest and final MP4 decoded |
+| Workflow suite | `uv run pytest -q tests/workflows tests/web/workflow -o faulthandler_timeout=60` | 109 passed; includes real Docker cases |
+| Real workflow Docker black box | full-suite case `tests/workflows/test_workflow_docker_acceptance.py` | passed: teaching + Lorenz 3D + CSV anomaly, all generated segments rendered, ordered manifest and final MP4 decoded |
 | Scene cache, bound CSV and provenance | focused workflow executor tests plus the full suite | same-key retry reused the verified clip with no new RenderJob; bound CSV reached the scientific adapter and Intent/IR provenance refs remained visible |
-| API/auth/Workflow HTTP | `uv run pytest -q tests/workflows/test_api.py tests/workflows/test_api_runner_integration.py tests/phase8 tests/phase9` | 157 passed in 20.87s |
-| Protected migrations | `uv run pytest -q tests/workflows/test_migration.py tests/workflows/test_protected_render_job_migration.py tests/workflows/test_render_job_shadow_migration.py tests/workflows/test_typed_render_jobs.py` | 19 passed in 4.01s |
-| Browser workflow | `PHASE8_BROWSER_EVIDENCE_ROOT=<local-runtime> MANIM_PLAYWRIGHT_CHROMIUM=<locked-chromium> npm --prefix apps/web exec playwright test -- --config tests/web/workflow/workflow.playwright.config.ts` | 1 passed in 18.0s: create, refresh, edit-one, reorder-only, same-origin Cookie/CSRF, and cross-owner 404 |
+| API/auth/Workflow HTTP | `uv run pytest -q tests/workflows/test_api.py tests/workflows/test_api_runner_integration.py tests/phase8 tests/phase9` | 157 passed |
+| Protected migrations | `uv run pytest -q tests/workflows/test_migration.py tests/workflows/test_protected_render_job_migration.py tests/workflows/test_render_job_shadow_migration.py tests/workflows/test_typed_render_jobs.py` | 19 passed |
+| Browser workflow | `PHASE8_BROWSER_EVIDENCE_ROOT=<local-runtime> MANIM_PLAYWRIGHT_CHROMIUM=<locked-chromium> npm --prefix apps/web exec playwright test -- --config tests/web/workflow/workflow.playwright.config.ts` | 1 passed: create, refresh, edit-one, reorder-only, same-origin Cookie/CSRF, and cross-owner 404 |
 | Python static checks | `uv run ruff check .` and `git diff --check` | passed |
 | Contract drift | `uv run python scripts/generate_contracts.py --check` | passed; schema 1.12 |
 | Locked dependencies | `uv lock --check` | passed |
-| Full Python suite | `uv run pytest -vv --durations=50 -o faulthandler_timeout=60` | 734 collected and 734 passed in 164.37s; no artificial skip or manual interruption |
+| Full Python suite | `uv run pytest -vv --durations=50 -o faulthandler_timeout=60` | 734 collected and 734 passed; no artificial skip or manual interruption |
 | Web gates | `npm --prefix apps/web run lint`, `typecheck`, and `build` | all passed; production build generated all routes offline |
 
 The Docker black-box case uses a deterministic bounded teaching-plan fixture so it can be
