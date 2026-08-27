@@ -169,7 +169,8 @@ def test_cancel_complete_race_never_accepts_completion_after_cancel_request(
     # This Phase 5 test isolates the cancel/complete state-machine race. Phase 9
     # quality-gate behavior is covered with real metadata in its own integration tests.
     monkeypatch.setattr(
-        "manim_workbench_api.jobs.router.quality_schema_exists", lambda _engine: False
+        "manim_workbench_api.jobs.router.legacy_quality_required",
+        lambda _engine, _job_id: False,
     )
     client, _engine, _publisher = api_client
     job_id = _submit(client, "cancel-complete-race-key")

@@ -138,6 +138,26 @@ def quality_schema_exists(engine: Engine) -> bool:
         )
 
 
+def legacy_quality_required(engine: Engine, job_id: UUID) -> bool:
+    """Return whether a RenderJob has the legacy teaching-quality lineage.
+
+    Program-render segment jobs are finalized by the workflow program quality
+    gate.  They intentionally have no ``code_version_id`` or ContentPlan
+    lineage, so treating a missing legacy report as a media failure would reject
+    an otherwise valid typed-source render before program publication.
+    """
+    if not quality_schema_exists(engine):
+        return False
+    with engine.connect() as connection:
+        return (
+            connection.execute(
+                text("SELECT code_version_id FROM render_jobs WHERE id = :job_id"),
+                {"job_id": str(job_id)},
+            ).scalar_one_or_none()
+            is not None
+        )
+
+
 def _artifact_path(root: Path, relative: str) -> Path | None:
     try:
         resolved_root = root.resolve(strict=True)

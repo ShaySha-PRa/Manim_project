@@ -20,7 +20,7 @@ from sqlalchemy import Engine
 
 from manim_workbench_api.delivery.dependencies import get_artifact_root
 from manim_workbench_api.quality.completion import (
-    quality_schema_exists,
+    legacy_quality_required,
     record_completed_quality,
 )
 
@@ -185,7 +185,7 @@ def complete_render_job(
         return error
     try:
         service = _service(engine, publisher)
-        quality_required = quality_schema_exists(engine)
+        quality_required = legacy_quality_required(engine, job_id)
         report = record_completed_quality(
             engine=engine,
             artifact_root=get_artifact_root(),

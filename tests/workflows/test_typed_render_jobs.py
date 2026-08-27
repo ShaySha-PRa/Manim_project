@@ -6,12 +6,16 @@ from uuid import uuid4
 import pytest
 from manim_workbench_api.database import create_database_engine
 from manim_workbench_api.jobs.repository import JobRepository
+from manim_workbench_api.jobs.router import complete_render_job
 from manim_workbench_api.jobs.service import JobService
 from manim_workbench_api.workflows import (
     ProgramRenderSource,
     ProgramRenderStore,
 )
 from manim_workbench_contracts import (
+    RenderArtifactPayload,
+    RenderJobCompletion,
+    RenderJobHeartbeat,
     RenderJobLeaseRequest,
     RenderJobSubmission,
     RenderProfile,
@@ -117,6 +121,69 @@ def test_scientific_job_claims_persisted_source_without_content_plan(engine: Eng
     assert lease.program_render_segment_id == segment.id
     assert lease.content_plan_version_id is None
     assert lease.source_code == _source().source_code
+
+
+def test_typed_segment_completion_uses_program_quality_gate_not_legacy_report(
+    engine: Engine,
+) -> None:
+    run, segment = _persisted_segment(engine)
+    repository = JobRepository(engine)
+    signals = _Signals()
+    jobs = JobService(repository, signals)
+    job, _ = repository.create_or_get(
+        RenderJobSubmission(
+            project_id=PROJECT_A,
+            owner_id=OWNER_A,
+            program_render_segment_id=segment.id,
+            profile=RenderProfile.PREVIEW,
+            idempotency_key="typed-segment-quality-completion",
+            concat_group_id=uuid4(),
+            segment_index=0,
+        )
+    )
+    ProgramRenderStore(engine).attach_job(run.id, 0, job.id)
+    lease = jobs.claim(
+        job.id,
+        RenderJobLeaseRequest(runner_id="typed-quality-runner", lease_seconds=60),
+    )
+    jobs.start(
+        job.id,
+        RenderJobHeartbeat(lease_token=lease.lease_token, extend_seconds=60),
+    )
+    artifacts = tuple(
+        RenderArtifactPayload(
+            kind=kind,
+            relative_path=f"{job.id}/attempt-1/{name}",
+            sha256=sha256(kind.encode()).hexdigest(),
+            byte_size=1,
+        )
+        for kind, name in (
+            ("video", "video.mp4"),
+            ("thumbnail", "thumbnail.jpg"),
+            ("render_log", "render.log"),
+            ("metadata", "metadata.json"),
+        )
+    )
+
+    response = complete_render_job(
+        job.id,
+        RenderJobCompletion(lease_token=lease.lease_token, artifacts=artifacts),
+        request_token="internal-test-token",
+        expected_token="internal-test-token",
+        engine=engine,
+        publisher=signals,
+    )
+
+    assert response.status.value == "succeeded"  # type: ignore[union-attr]
+    with engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT COUNT(*) FROM artifacts WHERE render_job_id=:job"),
+            {"job": str(job.id)},
+        ).scalar_one() == 4
+        assert connection.execute(
+            text("SELECT COUNT(*) FROM quality_reports WHERE render_job_id=:job"),
+            {"job": str(job.id)},
+        ).scalar_one() == 0
 
 
 def test_program_segment_attach_rejects_cross_owner_job(engine: Engine) -> None:
