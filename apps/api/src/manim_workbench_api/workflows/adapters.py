@@ -15,6 +15,7 @@ from manim_workbench_contracts import (
     CodeGenerationRequest,
     ContentPlanGenerationRequest,
     ContentPlanOutcome,
+    DerivationStyle,
     GlobalBrief,
     SceneBlockVersion,
     ScenePipeline,
@@ -27,6 +28,19 @@ from manim_workbench_api.content_plans.service import ContentPlanService
 from manim_workbench_api.projects.repository import ProjectRepository
 
 _FUNCTION = re.compile(r"函数|图像|曲线|坐标|function|graph|plot|curve|axis", re.IGNORECASE)
+_PROOF = re.compile(r"证明|proof", re.IGNORECASE)
+_DERIVATION = re.compile(r"推导|求导|derive|derivation", re.IGNORECASE)
+
+
+def _teaching_derivation_style(prompt: str) -> DerivationStyle:
+    """Choose a reversible presentation style without guessing scientific facts."""
+    if _PROOF.search(prompt):
+        return DerivationStyle.PROOF_ORIENTED
+    if _DERIVATION.search(prompt):
+        return DerivationStyle.STEP_BY_STEP
+    if _FUNCTION.search(prompt):
+        return DerivationStyle.VISUAL_INTUITION
+    return DerivationStyle.CONCEPTUAL
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +93,7 @@ class TeachingSceneAdapter:
             audience=Audience.UNDERGRADUATE,
             language=global_brief.language,
             target_duration_seconds=block.target_duration_seconds,
+            derivation_style=_teaching_derivation_style(block.prompt),
             explicit_assumptions=_brief_assumptions(
                 global_brief, previous_scene_summary
             ),

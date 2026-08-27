@@ -90,8 +90,10 @@ def _block(
 class TeachingPlanProvider:
     def __init__(self, target_duration_seconds: int = 60) -> None:
         self.target_duration_seconds = target_duration_seconds
+        self.messages = None
 
-    def generate(self, _messages):  # type: ignore[no-untyped-def]
+    def generate(self, messages):  # type: ignore[no-untyped-def]
+        self.messages = messages
         assumptions = [
             "Use the shared dark_scientific workflow style.",
             "Use background #101018.",
@@ -151,9 +153,10 @@ def test_teaching_adapter_persists_prompt_plan_and_compiles_complete_program(
     engine: Engine,
 ) -> None:
     projects = ProjectRepository(engine)
+    provider = TeachingPlanProvider(15)
     adapter = TeachingSceneAdapter(
         projects,
-        ContentPlanService(ContentPlanRepository(engine), TeachingPlanProvider(15)),
+        ContentPlanService(ContentPlanRepository(engine), provider),
         CodeGenerationService(
             CodeGenerationRepository(engine), UnusedCodeProvider(), UnusedRenderer()
         ),
@@ -174,6 +177,8 @@ def test_teaching_adapter_persists_prompt_plan_and_compiles_complete_program(
     assert result.code_request is not None
     assert result.code_request.prompt_version_id == result.prompt_version_id
     assert result.code_request.content_plan_version_id == result.content_plan_version_id
+    assert provider.messages is not None
+    assert '"derivation_style":"conceptual"' in provider.messages[1].content
     provenance = dict(result.provenance)
     assert provenance["code_generation_category"] == "formula_derivation"
     assert len(provenance["global_brief_sha256"]) == 64
