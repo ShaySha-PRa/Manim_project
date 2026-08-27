@@ -1,6 +1,7 @@
 """Add Scene IR storage, 0.21.0 engine pin, concat jobs, and user assets."""
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 
 import sqlalchemy as sa
 from alembic import op
@@ -18,6 +19,24 @@ _IR_CATEGORIES = (
     "three_d",
     "mixed",
 )
+
+
+@contextmanager
+def _defer_sqlite_foreign_keys() -> Iterator[None]:
+    connection = op.get_bind()
+    if connection.dialect.name != "sqlite":
+        yield
+        return
+    connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+    if connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one() != 0:
+        raise RuntimeError("0007 requires SQLite foreign keys to be deferred")
+    try:
+        yield
+        violations = connection.exec_driver_sql("PRAGMA foreign_key_check").all()
+        if violations:
+            raise RuntimeError(f"0007 introduced foreign-key violations: {violations}")
+    finally:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
 
 
 def _create_code_version_triggers() -> None:
@@ -71,7 +90,7 @@ def _create_render_job_event_triggers() -> None:
     )
 
 
-def upgrade() -> None:
+def _upgrade_schema() -> None:
     with op.batch_alter_table("code_versions") as batch_op:
         batch_op.drop_constraint("ck_code_versions_engine_version", type_="check")
         batch_op.create_check_constraint(
@@ -127,7 +146,12 @@ def upgrade() -> None:
     )
 
 
-def downgrade() -> None:
+def upgrade() -> None:
+    with _defer_sqlite_foreign_keys():
+        _upgrade_schema()
+
+
+def _downgrade_schema() -> None:
     op.drop_index("ix_user_assets_owner_project", table_name="user_assets")
     op.drop_table("user_assets")
     with op.batch_alter_table("code_generation_category_states") as batch_op:
@@ -157,3 +181,8 @@ def downgrade() -> None:
             "generation_mode IN ('full', 'deterministic_template')",
         )
     _create_code_version_triggers()
+
+
+def downgrade() -> None:
+    with _defer_sqlite_foreign_keys():
+        _downgrade_schema()
