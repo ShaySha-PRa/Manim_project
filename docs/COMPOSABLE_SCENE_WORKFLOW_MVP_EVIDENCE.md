@@ -58,8 +58,9 @@ to one candidate SHA.
 | Python static checks | `uv run ruff check .` and `git diff --check` | passed |
 | Contract drift | `uv run python scripts/generate_contracts.py --check` | passed; schema 1.12 |
 | Locked dependencies | `uv lock --check` | passed |
-| Full Python suite | `uv run pytest -q` after the build regression was added | 737 collected; run 1 `737 passed in 165.57s`, run 2 `737 passed in 166.86s`; both included real Docker and exited normally |
-| Web gates | `npm --prefix apps/web run lint`, `typecheck`, and `build` | all exited 0; production build completed Next TypeScript checking and generated 7/7 routes including `/workflows` |
+| Full Python suite | `uv run pytest -q` after the build and standalone-server regressions were added | 738 collected; run 1 `738 passed in 167.85s`, run 2 `738 passed in 167.27s`; both included real Docker and exited normally |
+| Web gates | `npm --prefix apps/web run lint`, `typecheck`, and `build` | all exited 0; production build completed Next TypeScript checking, generated 7/7 routes including `/workflows`, and staged static assets in the standalone output |
+| Production browser workflow | Playwright with the built `.next/standalone/apps/web/server.js` | 1 passed in 19.4s; create, refresh, edit-one, reorder-only, same-origin Cookie/CSRF, download, and cross-owner 404 |
 
 The Docker black-box case uses a deterministic bounded teaching-plan fixture so it can be
 repeated offline. The scientific scenes use the production catalog resolver, allowlisted Lorenz

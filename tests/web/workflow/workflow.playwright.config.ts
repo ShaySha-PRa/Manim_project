@@ -35,7 +35,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: "MANIM_WORKBENCH_API_URL=http://localhost:18000 npm --prefix apps/web run build && MANIM_WORKBENCH_API_URL=http://localhost:18000 npm --prefix apps/web run start -- --hostname 127.0.0.1 --port 13000",
+      command: "MANIM_WORKBENCH_API_URL=http://localhost:18000 npm --prefix apps/web run build && HOSTNAME=127.0.0.1 PORT=13000 node apps/web/.next/standalone/apps/web/server.js",
       cwd: root,
       url: "http://localhost:13000/login",
       reuseExistingServer: false,

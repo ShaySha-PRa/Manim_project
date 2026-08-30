@@ -83,3 +83,12 @@ def test_browser_state_does_not_store_owner_tokens_or_authorization_headers() ->
     assert "localStorage" not in source
     assert "sessionStorage" not in source
     assert "Authorization" not in source
+
+
+def test_browser_gate_starts_the_configured_standalone_server() -> None:
+    config = (ROOT / "tests/web/workflow/workflow.playwright.config.ts").read_text(
+        encoding="utf-8"
+    )
+
+    assert ".next/standalone/apps/web/server.js" in config
+    assert "run start" not in config
