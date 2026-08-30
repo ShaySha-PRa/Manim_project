@@ -7,6 +7,7 @@ from uuid import UUID
 WORKFLOW_SIGNAL_KEYS = {
     "scene_program": "manim-workbench:workflows:scene-program",
     "composition": "manim-workbench:workflows:composition",
+    "director_plan": "manim-workbench:workflows:director-plan",
 }
 
 

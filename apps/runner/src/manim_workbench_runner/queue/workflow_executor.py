@@ -42,6 +42,7 @@ from manim_workbench_api.workflows import (
     build_composition_manifest,
 )
 from manim_workbench_api.workflows.composition import WorkflowArtifactPublisher
+from manim_workbench_api.workflows.director.service import DirectorPlanningService
 from manim_workbench_contracts import (
     CodeGenerationCategory,
     CodeGenerationRequest,
@@ -142,6 +143,7 @@ class PersistentWorkflowTaskExecutor:
         render_artifact_root: Path,
         workflow_staging_root: Path,
         composer_version: str,
+        director_service: DirectorPlanningService | None = None,
         retry_seconds: int = 5,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -163,10 +165,19 @@ class PersistentWorkflowTaskExecutor:
         self._render_artifact_root = render_artifact_root.resolve(strict=True)
         self._staging_root = workflow_staging_root.resolve(strict=True)
         self._composer_version = composer_version
+        self._director_service = director_service
         self._retry_seconds = retry_seconds
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
     def execute(self, lease: WorkflowTaskLease) -> WorkflowTaskExecution | None:
+        if lease.kind == WorkflowTaskKind.DIRECTOR_PLAN.value:
+            if self._director_service is None:
+                raise ValueError("workflow Director service is not configured")
+            plan_id = self._payload_uuid(lease.payload, "director_plan_id")
+            if plan_id != lease.run_id:
+                raise ValueError("Director task plan identity differs")
+            self._director_service.execute(plan_id, lease.project_id, lease.owner_id)
+            return None
         if lease.kind == WorkflowTaskKind.SCENE_PROGRAM.value:
             return self._execute_scene(lease)
         if lease.kind == WorkflowTaskKind.COMPOSITION.value:

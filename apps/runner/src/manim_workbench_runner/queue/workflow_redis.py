@@ -81,7 +81,11 @@ class PersistentWorkflowWorker:
             signal = self._signals.claim(timeout_seconds=timeout_seconds)
         except (WorkflowSignalQueueUnavailable, ValueError):
             signal = None
-        ordered = [WorkflowTaskKind.SCENE_PROGRAM, WorkflowTaskKind.COMPOSITION]
+        ordered = [
+            WorkflowTaskKind.DIRECTOR_PLAN,
+            WorkflowTaskKind.SCENE_PROGRAM,
+            WorkflowTaskKind.COMPOSITION,
+        ]
         if signal is not None:
             ordered.remove(signal.kind)
             ordered.insert(0, signal.kind)

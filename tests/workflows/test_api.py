@@ -4,6 +4,7 @@ from pathlib import Path
 from time import monotonic
 from uuid import UUID, uuid4
 
+from alembic import command
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from manim_workbench_api.auth.dependencies import get_auth_engine, get_auth_settings
@@ -26,7 +27,8 @@ ORIGIN = "http://localhost:3000"
 
 def _app(tmp_path: Path) -> tuple[FastAPI, Engine]:
     path = tmp_path / "workflow-api.db"
-    upgrade_workflow_database(path)
+    config = upgrade_workflow_database(path)
+    command.upgrade(config, "head")
     engine = create_engine(f"sqlite:///{path}")
     users = AuthService(engine)
     users.create_user("owner-a@example.test", "initial password 123")

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, status
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from manim_workbench_contracts import (
     CompositionRun,
+    DirectorPlan,
     SceneBlockRun,
     SceneBlockVersion,
     SceneRunProvenance,
@@ -16,6 +17,8 @@ from sqlalchemy import Engine
 
 from manim_workbench_api.assets.scientific import AssetIngestError
 from manim_workbench_api.auth.models import SessionPrincipal
+from manim_workbench_api.content_plans.errors import ContentPlanError
+from manim_workbench_api.content_plans.provider import DeepSeekProvider
 from manim_workbench_api.projects.router import StableValidationRoute
 
 from .dependencies import (
@@ -23,6 +26,8 @@ from .dependencies import (
     get_project_engine,
     get_session_principal,
 )
+from .director.repository import DirectorPlanNotFound, DirectorRepository
+from .director.service import DirectorPlanningService
 from .errors import (
     WORKFLOW_NOT_FOUND,
     WORKFLOW_REFERENCE_INVALID,
@@ -31,6 +36,8 @@ from .errors import (
 from .events import WorkflowEventCursor, WorkflowEventService
 from .models import (
     CompositionRunCreateRequest,
+    DirectorPlanApplyRequest,
+    DirectorPlanCreateRequest,
     SceneBlockCreateRequest,
     SceneBlockCreation,
     SceneBlockRecord,
@@ -42,7 +49,7 @@ from .models import (
     VideoWorkflowRecord,
     WorkflowVersionCreateRequest,
 )
-from .queue import WorkflowTaskNotifier
+from .queue import WorkflowTaskKind, WorkflowTaskNotifier, WorkflowTaskQueue
 from .runtime import get_redis_workflow_task_notifier
 from .service import WorkflowService
 
@@ -66,6 +73,106 @@ def _error(error: WorkflowRepositoryError) -> JSONResponse:
         status_code=status.HTTP_404_NOT_FOUND if hidden else status.HTTP_409_CONFLICT,
         content={"error": {"code": error.code, "message": error.message}},
     )
+
+
+class _UnavailableDirectorProvider:
+    def generate(self, _messages):  # type: ignore[no-untyped-def]
+        from manim_workbench_api.content_plans.errors import (
+            ContentPlanErrorCode,
+        )
+
+        raise ContentPlanError(
+            ContentPlanErrorCode.CONFIGURATION_ERROR,
+            "DeepSeek provider is not configured.",
+        )
+
+
+def _director_service(engine: Engine) -> DirectorPlanningService:
+    try:
+        provider = DeepSeekProvider()
+    except ContentPlanError:
+        provider = _UnavailableDirectorProvider()
+    return DirectorPlanningService(DirectorRepository(engine), provider)
+
+
+@router.post(
+    "/projects/{project_id}/director-plans",
+    response_model=DirectorPlan,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_director_plan(
+    project_id: UUID,
+    request: DirectorPlanCreateRequest,
+    principal: MutatingPrincipal,
+    engine: DatabaseEngine,
+    notifier: TaskNotifier,
+) -> DirectorPlan | JSONResponse:
+    try:
+        plan, _created = _director_service(engine).create(
+            request.to_contract(project_id), principal.user_id
+        )
+        WorkflowTaskQueue(engine, notifier).submit(
+            kind=WorkflowTaskKind.DIRECTOR_PLAN,
+            run_id=plan.id,
+            project_id=project_id,
+            owner_id=principal.user_id,
+            idempotency_key=request.idempotency_key,
+            payload={"director_plan_id": str(plan.id)},
+        )
+        return plan
+    except DirectorPlanNotFound:
+        return _error(WORKFLOW_NOT_FOUND)
+    except ValueError as error:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"error": {"code": "director_conflict", "message": str(error)}},
+        )
+
+
+@router.get(
+    "/projects/{project_id}/director-plans/{plan_id}",
+    response_model=DirectorPlan,
+)
+def get_director_plan(
+    project_id: UUID,
+    plan_id: UUID,
+    principal: Principal,
+    engine: DatabaseEngine,
+) -> DirectorPlan | JSONResponse:
+    try:
+        return DirectorRepository(engine).get(plan_id, project_id, principal.user_id)
+    except DirectorPlanNotFound:
+        return _error(WORKFLOW_NOT_FOUND)
+
+
+@router.post(
+    "/projects/{project_id}/director-plans/{plan_id}/apply",
+    response_model=VideoWorkflowVersion,
+    status_code=status.HTTP_201_CREATED,
+)
+def apply_director_plan(
+    project_id: UUID,
+    plan_id: UUID,
+    request: DirectorPlanApplyRequest,
+    principal: MutatingPrincipal,
+    engine: DatabaseEngine,
+) -> VideoWorkflowVersion | JSONResponse:
+    try:
+        return DirectorRepository(engine).apply(
+            plan_id,
+            project_id,
+            principal.user_id,
+            draft=request.draft,
+            scene_asset_version_ids=request.scene_asset_version_ids,
+            idempotency_key=request.idempotency_key,
+        )
+    except DirectorPlanNotFound:
+        return _error(WORKFLOW_NOT_FOUND)
+    except ValueError as error:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"error": {"code": "director_not_ready", "message": str(error)}},
+        )
 
 
 @router.post(

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-CONTRACT_SCHEMA_VERSION = "1.12"
+CONTRACT_SCHEMA_VERSION = "1.13"
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 LongText = Annotated[str, Field(min_length=1, max_length=20_000)]
@@ -808,6 +808,13 @@ from .workflow import (  # noqa: E402
     CompositionManifestClip,
     CompositionRun,
     CompositionRunStatus,
+    DirectorConfirmation,
+    DirectorDraft,
+    DirectorGlobalBriefDraft,
+    DirectorPlan,
+    DirectorPlanRequest,
+    DirectorPlanStatus,
+    DirectorSceneDraft,
     GlobalBrief,
     SceneBlockRun,
     SceneBlockRunStatus,
@@ -919,6 +926,12 @@ CONTRACT_MODELS = (
     CompositionManifestClip,
     CompositionManifest,
     CompositionRun,
+    DirectorPlanRequest,
+    DirectorGlobalBriefDraft,
+    DirectorConfirmation,
+    DirectorSceneDraft,
+    DirectorDraft,
+    DirectorPlan,
 )
 
 PROJECT_RECORD_MODELS = (
@@ -969,6 +982,7 @@ CONTRACT_ENUMS = (
     SceneBlockRunStatus,
     WorkflowNodeKind,
     CompositionRunStatus,
+    DirectorPlanStatus,
 )
 
 RENDER_JOB_TRANSITIONS: dict[RenderJobStatus, frozenset[RenderJobStatus]] = {

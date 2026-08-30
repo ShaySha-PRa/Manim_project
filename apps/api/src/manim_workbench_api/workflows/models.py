@@ -5,6 +5,8 @@ from typing import Annotated
 from uuid import UUID
 
 from manim_workbench_contracts import (
+    DirectorDraft,
+    DirectorPlanRequest,
     GlobalBrief,
     RenderProfile,
     SceneBlockVersion,
@@ -97,3 +99,25 @@ class WorkflowTaskSubmissionResponse(WorkflowApiModel):
         if self.status != "queued":
             raise ValueError("new workflow tasks must be queued")
         return self
+
+
+class DirectorPlanCreateRequest(WorkflowApiModel):
+    objective: Annotated[str, Field(min_length=1, max_length=20_000)]
+    title: Annotated[str | None, Field(min_length=1, max_length=200)] = None
+    language: str
+    target_duration_seconds: Annotated[int, Field(ge=30, le=600)]
+    style_preset: str | None = None
+    asset_version_ids: Annotated[tuple[UUID, ...], Field(max_length=16)] = ()
+    idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]
+
+    def to_contract(self, project_id: UUID) -> DirectorPlanRequest:
+        return DirectorPlanRequest(project_id=project_id, **self.model_dump())
+
+
+class DirectorPlanApplyRequest(WorkflowApiModel):
+    draft: DirectorDraft
+    scene_asset_version_ids: Annotated[
+        tuple[Annotated[tuple[UUID, ...], Field(max_length=16)], ...],
+        Field(min_length=2, max_length=8),
+    ]
+    idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]

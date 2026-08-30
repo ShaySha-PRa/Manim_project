@@ -1,5 +1,5 @@
 // Generated from Pydantic contracts. Do not edit.
-export const CONTRACT_SCHEMA_VERSION = "1.12" as const;
+export const CONTRACT_SCHEMA_VERSION = "1.13" as const;
 
 export interface AgentEvent {
   readonly stage: string;
@@ -393,6 +393,73 @@ export interface DataRef {
 }
 
 export type DerivationStyle = "step_by_step" | "conceptual" | "proof_oriented" | "visual_intuition";
+
+export interface DirectorConfirmation {
+  readonly code: string;
+  readonly message: string;
+  readonly scene_position?: number | null;
+  readonly kind: "needs_confirmation" | "asset_required";
+}
+
+export interface DirectorDraft {
+  readonly global_brief: DirectorGlobalBriefDraft;
+  readonly scenes: ReadonlyArray<DirectorSceneDraft>;
+  readonly assumptions?: ReadonlyArray<string>;
+  readonly confirmations?: ReadonlyArray<DirectorConfirmation>;
+}
+
+export interface DirectorGlobalBriefDraft {
+  readonly title: string;
+  readonly language: Language;
+  readonly target_duration_seconds: number;
+  readonly aspect_ratio?: "16:9";
+  readonly style_preset: WorkflowStylePreset;
+  readonly background: string;
+  readonly palette: ReadonlyArray<string>;
+  readonly notation?: Readonly<Record<string, string>>;
+  readonly scientific_parameters?: Readonly<Record<string, number>>;
+}
+
+export interface DirectorPlan {
+  readonly id: string;
+  readonly project_id: string;
+  readonly owner_id: string;
+  readonly request: DirectorPlanRequest;
+  readonly status: DirectorPlanStatus;
+  readonly draft?: DirectorDraft | null;
+  readonly cache_key: string;
+  readonly attempt_count?: number;
+  readonly provider_model?: string | null;
+  readonly prompt_template_version: string;
+  readonly input_sha256: string;
+  readonly output_sha256?: string | null;
+  readonly error_code?: string | null;
+  readonly state_version?: number;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface DirectorPlanRequest {
+  readonly project_id: string;
+  readonly objective: string;
+  readonly title?: string | null;
+  readonly language: Language;
+  readonly target_duration_seconds: number;
+  readonly style_preset?: WorkflowStylePreset | null;
+  readonly asset_version_ids?: ReadonlyArray<string>;
+  readonly idempotency_key: string;
+}
+
+export type DirectorPlanStatus = "queued" | "planning" | "ready" | "needs_confirmation" | "failed" | "cancelled";
+
+export interface DirectorSceneDraft {
+  readonly title: string;
+  readonly prompt: string;
+  readonly pipeline_mode: ScenePipelineMode;
+  readonly target_duration_seconds: number;
+  readonly asset_requirements?: ReadonlyArray<string>;
+  readonly semantic_summary: string;
+}
 
 export type FallbackStrategy = "static_frame" | "discrete_samples" | "fixed_camera" | "precomputed_only";
 

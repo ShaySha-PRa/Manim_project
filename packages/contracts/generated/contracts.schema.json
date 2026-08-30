@@ -2388,6 +2388,435 @@
       "title": "DerivationStyle",
       "type": "string"
     },
+    "DirectorConfirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[a-z][a-z0-9_]{1,99}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "needs_confirmation",
+            "asset_required"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "scene_position": {
+          "anyOf": [
+            {
+              "maximum": 8,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Position"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "kind"
+      ],
+      "title": "DirectorConfirmation",
+      "type": "object"
+    },
+    "DirectorDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "assumptions": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "confirmations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DirectorConfirmation"
+          },
+          "maxItems": 16,
+          "title": "Confirmations",
+          "type": "array"
+        },
+        "global_brief": {
+          "$ref": "#/$defs/DirectorGlobalBriefDraft"
+        },
+        "scenes": {
+          "items": {
+            "$ref": "#/$defs/DirectorSceneDraft"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Scenes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "global_brief",
+        "scenes"
+      ],
+      "title": "DirectorDraft",
+      "type": "object"
+    },
+    "DirectorGlobalBriefDraft": {
+      "additionalProperties": false,
+      "description": "Provider-fillable brief without workflow, owner, or version identity.",
+      "properties": {
+        "aspect_ratio": {
+          "const": "16:9",
+          "default": "16:9",
+          "title": "Aspect Ratio",
+          "type": "string"
+        },
+        "background": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Background",
+          "type": "string"
+        },
+        "language": {
+          "$ref": "#/$defs/Language"
+        },
+        "notation": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 32,
+          "title": "Notation",
+          "type": "object"
+        },
+        "palette": {
+          "items": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Palette",
+          "type": "array"
+        },
+        "scientific_parameters": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "maxProperties": 32,
+          "title": "Scientific Parameters",
+          "type": "object"
+        },
+        "style_preset": {
+          "$ref": "#/$defs/WorkflowStylePreset"
+        },
+        "target_duration_seconds": {
+          "maximum": 600,
+          "minimum": 30,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "language",
+        "target_duration_seconds",
+        "style_preset",
+        "background",
+        "palette"
+      ],
+      "title": "DirectorGlobalBriefDraft",
+      "type": "object"
+    },
+    "DirectorPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_count": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Attempt Count",
+          "type": "integer"
+        },
+        "cache_key": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Cache Key",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "draft": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DirectorDraft"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{1,99}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "input_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Sha256",
+          "type": "string"
+        },
+        "output_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Sha256"
+        },
+        "owner_id": {
+          "format": "uuid",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "prompt_template_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Prompt Template Version",
+          "type": "string"
+        },
+        "provider_model": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Model"
+        },
+        "request": {
+          "$ref": "#/$defs/DirectorPlanRequest"
+        },
+        "state_version": {
+          "default": 0,
+          "minimum": 0,
+          "title": "State Version",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/DirectorPlanStatus"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "owner_id",
+        "request",
+        "status",
+        "cache_key",
+        "prompt_template_version",
+        "input_sha256",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "DirectorPlan",
+      "type": "object"
+    },
+    "DirectorPlanRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_version_ids": {
+          "default": [],
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Asset Version Ids",
+          "type": "array"
+        },
+        "idempotency_key": {
+          "maxLength": 128,
+          "minLength": 16,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "language": {
+          "$ref": "#/$defs/Language"
+        },
+        "objective": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Objective",
+          "type": "string"
+        },
+        "project_id": {
+          "format": "uuid",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "style_preset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkflowStylePreset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "target_duration_seconds": {
+          "maximum": 600,
+          "minimum": 30,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "required": [
+        "project_id",
+        "objective",
+        "language",
+        "target_duration_seconds",
+        "idempotency_key"
+      ],
+      "title": "DirectorPlanRequest",
+      "type": "object"
+    },
+    "DirectorPlanStatus": {
+      "enum": [
+        "queued",
+        "planning",
+        "ready",
+        "needs_confirmation",
+        "failed",
+        "cancelled"
+      ],
+      "title": "DirectorPlanStatus",
+      "type": "string"
+    },
+    "DirectorSceneDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_requirements": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Asset Requirements",
+          "type": "array"
+        },
+        "pipeline_mode": {
+          "$ref": "#/$defs/ScenePipelineMode"
+        },
+        "prompt": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "semantic_summary": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Semantic Summary",
+          "type": "string"
+        },
+        "target_duration_seconds": {
+          "maximum": 120,
+          "minimum": 15,
+          "title": "Target Duration Seconds",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "prompt",
+        "pipeline_mode",
+        "target_duration_seconds",
+        "semantic_summary"
+      ],
+      "title": "DirectorSceneDraft",
+      "type": "object"
+    },
     "FallbackStrategy": {
       "enum": [
         "static_frame",
@@ -5847,7 +6276,7 @@
       "type": "object"
     }
   },
-  "$id": "https://manim-workbench.local/contracts/1.12",
+  "$id": "https://manim-workbench.local/contracts/1.13",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Manim Workbench Contracts",
   "x-contract-models": [
@@ -5890,6 +6319,12 @@
     "CriticQuestionResult",
     "CriticReport",
     "DataRef",
+    "DirectorConfirmation",
+    "DirectorDraft",
+    "DirectorGlobalBriefDraft",
+    "DirectorPlan",
+    "DirectorPlanRequest",
+    "DirectorSceneDraft",
     "GenerationAttempt",
     "GeometryConstruction",
     "GeometryProofRating",
@@ -5944,5 +6379,5 @@
     "WorkspaceContentPlanGenerationRequest",
     "WorkspaceRenderJobSubmission"
   ],
-  "x-contract-schema-version": "1.12"
+  "x-contract-schema-version": "1.13"
 }

@@ -82,6 +82,15 @@ class ProgramRenderSegmentStatus(str, Enum):
     FAILED = "failed"
 
 
+class DirectorPlanStatus(str, Enum):
+    QUEUED = "queued"
+    PLANNING = "planning"
+    READY = "ready"
+    NEEDS_CONFIRMATION = "needs_confirmation"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
 class GlobalBrief(ContractModel):
     title: ShortText
     language: Language
@@ -114,6 +123,101 @@ class GlobalBrief(ContractModel):
             raise ValueError("scientific parameters must be finite")
         return value
 
+
+class DirectorPlanRequest(ContractModel):
+    project_id: UUID
+    objective: LongText
+    title: ShortText | None = None
+    language: Language
+    target_duration_seconds: Annotated[int, Field(ge=30, le=600)]
+    style_preset: WorkflowStylePreset | None = None
+    asset_version_ids: Annotated[tuple[UUID, ...], Field(max_length=16)] = ()
+    idempotency_key: Annotated[str, Field(min_length=16, max_length=128)]
+
+    @model_validator(mode="after")
+    def validate_asset_ids(self) -> DirectorPlanRequest:
+        if len(set(self.asset_version_ids)) != len(self.asset_version_ids):
+            raise ValueError("asset_version_ids must be unique")
+        return self
+
+
+class DirectorGlobalBriefDraft(GlobalBrief):
+    """Provider-fillable brief without workflow, owner, or version identity."""
+
+
+class DirectorConfirmation(ContractModel):
+    code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{1,99}$")]
+    message: Annotated[str, Field(min_length=1, max_length=1_000)]
+    scene_position: Annotated[int | None, Field(ge=1, le=8)] = None
+    kind: Literal["needs_confirmation", "asset_required"]
+
+
+class DirectorSceneDraft(ContractModel):
+    title: ShortText
+    prompt: LongText
+    pipeline_mode: ScenePipelineMode
+    target_duration_seconds: Annotated[int, Field(ge=15, le=120)]
+    asset_requirements: Annotated[tuple[ShortText, ...], Field(max_length=8)] = ()
+    semantic_summary: Annotated[str, Field(min_length=1, max_length=1_000)]
+
+
+class DirectorDraft(ContractModel):
+    global_brief: DirectorGlobalBriefDraft
+    scenes: Annotated[tuple[DirectorSceneDraft, ...], Field(min_length=2, max_length=8)]
+    assumptions: Annotated[tuple[ShortText, ...], Field(max_length=20)] = ()
+    confirmations: Annotated[tuple[DirectorConfirmation, ...], Field(max_length=16)] = ()
+
+    @model_validator(mode="after")
+    def validate_total_duration(self) -> DirectorDraft:
+        scene_total = sum(scene.target_duration_seconds for scene in self.scenes)
+        if scene_total != self.global_brief.target_duration_seconds:
+            raise ValueError("scene duration sum must match the GlobalBrief target duration")
+        return self
+
+
+class DirectorPlan(ContractModel):
+    id: UUID
+    project_id: UUID
+    owner_id: UUID
+    request: DirectorPlanRequest
+    status: DirectorPlanStatus
+    draft: DirectorDraft | None = None
+    cache_key: Sha256
+    attempt_count: Annotated[int, Field(ge=0, le=2)] = 0
+    provider_model: Annotated[str | None, Field(max_length=100)] = None
+    prompt_template_version: Annotated[str, Field(min_length=1, max_length=100)]
+    input_sha256: Sha256
+    output_sha256: Sha256 | None = None
+    error_code: Annotated[str | None, Field(pattern=r"^[a-z][a-z0-9_]{1,99}$")] = None
+    state_version: Annotated[int, Field(ge=0)] = 0
+    created_at: datetime
+    updated_at: datetime
+
+    @model_validator(mode="after")
+    def validate_status_payload(self) -> DirectorPlan:
+        if self.project_id != self.request.project_id:
+            raise ValueError("plan project_id must match the request")
+        if self.status is DirectorPlanStatus.READY:
+            if self.draft is None or self.output_sha256 is None or self.error_code is not None:
+                raise ValueError("ready plan requires draft and output hash without error")
+        elif self.status is DirectorPlanStatus.NEEDS_CONFIRMATION:
+            if (
+                self.draft is None
+                or not self.draft.confirmations
+                or self.output_sha256 is None
+                or self.error_code is None
+            ):
+                raise ValueError("needs_confirmation plan requires draft, confirmation, and error")
+        elif self.status in {DirectorPlanStatus.FAILED, DirectorPlanStatus.CANCELLED}:
+            if self.draft is not None or self.output_sha256 is not None or self.error_code is None:
+                raise ValueError("failed or cancelled plan requires only an error")
+        elif (
+            self.draft is not None
+            or self.output_sha256 is not None
+            or self.error_code is not None
+        ):
+            raise ValueError("active plan cannot expose terminal output")
+        return self
 
 class SceneBlockVersion(ContractModel):
     id: UUID

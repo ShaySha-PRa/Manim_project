@@ -25,6 +25,8 @@ from manim_workbench_api.workflows import (
     WorkflowArtifactStore,
     WorkflowTaskQueue,
 )
+from manim_workbench_api.workflows.director.repository import DirectorRepository
+from manim_workbench_api.workflows.director.service import DirectorPlanningService
 from redis import Redis
 
 from manim_workbench_runner.queue import (
@@ -119,12 +121,15 @@ def build_workflow_worker(
         render_artifact_root=artifact_root,
         workflow_staging_root=staging_root,
         composer_version="workflow-mvp-v1",
+        director_service=DirectorPlanningService(
+            DirectorRepository(engine), content_provider
+        ),
     )
     coordinator = WorkflowTaskCoordinator(
         SqliteWorkflowTaskLifecycle(WorkflowTaskQueue(engine)),
         executor,
         runner_id=runner_id,
-        lease_seconds=30,
+        lease_seconds=60,
     )
     return PersistentWorkflowWorker(
         RedisWorkflowSignalQueue(redis_client), coordinator

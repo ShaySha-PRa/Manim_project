@@ -14,6 +14,7 @@ from sqlalchemy import Engine, text
 class WorkflowTaskKind(str, Enum):
     SCENE_PROGRAM = "scene_program"
     COMPOSITION = "composition"
+    DIRECTOR_PLAN = "director_plan"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,11 +56,11 @@ class WorkflowTaskQueue:
         now: datetime | None = None,
     ) -> WorkflowTask:
         current_time = now or datetime.now(timezone.utc)
-        table = (
-            "scene_block_runs"
-            if kind is WorkflowTaskKind.SCENE_PROGRAM
-            else "workflow_composition_runs"
-        )
+        table = {
+            WorkflowTaskKind.SCENE_PROGRAM: "scene_block_runs",
+            WorkflowTaskKind.COMPOSITION: "workflow_composition_runs",
+            WorkflowTaskKind.DIRECTOR_PLAN: "workflow_director_plans",
+        }[kind]
         with self._engine.begin() as connection:
             boundary = connection.execute(
                 text(
