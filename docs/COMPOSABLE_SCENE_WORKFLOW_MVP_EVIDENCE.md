@@ -6,7 +6,7 @@ This evidence covers OpenSpec change `add-composable-scene-workflow-mvp`. The ca
 checked-out `feature/composable-scene-workflow-mvp` commit reported by `git rev-parse HEAD` when
 the final commands below are run. The MVP is deliberately linear: 2–8 independently versioned
 scene blocks followed by Compose and Export. Free-form DAGs, transitions, audio, subtitles,
-Director automation, and Phase 10 are not included.
+Director automation and the cancelled external-user phase are not included.
 
 ## Implemented behavior
 
@@ -86,4 +86,5 @@ exist.
 - Migrating a deployed 0008 database requires a maintenance window and verified backup; it is
   intentionally not an online Alembic operation.
 
-No tag, push, deployment, external-user phase, or Phase 10 action is part of this change.
+No tag, push, deployment, or external-user action is part of this change. The previously named
+Phase 10 has been cancelled and is not a future project phase.

@@ -15,7 +15,25 @@
 
 工作台默认不登录：`GET /auth/session` 签发 `dev@local.test` 会话，Cookie / CSRF / owner 隔离仍生效。`/login` 会跳到 `/workbench`。需要 Phase 8 登录链路时设 `MANIM_WORKBENCH_AUTH_DISABLED=false`。
 
-契约版本以健康检查为准，当前是 `1.10`。
+契约版本以健康检查为准，当前是 `1.12`。
+
+## 可组合场景工作流
+
+除了单次教学／科研生成，production Web 还提供线性的多场景工作流：
+
+```text
+GlobalBrief
+  → 2–8 个自然语言 SceneBlock
+  → 每幕独立生成 Preview / Final
+  → 按顺序硬切合成完整 MP4
+```
+
+入口为 <http://127.0.0.1:3000/workflows>。每个场景可以显式选择教学、科研或封闭的自动路由，
+绑定真实 CSV AssetVersion，并查看 Intent、IR、工具、逐段渲染和失败 provenance。修改一个场景只会
+创建该场景的新版本并重新合成；仅调整顺序不会重新调用 Provider、工具或 Docker 渲染。任一场景缺少
+资产或渲染失败时，成功场景继续保留，但系统不会发布不完整的整片视频。
+
+MVP 只支持线性顺序和硬切。自由 DAG、转场、音频、字幕、自动导演和外部用户试用均不属于当前项目范围。
 
 ![工作台](docs/assets/workbench-demo.png)
 
@@ -141,6 +159,7 @@ WSL 重启后 IP 可能变。API 仍听 `0.0.0.0:8000`，`MANIM_WORKBENCH_API_UR
 | 用途 | 地址 |
 | --- | --- |
 | 工作台 | http://127.0.0.1:3000/workbench |
+| 多场景工作流 | http://127.0.0.1:3000/workflows |
 | OpenAPI | http://127.0.0.1:8000/docs |
 | 健康检查 | http://127.0.0.1:8000/api/v1/health |
 
@@ -149,7 +168,7 @@ curl -fsS http://127.0.0.1:8000/api/v1/health
 curl -fsS -o /dev/null -w 'web=%{http_code}\n' http://127.0.0.1:3000/workbench
 ```
 
-健康检查应返回 `{"status":"ok","service":"api","contract_schema_version":"1.10"}`。`GET /` 返回 `Not Found` 是正常的。
+健康检查应返回 `{"status":"ok","service":"api","contract_schema_version":"1.12"}`。`GET /` 返回 `Not Found` 是正常的。
 
 强制走登录 API 时才需要：
 
