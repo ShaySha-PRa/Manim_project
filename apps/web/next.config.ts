@@ -8,6 +8,9 @@ const allowedDevOrigins = (process.env.NEXT_ALLOWED_DEV_ORIGINS ?? "localhost,12
 const nextConfig: NextConfig = {
   agentRules: false,
   allowedDevOrigins,
+  experimental: {
+    useTypeScriptCli: false,
+  },
   output: "standalone",
   transpilePackages: ["@manim-workbench/contracts"],
   async rewrites() {

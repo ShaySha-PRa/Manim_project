@@ -2,11 +2,12 @@
 
 ## Scope and candidate identity
 
-This evidence covers OpenSpec change `add-composable-scene-workflow-mvp`. The candidate is the
-checked-out `feature/composable-scene-workflow-mvp` commit reported by `git rev-parse HEAD` when
-the final commands below are run. The MVP is deliberately linear: 2–8 independently versioned
-scene blocks followed by Compose and Export. Free-form DAGs, transitions, audio, subtitles,
-Director automation and the cancelled external-user phase are not included.
+This evidence covers the implemented and merged OpenSpec change
+`add-composable-scene-workflow-mvp`. The current candidate is the checked-out `main` tree reported
+by `git rev-parse HEAD`; the exact local commit and remote divergence are reported at handoff. The
+MVP is deliberately linear: 2–8 independently versioned scene blocks followed by Compose and
+Export. Free-form DAGs, transitions, audio, subtitles, Director automation and the cancelled
+external-user phase are not included.
 
 ## Implemented behavior
 
@@ -36,6 +37,10 @@ Director automation and the cancelled external-user phase are not included.
   generation/preview, full composition, refresh recovery,
   provenance, failure states, and authenticated download. Preview and Final runs are tracked by
   separate profile-qualified identities, so one cannot satisfy the other profile's compose gate.
+- Next.js production builds explicitly use its TypeScript compiler API. Next 16.3's experimental
+  CLI capture returned exit code 0 with empty `--showConfig` stdout under the current Node/WSL
+  environment, so JSON parsing failed after compilation; the compiler API keeps Next's type check
+  active and is backed by the separate `tsc --noEmit` gate.
 
 ## Acceptance evidence
 
@@ -53,8 +58,8 @@ to one candidate SHA.
 | Python static checks | `uv run ruff check .` and `git diff --check` | passed |
 | Contract drift | `uv run python scripts/generate_contracts.py --check` | passed; schema 1.12 |
 | Locked dependencies | `uv lock --check` | passed |
-| Full Python suite | `uv run pytest -vv --durations=50 -o faulthandler_timeout=60` | 734 collected and 734 passed; no artificial skip or manual interruption |
-| Web gates | `npm --prefix apps/web run lint`, `typecheck`, and `build` | all passed; production build generated all routes offline |
+| Full Python suite | `uv run pytest -q` after the build regression was added | 737 collected; run 1 `737 passed in 165.57s`, run 2 `737 passed in 166.86s`; both included real Docker and exited normally |
+| Web gates | `npm --prefix apps/web run lint`, `typecheck`, and `build` | all exited 0; production build completed Next TypeScript checking and generated 7/7 routes including `/workflows` |
 
 The Docker black-box case uses a deterministic bounded teaching-plan fixture so it can be
 repeated offline. The scientific scenes use the production catalog resolver, allowlisted Lorenz
@@ -62,6 +67,10 @@ and CSV tools, actual generated NPZ data, deterministic AnimationIR compiler, pr
 mounting, and the pinned Manim Docker image. It verifies a common GlobalBrief hash, Preview
 profile, CSV column provenance, Lorenz 3D scene selection, ordered clip identities, frame-level
 duration tolerance, decodability, and no remaining `manim-wb-*` containers.
+
+The current full-suite repeatability refresh also ran the real P0 Docker preview, real ordered
+2D→3D→2D segment render/composition, and real teaching + Lorenz 3D + CSV workflow composition in
+both runs. Post-run checks found no `manim-wb-*` container or API/Runner/pytest process left behind.
 
 ## Migration evidence
 

@@ -76,3 +76,9 @@ def test_web_build_uses_only_local_system_font_stacks() -> None:
     for variable in ("--font-display", "--font-body", "--font-script", "--font-mono", "--font-cjk"):
         assert variable in styles
     assert "next/font" not in layout
+
+
+def test_next_build_uses_compiler_api_instead_of_broken_cli_capture() -> None:
+    config = (ROOT / "apps/web/next.config.ts").read_text(encoding="utf-8")
+
+    assert "useTypeScriptCli: false" in config
