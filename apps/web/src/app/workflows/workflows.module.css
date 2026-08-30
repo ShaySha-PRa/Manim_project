@@ -40,4 +40,8 @@
 .blockers { border-left: 3px solid #f0a84c; padding: 9px 14px; color: #e7c99e; background: #3b2a162e; }
 .blockers ul { margin-bottom: 0; }.finalVideo { display: grid; gap: 12px; }.download { justify-self: start; }
 .notice { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 18px 0; padding: 12px 14px; border: 1px solid #41669d; border-radius: 10px; background: #172745; }
+.directorPanel { border-color: #416da8; background: linear-gradient(145deg, #17233b, #101522); }
+.directorResult { margin-top: 16px; padding: 14px 16px; border: 1px solid #324766; border-radius: 12px; background: #0b1220; }
+.directorResult ol { display: grid; gap: 10px; padding-left: 22px; }
+.directorResult li small { display: block; margin-top: 4px; color: #e7c99e; }
 @media (max-width: 800px) { .workflows { padding: 30px 16px 60px; }.hero { align-items: stretch; flex-direction: column; }.saveBox { min-width: 0; }.sceneBody { grid-template-columns: 1fr; }.preview { border-left: 0; border-top: 1px solid #2a3550; min-height: 220px; }.formGrid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.sceneHeader { align-items: flex-start; flex-direction: column; }.iconActions { justify-content: start; } }

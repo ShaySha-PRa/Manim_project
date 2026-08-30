@@ -7,6 +7,8 @@ import type {
   ContentPlanVersion,
   ContentPlanVersionCreateRequest,
   ContentPlanVersionPage,
+  DirectorDraft,
+  DirectorPlan,
   LoginRequest,
   LoginResponse,
   PasswordChangeRequest,
@@ -243,6 +245,34 @@ export class WorkbenchApiClient {
 
   createVideoWorkflow(projectId: string): Promise<VideoWorkflow> {
     return this.#request(`/api/v1/projects/${projectId}/video-workflows`, { method: "POST" });
+  }
+
+  createDirectorPlan(projectId: string, input: {
+    objective: string;
+    title?: string | null;
+    language: "zh-CN" | "en-US";
+    target_duration_seconds: number;
+    style_preset?: string | null;
+    asset_version_ids: ReadonlyArray<string>;
+    idempotency_key: string;
+  }): Promise<DirectorPlan> {
+    return this.#jsonMutation(`/api/v1/projects/${projectId}/director-plans`, "POST", input);
+  }
+
+  getDirectorPlan(projectId: string, planId: string): Promise<DirectorPlan> {
+    return this.#request(`/api/v1/projects/${projectId}/director-plans/${planId}`);
+  }
+
+  applyDirectorPlan(projectId: string, planId: string, input: {
+    draft: DirectorDraft;
+    scene_asset_version_ids: ReadonlyArray<ReadonlyArray<string>>;
+    idempotency_key: string;
+  }): Promise<VideoWorkflowVersion> {
+    return this.#jsonMutation(
+      `/api/v1/projects/${projectId}/director-plans/${planId}/apply`,
+      "POST",
+      input,
+    );
   }
 
   createScientificCsvAsset(projectId: string, csvText: string): Promise<{

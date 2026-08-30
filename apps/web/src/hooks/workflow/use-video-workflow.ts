@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { Project, SceneRunProvenance } from "@manim-workbench/contracts";
+import type { DirectorPlan, Project, SceneRunProvenance } from "@manim-workbench/contracts";
 
 import type {
   CompositionRun,
@@ -81,6 +81,8 @@ export function useVideoWorkflow(enabled: boolean) {
   const [runs, setRuns] = useState<Readonly<Record<string, SceneBlockRun>>>({});
   const [provenance, setProvenance] = useState<Readonly<Record<string, SceneRunProvenance>>>({});
   const [composition, setComposition] = useState<CompositionRun | null>(null);
+  const [directorObjective, setDirectorObjective] = useState("");
+  const [directorPlan, setDirectorPlan] = useState<DirectorPlan | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const submissions = useRef(new Set<string>());
@@ -91,6 +93,10 @@ export function useVideoWorkflow(enabled: boolean) {
     const query = new URLSearchParams(window.location.search);
     const selectedProject = query.get("project") ?? page.items[0]?.id ?? "";
     setProjectId(selectedProject);
+    const directorId = query.get("director");
+    if (directorId && selectedProject) {
+      setDirectorPlan(await workbenchApi.getDirectorPlan(selectedProject, directorId));
+    }
     const versionId = query.get("version");
     if (!versionId) return;
     const recoveredVersion = await workbenchApi.getVideoWorkflowVersion(versionId);
@@ -129,6 +135,16 @@ export function useVideoWorkflow(enabled: boolean) {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [enabled, recover]);
+
+  useEffect(() => {
+    if (!directorPlan || !["queued", "planning"].includes(directorPlan.status)) return;
+    const timer = window.setInterval(() => {
+      void workbenchApi.getDirectorPlan(directorPlan.project_id, directorPlan.id)
+        .then(setDirectorPlan)
+        .catch(() => setMessage("Director 状态暂时无法刷新，正在保留计划身份。"));
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [directorPlan]);
 
   useEffect(() => {
     const activeRuns = Object.values(runs).filter((run) => !terminalScene.has(run.status));
@@ -170,6 +186,34 @@ export function useVideoWorkflow(enabled: boolean) {
       scene.localId === localId ? { ...scene, ...patch, dirty: true } : scene
     )));
   }, []);
+
+  const planWithDirector = useCallback(async () => {
+    if (!projectId) return setMessage("请先选择项目。");
+    if (!directorObjective.trim()) return setMessage("请描述完整视频要解释和展示什么。");
+    setBusy(true);
+    setMessage(null);
+    try {
+      const plan = await workbenchApi.createDirectorPlan(projectId, {
+        objective: directorObjective.trim(),
+        title: brief.title || null,
+        language: brief.language,
+        target_duration_seconds: brief.target_duration_seconds,
+        style_preset: brief.style_preset,
+        asset_version_ids: [],
+        idempotency_key: createIdempotencyKey(),
+      });
+      setDirectorPlan(plan);
+      const query = new URLSearchParams(window.location.search);
+      query.set("project", projectId);
+      query.set("director", plan.id);
+      window.history.replaceState(null, "", `/workflows?${query.toString()}`);
+      setMessage("Director 已开始拆分整片结构。完成后可应用为场景草稿。");
+    } catch (cause) {
+      setMessage(messageFor(cause));
+    } finally {
+      setBusy(false);
+    }
+  }, [brief, directorObjective, projectId]);
 
   const persist = useCallback(async () => {
     if (!projectId) return setMessage("请先选择项目。");
@@ -259,6 +303,52 @@ export function useVideoWorkflow(enabled: boolean) {
       submissions.current.delete(submissionKey);
     }
   }, [version]);
+
+  const applyDirectorPlan = useCallback(async () => {
+    if (!directorPlan?.draft || directorPlan.status !== "ready") {
+      return setMessage("Director 草稿尚未 ready；请先处理确认或资产需求。");
+    }
+    setBusy(true);
+    try {
+      const nextVersion = await workbenchApi.applyDirectorPlan(
+        directorPlan.project_id,
+        directorPlan.id,
+        {
+          draft: directorPlan.draft,
+          scene_asset_version_ids: directorPlan.draft.scenes.map(() => []),
+          idempotency_key: createIdempotencyKey(),
+        },
+      );
+      const nextWorkflow = await workbenchApi.getVideoWorkflow(nextVersion.workflow_id);
+      const details = await Promise.all(
+        nextVersion.nodes.filter((node) => node.kind === "scene")
+          .map((node) => workbenchApi.getSceneBlockVersion(node.scene_block_version_id!)),
+      );
+      const nextScenes = details.map(({ block_id, version: sceneVersion }) => ({
+        localId: newLocalId(),
+        blockId: block_id,
+        version: sceneVersion,
+        title: sceneVersion.title,
+        prompt: sceneVersion.prompt,
+        pipelineMode: sceneVersion.pipeline_mode,
+        targetDurationSeconds: sceneVersion.target_duration_seconds,
+        assetVersionIds: sceneVersion.asset_version_ids,
+        dirty: false,
+      }));
+      setWorkflow(nextWorkflow);
+      setVersion(nextVersion);
+      setBrief(nextVersion.global_brief);
+      setScenes(nextScenes);
+      setRuns({});
+      setComposition(null);
+      updateUrl(nextVersion, {}, null);
+      setMessage("Director 草稿已应用。你可以修改场景，然后生成全部 Preview。");
+    } catch (cause) {
+      setMessage(messageFor(cause));
+    } finally {
+      setBusy(false);
+    }
+  }, [directorPlan, updateUrl]);
 
   const uploadCsv = useCallback(async (scene: SceneDraft, csvText: string) => {
     if (!projectId) return setMessage("请先选择项目。");
@@ -366,7 +456,8 @@ export function useVideoWorkflow(enabled: boolean) {
     projects, projectId, setProjectId, workflow, version, brief, setBrief, scenes, setScenes,
     runs, provenance, composition, busy, message, setMessage, persist, updateScene, generateScene,
     generateIncomplete, compose, moveScene, reorderScene, allSucceeded, runFor, uploadCsv,
-    loadProvenance,
+    loadProvenance, directorObjective, setDirectorObjective, directorPlan, planWithDirector,
+    applyDirectorPlan,
     addScene: () => setScenes((current) => current.length < 8
       ? [...current, blankScene(current.length + 1)] : current),
     copyScene: (scene: SceneDraft) => setScenes((current) => current.length < 8

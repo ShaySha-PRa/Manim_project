@@ -15,11 +15,11 @@
 
 工作台默认不登录：`GET /auth/session` 签发 `dev@local.test` 会话，Cookie / CSRF / owner 隔离仍生效。`/login` 会跳到 `/workbench`。需要 Phase 8 登录链路时设 `MANIM_WORKBENCH_AUTH_DISABLED=false`。
 
-契约版本以健康检查为准，当前是 `1.12`。
+契约版本以健康检查为准，当前是 `1.13`。
 
 ## 可组合场景工作流
 
-除了单次教学／科研生成，production Web 还提供线性的多场景工作流：
+除了单次教学／科研生成，production Web 还提供线性的多场景工作流和受约束 Director：
 
 ```text
 GlobalBrief
@@ -33,7 +33,11 @@ GlobalBrief
 创建该场景的新版本并重新合成；仅调整顺序不会重新调用 Provider、工具或 Docker 渲染。任一场景缺少
 资产或渲染失败时，成功场景继续保留，但系统不会发布不完整的整片视频。
 
-MVP 只支持线性顺序和硬切。自由 DAG、转场、音频、字幕、自动导演和外部用户试用均不属于当前项目范围。
+用户也可以在 `/workflows` 输入一句完整视频目标，由 Director 自动生成 GlobalBrief 和 2–8 个
+教学／科研场景草稿；草稿必须先应用为普通 Workflow，再由现有受约束管线逐幕生成。Director
+不输出 Python、不调用科学工具，也不会在用户确认前创建 RenderJob。
+
+当前只支持线性顺序和硬切。自由 DAG、转场、音频、字幕和外部用户试用不属于当前项目范围。
 
 ![工作台](docs/assets/workbench-demo.png)
 
@@ -168,7 +172,7 @@ curl -fsS http://127.0.0.1:8000/api/v1/health
 curl -fsS -o /dev/null -w 'web=%{http_code}\n' http://127.0.0.1:3000/workbench
 ```
 
-健康检查应返回 `{"status":"ok","service":"api","contract_schema_version":"1.12"}`。`GET /` 返回 `Not Found` 是正常的。
+健康检查应返回 `{"status":"ok","service":"api","contract_schema_version":"1.13"}`。`GET /` 返回 `Not Found` 是正常的。
 
 强制走登录 API 时才需要：
 
