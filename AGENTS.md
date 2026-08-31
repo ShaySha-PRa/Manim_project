@@ -51,6 +51,24 @@ Cross the SQLite `0008_asset_versions` → `0009_render_job_typed_sources` bound
 
 Python targets 3.10, uses four-space indentation, type hints, and Ruff's 100-character line limit. Use `snake_case` for modules/functions and `PascalCase` for classes. TypeScript uses two spaces, `PascalCase` React components, `camelCase` functions, and kebab-case filenames. Keep contracts strict and immutable where established. Edit contract sources, then regenerate outputs; do not hand-edit generated files.
 
+## Frontend Visual System
+
+All current and future Web UI MUST follow the People's Platform (Block & Bold) reference at
+`https://github.com/zarazhangrui/beautiful-html-templates/tree/main/templates/peoples-platform`.
+Use the shared tokens in `apps/web/src/app/styles.css`: warm paper/cream canvas, electric cobalt
+for primary structure, amber orange for energy and primary actions, deep ink for borders/body
+text, and hot red only for offset depth/shadows rather than surface fills. Major divisions use
+heavy square ink borders; buttons and panels use hard offset shadows; display headings are
+slab-style uppercase, metadata uses wide-tracked mono, and body copy uses a readable narrow sans
+stack. Preserve the offline-build boundary by using the local system fallback stacks rather than
+restoring `next/font/google`.
+
+Do not introduce generic dark SaaS cards, soft glassmorphism, low-contrast gray-on-color text,
+rounded dashboard styling, or a second palette. Text, placeholders, disabled controls, errors,
+and empty states MUST remain readable on desktop and mobile. Reuse global tokens and existing
+People's Platform components before adding page-local color values, and include desktop/mobile
+screenshots for material UI changes.
+
 ## Testing Guidelines
 
 Pytest is the primary framework. Name files `test_*.py` and tests `test_<behavior>`. Place tests in the matching phase and layer (`integration`, `security`, `blackbox`, or `parent`). Every behavior change needs a focused regression test; security and rendering changes also need failure-path coverage. Run the focused test first, then the full suite and relevant acceptance script.

@@ -8,13 +8,14 @@
   --cream: #f4e9d6;
   --paper: #f5f2ea;
   --ink: #0e0e14;
-  --font-display: Impact, Haettenschweiler, "Arial Narrow Bold", "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  --font-body: "Arial Narrow", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC",
-    system-ui, sans-serif;
-  --font-script: "Segoe Print", "Bradley Hand", "KaiTi", "STKaiti", cursive;
-  --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", "SFMono-Regular", Consolas,
-    "Liberation Mono", monospace;
+  --font-display: "Alfa Slab One", Rockwell, Impact, Haettenschweiler,
+    "Arial Narrow Bold", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-body: "Archivo Narrow", "Arial Narrow", "PingFang SC", "Microsoft YaHei",
+    "Noto Sans CJK SC", system-ui, sans-serif;
+  --font-script: "Caveat Brush", "Segoe Print", "Bradley Hand", "KaiTi", "STKaiti",
+    cursive;
+  --font-mono: "DM Mono", ui-monospace, "Cascadia Mono", "Segoe UI Mono",
+    "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --font-cjk: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
   color-scheme: light;
   font-family: var(--font-body);
