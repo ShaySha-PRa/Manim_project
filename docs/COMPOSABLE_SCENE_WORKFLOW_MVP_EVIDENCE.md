@@ -90,6 +90,11 @@ exist.
 - Scene videos are independent clips; Manim Mobject identity does not cross scene boundaries.
 - Composition is video-only hard cut. Audio, narration, subtitles, overlays, split screen, and
   transitions remain out of scope.
+- Known visual issue (deferred): some generated teaching scenes can display overlapping
+  mathematical formulas, reducing readability. A later change should improve deterministic
+  formula layout, spacing, font sizing, and collision avoidance, and should add a visual
+  regression case for the observed scene. The fix must not weaken or suppress the existing
+  `object_overlap` quality diagnostic.
 - The repeatable Docker acceptance does not spend an external model request. Provider transport
   and strict JSON boundaries remain covered by the existing API/agent suites; production quality
   still depends on the configured provider for prompts outside the deterministic catalog.
